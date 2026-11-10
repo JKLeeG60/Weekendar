@@ -525,3 +525,99 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .team-table thead th { border-top: 1px solid var(--line-soft); }
 .m-app .toolgroup { background: transparent; padding: 0; }
 .m-app .titles p.subtitle { justify-content: flex-start; }
+
+/* ═════════ 모바일 리디자인 (iOS 스타일) ═════════ */
+.m-app { background: var(--bg); }
+.m-app .topbar { background: transparent; padding: 0.9rem 1.1rem 0.35rem; align-items: center; }
+.m-app .titles h1 { font-size: 1.55rem; font-weight: 750; letter-spacing: -0.035em; }
+.m-app .titles p.subtitle { display: none; }
+.m-app .toolgroup { gap: 0; }
+.m-app .toolgroup .icon-btn { width: 2.3rem; height: 2.3rem; color: var(--accent); border-radius: 50%; }
+.m-app .toolgroup .icon-btn:hover:not(:disabled) { background: transparent; box-shadow: none; }
+.m-app .tools { gap: 0.3rem; }
+.m-body { padding: 0.5rem 1rem 0; gap: 0.75rem; }
+
+/* 주간 카드: 주 범위 · 주차 · 오늘 + 요일 원 */
+.m-team { gap: 0.75rem; margin: 0; }
+.m-week { background: var(--surface); border-radius: 1.1rem; padding: 0.75rem 0.5rem 0.65rem; flex: none; }
+.m-week-head { display: flex; align-items: center; gap: 0.45rem; padding: 0 0.55rem 0.55rem; }
+.m-week-head strong { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+.m-week-head .grow { flex: 1; }
+.m-today { font-size: 0.86rem; font-weight: 600; color: var(--accent); padding: 0.2rem 0.3rem; }
+.m-week-row { display: flex; align-items: center; }
+.m-wk-arrow { width: 1.8rem; height: 2.6rem; display: grid; place-items: center; color: var(--faint); flex: none; border-radius: 0.6rem; }
+.m-wk-arrow:active { background: var(--line-soft); }
+.m-days { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; }
+.m-day, .m-day.on, .m-day.holiday:not(.on) { background: transparent; box-shadow: none; border-radius: 0; padding: 0; gap: 0.3rem; color: var(--muted); }
+.m-day small { font-size: 0.7rem; font-weight: 600; color: var(--faint); }
+.m-day strong { width: 2.3rem; height: 2.3rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.12rem; font-weight: 600; color: var(--text); position: relative; transition: background 0.15s; }
+.m-day.today strong { color: var(--red); font-weight: 750; }
+.m-day.holiday strong, .m-day.holiday:not(.on) strong, .m-day.holiday:not(.on) small { color: var(--red); }
+.m-day.holiday strong::after { content: ''; position: absolute; bottom: -0.32rem; left: 50%; width: 0.28rem; height: 0.28rem; margin-left: -0.14rem; border-radius: 50%; background: var(--holiday); }
+.m-day.on strong, .m-day.on.holiday strong { background: var(--accent); color: #fff; font-weight: 700; }
+.m-day.on.today strong { background: var(--red); }
+.m-day.on small { color: var(--accent); }
+.m-day.on.today small { color: var(--red); }
+
+/* 목록: 테두리 없이 흰 카드 (좌우 잘림 해결) */
+.m-scroll { gap: 0.6rem; padding-bottom: 1rem; }
+.m-holiday { border-radius: 0.9rem; padding: 0.55rem 0.9rem; font-size: 0.85rem; }
+.m-absent, .m-card { box-shadow: none; border-radius: 1.1rem; }
+.m-absent { padding: 0.75rem 0.95rem; }
+.m-absent h3 { font-size: 0.85rem; color: var(--text); font-weight: 650; }
+.m-pills .none { color: var(--faint); font-size: 0.85rem; }
+.m-card { padding: 0.8rem 0.85rem 0.75rem; }
+.m-card.mine { box-shadow: none; }
+.m-card header { margin-bottom: 0.55rem; }
+.m-who strong { display: flex; align-items: center; gap: 0.35rem; font-size: 1rem; font-weight: 650; }
+.m-who small { font-size: 0.78rem; color: var(--faint); margin-top: 0.05rem; }
+.me-badge { font-size: 0.68rem; font-weight: 700; color: #fff; background: var(--accent); padding: 0.08rem 0.42rem; border-radius: 99px; }
+.m-add { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.82rem; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); padding: 0.32rem 0.7rem 0.32rem 0.55rem; border-radius: 99px; flex: none; }
+.m-add:active { opacity: 0.7; }
+.m-none { font-size: 0.85rem; padding: 0 0.1rem; }
+.m-card ul { gap: 0.35rem; }
+.m-item { padding: 0.55rem 0.7rem; border-radius: 0.75rem; box-shadow: none; background: color-mix(in srgb, var(--cc) 10%, var(--surface)); gap: 0.65rem; }
+.m-item::before { content: ''; align-self: stretch; width: 0.22rem; border-radius: 99px; background: var(--cc); flex: none; }
+.m-item.ghost::before { opacity: 0.5; }
+.m-time { color: var(--text); font-weight: 650; font-size: 0.88rem; width: 2.7rem; }
+.m-main b { font-size: 0.95rem; font-weight: 600; }
+.m-item .cat-tag { font-size: 0.68rem; }
+
+/* 하단 탭바: 반투명 흐림 + 얇은 윗선 */
+.m-tabs { background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-top: 0.5px solid var(--line); padding: 0.35rem 0.5rem calc(0.3rem + env(safe-area-inset-bottom, 0px)); }
+.m-tab { font-size: 0.66rem; font-weight: 500; color: var(--faint); gap: 0.18rem; padding: 0.2rem 0; }
+.m-tab.on { color: var(--accent); font-weight: 600; }
+.m-tab.on svg { stroke-width: 2.2; }
+.m-tab:active { opacity: 0.6; }
+
+/* 내 일정 · 할 일 탭 카드도 같은 결로 */
+.m-app .panel-half { box-shadow: none; border-radius: 1.1rem; }
+.m-body > .panel-half:last-child { margin-bottom: 1rem; }
+
+/* ═════════ 하단 탭바: 떠 있는 유리 타원 ═════════ */
+.m-app { position: relative; }
+.m-tabs {
+  position: absolute; left: 1rem; right: 1rem; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 30;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.2rem;
+  padding: 0.32rem; border-radius: 99px; border-top: 0;
+  background: rgba(242, 242, 247, 0.62);
+  backdrop-filter: blur(22px) saturate(1.9); -webkit-backdrop-filter: blur(22px) saturate(1.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px rgba(255, 255, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+[data-theme='dark'] .m-tabs {
+  background: color-mix(in srgb, #2c2c2e 55%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.m-tab { border-radius: 99px; padding: 0.42rem 0 0.38rem; transition: background 0.2s, color 0.2s; }
+.m-tab.on {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.8);
+}
+[data-theme='dark'] .m-tab.on { background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16); }
+
+/* 목록이 탭바 아래까지 이어지고, 마지막 내용은 가려지지 않게 */
+.m-body { padding-bottom: 0; }
+.m-scroll { padding-bottom: calc(6.2rem + env(safe-area-inset-bottom, 0px)); }
+.m-body > .panel-half:last-child { margin-bottom: calc(5.9rem + env(safe-area-inset-bottom, 0px)); }
+[data-mobile='true'] .ntoast-stack { bottom: calc(6.2rem + env(safe-area-inset-bottom, 0px)); }
+[data-mobile='true'] .toast { bottom: calc(6.4rem + env(safe-area-inset-bottom, 0px)); }

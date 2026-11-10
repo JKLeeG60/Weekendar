@@ -69,7 +69,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     mq.addEventListener('change', h)
     // 폰의 "데스크톱 사이트" 모드: 화면 폭을 넓게 잡아 데스크탑 화면 전체가 보이게 한다.
     const meta = document.querySelector('meta[name=viewport]')
-    if (meta) meta.setAttribute('content', desktopSiteRequested() ? 'width=1280' : 'width=device-width, initial-scale=1.0')
+    if (meta) meta.setAttribute('content', desktopSiteRequested() && !isNarrow() ? 'width=1280' : 'width=device-width, initial-scale=1.0')
     return () => mq.removeEventListener('change', h)
   }, [])
 
