@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, DB, EventItem, Member, Notice, Role, Todo } from './types'
+import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
+import { chatCounts, parseMentions } from './chat'
 
-const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], currentUserId: null }
+const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, currentUserId: null }
 
 /* ─ 행 ↔ 앱 모델 변환 ─ */
 const evFrom = (r: any): EventItem => ({
@@ -37,6 +38,17 @@ const noticeFrom = (r: any): Notice => ({
   id: r.id, userId: r.user_id, kind: r.kind, text: r.text, refId: r.request_id ?? undefined,
   read: r.read, createdAt: Date.parse(r.created_at),
 })
+const msgFrom = (r: any): Message => ({
+  id: r.id, teamId: r.team_id, authorId: r.author_id, body: r.body ?? '', mentions: r.mentions ?? [],
+  mentionAll: !!r.mention_all, ref: r.ref ?? undefined, createdAt: Date.parse(r.created_at), deleted: !!r.deleted_at,
+})
+/** 같은 id는 새 값으로 바꾸고 시간순 정렬 */
+const mergeMsgs = (list: Message[], add: Message[]) => {
+  const map = new Map(list.map((m) => [m.id, m]))
+  add.forEach((m) => map.set(m.id, m))
+  return [...map.values()].sort((a, b) => a.createdAt - b.createdAt)
+}
+
 const memberFrom = (r: any): Member => ({
   userId: r.user_id, teamId: r.team_id, role: r.role as Role, isAdmin: r.is_admin, title: r.title, sort: r.sort,
 })
@@ -54,7 +66,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const uid = uidRef.current
     if (!uid) return
-    const [p, t, m, e, r, n, td] = await Promise.all([
+    const [p, t, m, e, r, n, td, ms, cr] = await Promise.all([
       supabase.from('profiles').select('*'),
       supabase.from('teams').select('*'),
       supabase.from('members').select('*'),
@@ -62,8 +74,12 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       supabase.from('requests').select('*'),
       supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('todos').select('*'),
+      supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(200),
+      supabase.from('chat_reads').select('*').eq('user_id', uid),
     ])
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
+    // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
+    if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
     if (err) { console.error(err); return }
     setDb({
       currentUserId: uid,
@@ -74,6 +90,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       requests: (r.data ?? []).map(reqFrom),
       notices: (n.data ?? []).map(noticeFrom),
       todos: (td.data ?? []).map(todoFrom),
+      messages: (ms.data ?? []).map(msgFrom).reverse(),
+      chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
     })
   }, [])
 
@@ -102,6 +120,20 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
   }, [refresh])
 
+  // 팀 대화 실시간: 새 메시지·삭제를 서버가 바로 밀어준다
+  const myTeamId = db.members.find((m) => m.userId === db.currentUserId)?.teamId
+  useEffect(() => {
+    if (!myTeamId) return
+    const ch = supabase
+      .channel('chat-' + myTeamId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `team_id=eq.${myTeamId}` }, (payload: any) => {
+        if (!payload.new?.id) return
+        setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [msgFrom(payload.new)]) }))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [myTeamId])
+
   const store = useMemo<Store>(() => {
     const userOf = (id: string) => db.users.find((u) => u.id === id) ?? { id, name: '알 수 없음', email: '' }
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
@@ -114,6 +146,9 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => (a.role === 'leader' ? -1 : b.role === 'leader' ? 1 : a.sort - b.sort))
     const unreadCount = db.notices.filter((n) => n.userId === db.currentUserId && !n.read).length
     const me_id = db.currentUserId!
+    const messages = db.messages.filter((m) => m.teamId === myMember?.teamId)
+    const lastRead = db.chatReads[me_id] ?? 0
+    const { unread: chatUnread, mentions: chatMentions } = chatCounts(messages, me_id, lastRead)
 
     /** 서버 호출 후 새로고침. 실패하면 알림 */
     const run = async (fn: () => PromiseLike<{ error: any }>) => {
@@ -125,7 +160,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -215,6 +250,33 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       removeTodo: (id) => {
         setDb((p) => ({ ...p, todos: p.todos.filter((x) => x.id !== id) }))
         run(() => supabase.from('todos').delete().eq('id', id))
+      },
+
+      sendMessage: async (body, ref) => {
+        const text = body.trim()
+        if ((!text && !ref) || !team) return
+        const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
+        const { mentions, mentionAll } = parseMentions(text, people)
+        const { data, error } = await supabase.from('messages').insert({
+          team_id: team.id, author_id: me_id, body: text,
+          mentions: mentions.filter((id) => id !== me_id), mention_all: mentionAll, ref: ref ?? null,
+        }).select().single()
+        if (error) { fail(error); return }
+        const m = msgFrom(data)
+        setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), chatReads: { ...p.chatReads, [me_id]: m.createdAt } }))
+        supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
+      },
+      deleteMessage: async (id) => {
+        const { error } = await supabase.rpc('delete_message', { p_id: id })
+        if (error) { fail(error); return }
+        setDb((p) => ({ ...p, messages: p.messages.map((m) => (m.id === id ? { ...m, body: '', ref: undefined, mentions: [], mentionAll: false, deleted: true } : m)) }))
+      },
+      markChatRead: () => {
+        const last = messages.length ? messages[messages.length - 1].createdAt : 0
+        if (lastRead >= last) return
+        const at = Math.max(last, Date.now())
+        setDb((p) => ({ ...p, chatReads: { ...p.chatReads, [me_id]: at } }))
+        supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(at).toISOString() }).then(() => {})
       },
 
       markAllRead: () => {

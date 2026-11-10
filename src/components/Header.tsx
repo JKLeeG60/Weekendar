@@ -4,6 +4,7 @@ import { useUI } from '../lib/ui'
 import { addDays, isoWeek, mondayOf, weekRangeLabel } from '../lib/date'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
+import { ChatButton } from './Chat'
 
 export function Header() {
   const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
@@ -27,6 +28,7 @@ export function Header() {
       </div>
       <div className="tools">
         <div className="toolgroup">
+        <ChatButton />
         <div className="rel">
           <button className="icon-btn" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-label="알림" title="알림">
             <Icon name="bell" />

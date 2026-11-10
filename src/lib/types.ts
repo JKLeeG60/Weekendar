@@ -91,6 +91,28 @@ export interface Notice {
   createdAt: number
 }
 
+/** 대화에 첨부한 일정 요약 */
+export interface ChatRef {
+  date: string
+  start: string
+  end: string
+  title: string
+  ownerName: string
+}
+
+export interface Message {
+  id: string
+  teamId: string
+  authorId: string
+  body: string
+  /** 호출된 사람 id */
+  mentions: string[]
+  mentionAll: boolean
+  ref?: ChatRef
+  createdAt: number
+  deleted?: boolean
+}
+
 export interface DB {
   users: User[]
   teams: Team[]
@@ -99,6 +121,9 @@ export interface DB {
   requests: ChangeRequest[]
   todos: Todo[]
   notices: Notice[]
+  messages: Message[]
+  /** 사람별 대화 마지막 읽은 시각(ms) */
+  chatReads: Record<string, number>
   currentUserId: string | null
 }
 

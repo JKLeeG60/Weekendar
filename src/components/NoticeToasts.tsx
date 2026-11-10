@@ -1,43 +1,95 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../lib/store'
-import type { Notice } from '../lib/types'
+import { useUI } from '../lib/ui'
+import { mentionsMe } from '../lib/chat'
 import { Icon } from './ui'
 
 const SHOW_MS = 5000
 
-/** 새 알림이 도착하면 오른쪽 아래에 5초 동안 보여준다. */
+interface Item {
+  id: string
+  kind: 'notice' | 'mention'
+  title: string
+  text: string
+}
+
+const noticeTitle = (k: string) => (k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : '요청 결과')
+
+/**
+ * 오른쪽 아래 알림 팝업 (5초).
+ * - 새 알림(요청·결과·참여)
+ * - 대화에서 누가 나를 @호출했을 때 (대화창을 보고 있으면 띄우지 않음)
+ * 일반 대화는 팝업 없이 말풍선 숫자만 올라간다.
+ */
 export function NoticeToasts() {
-  const { db, me } = useStore()
-  const [items, setItems] = useState<Notice[]>([])
-  const seen = useRef<Set<string> | null>(null)
+  const { db, me, messages, userOf } = useStore()
+  const { chatOpen, setChatOpen } = useUI()
+  const [items, setItems] = useState<Item[]>([])
+  const seenNotice = useRef<Set<string> | null>(null)
+  const seenMsg = useRef<Set<string> | null>(null)
   const owner = useRef<string | null>(null)
+
+  const push = (fresh: Item[]) => {
+    if (fresh.length === 0) return
+    setItems((prev) => [...prev, ...fresh].slice(-3))
+    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), SHOW_MS))
+  }
+
+  // 계정이 바뀌면 이미 있던 것은 띄우지 않는다
+  useEffect(() => {
+    if (owner.current !== (me?.id ?? null)) {
+      owner.current = me?.id ?? null
+      seenNotice.current = null
+      seenMsg.current = null
+      setItems([])
+    }
+  }, [me?.id])
 
   useEffect(() => {
     const mine = db.notices.filter((n) => n.userId === me?.id)
-    // 처음 열었을 때나 계정이 바뀌었을 때 이미 있던 알림은 띄우지 않는다
-    if (seen.current === null || owner.current !== (me?.id ?? null)) {
-      seen.current = new Set(mine.map((n) => n.id))
-      owner.current = me?.id ?? null
-      setItems([])
+    if (seenNotice.current === null) {
+      seenNotice.current = new Set(mine.map((n) => n.id))
       return
     }
-    const fresh = mine.filter((n) => !seen.current!.has(n.id) && !n.read)
-    mine.forEach((n) => seen.current!.add(n.id))
-    if (fresh.length === 0) return
-    setItems((prev) => [...prev, ...fresh].slice(-3))
-    fresh.forEach((n) => {
-      setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), SHOW_MS)
-    })
+    const fresh = mine.filter((n) => !seenNotice.current!.has(n.id) && !n.read)
+    mine.forEach((n) => seenNotice.current!.add(n.id))
+    push(fresh.map((n) => ({ id: n.id, kind: 'notice', title: noticeTitle(n.kind), text: n.text })))
   }, [db.notices, me?.id])
+
+  useEffect(() => {
+    if (seenMsg.current === null) {
+      seenMsg.current = new Set(messages.map((m) => m.id))
+      return
+    }
+    const fresh = messages.filter(
+      (m) => !seenMsg.current!.has(m.id) && mentionsMe(m, me?.id) && Date.now() - m.createdAt < 60000,
+    )
+    messages.forEach((m) => seenMsg.current!.add(m.id))
+    if (chatOpen) return // 대화를 보고 있으면 이미 보인다
+    push(fresh.map((m) => ({ id: 'm_' + m.id, kind: 'mention', title: `${userOf(m.authorId).name}님이 나를 호출했어요`, text: m.body })))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, me?.id])
+
+  // 대화창을 열면 호출 팝업은 바로 닫는다 (이미 대화창에서 보이므로)
+  useEffect(() => {
+    if (chatOpen) setItems((prev) => prev.filter((x) => x.kind !== 'mention'))
+  }, [chatOpen])
 
   if (items.length === 0) return null
   return (
-    <div className="ntoast-stack" role="status" aria-live="polite">
+    <div className={'ntoast-stack' + (chatOpen ? ' beside-chat' : '')} role="status" aria-live="polite">
       {items.map((n) => (
-        <button key={n.id} className="ntoast" onClick={() => setItems((p) => p.filter((x) => x.id !== n.id))}>
-          <span className="ntoast-ico"><Icon name="bell" size={18} /></span>
+        <button
+          key={n.id}
+          className={'ntoast' + (n.kind === 'mention' ? ' mention' : '')}
+          onClick={() => {
+            setItems((p) => p.filter((x) => x.id !== n.id))
+            if (n.kind === 'mention') setChatOpen(true)
+          }}
+        >
+          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name="bell" size={18} />}</span>
           <span className="ntoast-body">
-            <strong>{n.kind === 'request' ? '일정 요청' : n.kind === 'join' ? '팀 참여 요청' : '요청 결과'}</strong>
+            <strong>{n.title}</strong>
             <span>{n.text}</span>
           </span>
           <span className="ntoast-time">지금</span>

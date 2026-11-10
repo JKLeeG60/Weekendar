@@ -89,6 +89,8 @@ const PATHS: Record<string, ReactNode> = {
   cal: <path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4" />,
   person: <path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20a8 8 0 0116 0" />,
   list: <path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />,
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  send: <path d="M12 19V5M5 12l7-7 7 7" />,
   logout: <path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" />,
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
@@ -8,15 +8,20 @@ import { Header } from './Header'
 import { DayAgenda, Todos } from './PersonalPanel'
 import { Modals } from './Modals'
 import { NoticeToasts } from './NoticeToasts'
+import { ChatPanel } from './Chat'
 import { Avatar, Icon } from './ui'
 
-type Tab = 'team' | 'me' | 'todo'
+type Tab = 'team' | 'me' | 'todo' | 'chat'
 
 /** 좁은 화면용 레이아웃: 하단 탭 + 요일 탭 중심의 팀 일정 */
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
-  const { toast } = useUI()
-  const { db, me } = useStore()
+  const { toast, setChatOpen } = useUI()
+  const { db, me, chatUnread, chatMentions } = useStore()
+  // 대화 탭을 보고 있으면 '대화창 열림'으로 본다 (호출 팝업을 띄우지 않음)
+  useEffect(() => {
+    setChatOpen(tab === 'chat')
+  }, [tab, setChatOpen])
   const { selected } = useUI()
   const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && t.date <= selected).length
 
@@ -27,17 +32,20 @@ export function MobileMain() {
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}
         {tab === 'todo' && <Todos />}
+        {tab === 'chat' && <ChatPanel />}
       </div>
       <nav className="m-tabs" aria-label="화면 전환">
         {([
           ['team', '팀 주간표', 'cal'],
           ['me', '내 일정', 'person'],
           ['todo', '할 일', 'list'],
+          ['chat', '대화', 'chat'],
         ] as const).map(([k, label, icon]) => (
           <button key={k} className={'m-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)} aria-current={tab === k}>
             <span className="m-tab-ico">
               <Icon name={icon} size={22} />
               {k === 'todo' && left > 0 && <b>{left}</b>}
+              {k === 'chat' && chatUnread > 0 && <b className={chatMentions > 0 ? 'at' : ''}>{chatMentions > 0 ? '@' : ''}{chatUnread > 99 ? '99+' : chatUnread}</b>}
             </span>
             {label}
           </button>

@@ -4,13 +4,16 @@
  * 권한 규칙(To-do 비공개, 공유 ON 일정만 노출 등)은 selectors 와 액션에서 흉내 내며,
  * 실제 서비스에서는 DB 의 RLS 가 강제한다.
  */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { chatCounts, parseMentions } from './chat'
 import type {
   Category,
   ChangeRequest,
   DB,
   EventItem,
   Member,
+  Message,
+  ChatRef,
   Notice,
   RequestPayload,
   Role,
@@ -126,14 +129,32 @@ function seed(): DB {
     },
   ]
 
-  return { users, teams, members, events, requests, todos, notices, currentUserId: null }
+  // 팀 대화 예시 (지난 대화 + 안 읽은 대화 3개, 그중 1개는 최유리 호출)
+  const ago = (min: number) => Date.now() - min * 60000
+  const msg = (authorId: string, body: string, min: number, extra: Partial<Message> = {}): Message => ({
+    id: uid(), teamId, authorId, body, mentions: [], mentionAll: false, createdAt: ago(min), ...extra,
+  })
+  const messages: Message[] = [
+    msg('u_admin', '이번 주 캠페인 일정표 공유드렸어요. 확인 부탁드려요!', 180),
+    msg('u_m4', '확인했습니다 🙂', 175),
+    msg('u_leader', '목요일 고객사 미팅 시간 조금 당겨도 될까요?', 25),
+    msg('u_admin', '저는 오전 다 괜찮아요', 22),
+    msg('u_leader', '@최유리 인플루언서 미팅 끝나고 결과 공유 부탁해요', 18, { mentions: ['u_m3'] }),
+  ]
+  const chatReads: Record<string, number> = Object.fromEntries(users.map((u) => [u.id, ago(60)]))
+
+  return { users, teams, members, events, requests, todos, notices, messages, chatReads, currentUserId: null }
 }
 
 function load(): DB {
   try {
     if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(KEY)
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as DB
+    if (raw) {
+      const db = JSON.parse(raw) as DB
+      // 예전에 저장된 체험 데이터에는 대화가 없을 수 있다
+      return { ...db, messages: db.messages ?? [], chatReads: db.chatReads ?? {} }
+    }
   } catch {
     /* 저장소를 못 읽으면 새로 시작 */
   }
@@ -179,6 +200,14 @@ export interface Store {
   removeTodo: (id: string) => void
   // 알림
   markAllRead: () => void
+  // 팀 대화
+  /** 내 팀의 대화 (오래된 것부터) */
+  messages: Message[]
+  chatUnread: number
+  chatMentions: number
+  sendMessage: (body: string, ref?: ChatRef) => void
+  deleteMessage: (id: string) => void
+  markChatRead: () => void
 }
 
 export const Ctx = createContext<Store | null>(null)
@@ -190,14 +219,36 @@ export const useStore = () => {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(load)
+  const fromOtherTab = useRef(false)
 
   useEffect(() => {
+    // 다른 탭에서 받은 변경은 다시 저장하지 않는다 (탭끼리 주고받기 반복 방지)
+    if (fromOtherTab.current) {
+      fromOtherTab.current = false
+      return
+    }
     try {
       localStorage.setItem(KEY, JSON.stringify(db))
     } catch {
       /* 용량 초과 등은 무시 */
     }
   }, [db])
+
+  // 체험 모드에서도 같은 브라우저의 다른 탭과 바로 동기화 (대화 실시간 흉내)
+  useEffect(() => {
+    const h = (e: StorageEvent) => {
+      if (e.key !== KEY || !e.newValue) return
+      try {
+        const next = JSON.parse(e.newValue) as DB
+        fromOtherTab.current = true
+        setDb((p) => ({ ...next, messages: next.messages ?? [], chatReads: next.chatReads ?? {}, currentUserId: p.currentUserId }))
+      } catch {
+        /* 무시 */
+      }
+    }
+    window.addEventListener('storage', h)
+    return () => window.removeEventListener('storage', h)
+  }, [])
 
   const store = useMemo<Store>(() => {
     const userOf = (id: string) =>
@@ -215,6 +266,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const unreadCount =
       db.notices.filter((n) => n.userId === db.currentUserId && !n.read).length
 
+    const messages = db.messages
+      .filter((m) => m.teamId === myMember?.teamId && myMember?.role !== 'pending')
+      .sort((a, b) => a.createdAt - b.createdAt)
+    const { unread: chatUnread, mentions: chatMentions } = chatCounts(
+      messages, db.currentUserId, db.chatReads[db.currentUserId ?? ''] ?? 0,
+    )
+
     const set = (fn: (prev: DB) => DB) => setDb(fn)
     const notify = (prev: DB, userId: string, n: Omit<Notice, 'id' | 'userId' | 'read' | 'createdAt'>): Notice[] => [
       { id: uid(), userId, read: false, createdAt: Date.now(), ...n },
@@ -223,6 +281,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       mode: 'demo', loading: false, loginGoogle: () => {},
+      messages, chatUnread, chatMentions,
       db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
@@ -392,6 +451,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...p,
           notices: p.notices.map((n) => (n.userId === p.currentUserId ? { ...n, read: true } : n)),
         })),
+
+      sendMessage: (body, ref) => {
+        const text = body.trim()
+        if ((!text && !ref) || !myMember || !db.currentUserId) return
+        const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
+        const { mentions, mentionAll } = parseMentions(text, people)
+        const m: Message = {
+          id: uid(), teamId: myMember.teamId, authorId: db.currentUserId, body: text,
+          mentions: mentions.filter((id) => id !== db.currentUserId), mentionAll, ref, createdAt: Date.now(),
+        }
+        set((p) => ({ ...p, messages: [...p.messages, m], chatReads: { ...p.chatReads, [m.authorId]: m.createdAt } }))
+      },
+      deleteMessage: (id) =>
+        set((p) => ({
+          ...p,
+          messages: p.messages.map((m) =>
+            m.id === id && m.authorId === p.currentUserId
+              ? { ...m, body: '', ref: undefined, mentions: [], mentionAll: false, deleted: true }
+              : m,
+          ),
+        })),
+      markChatRead: () => {
+        const me = db.currentUserId
+        if (!me) return
+        const last = messages.length ? messages[messages.length - 1].createdAt : 0
+        if ((db.chatReads[me] ?? 0) >= last) return
+        set((p) => ({ ...p, chatReads: { ...p.chatReads, [me]: Math.max(last, Date.now()) } }))
+      },
     }
   }, [db])
 

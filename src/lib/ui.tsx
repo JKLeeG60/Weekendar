@@ -22,6 +22,9 @@ interface UI {
   toggleTheme: () => void
   panelOpen: boolean
   togglePanel: () => void
+  /** 팀 대화창이 열려 있는지 (모바일은 대화 탭) */
+  chatOpen: boolean
+  setChatOpen: (v: boolean) => void
   /** 실제로 좁은 화면인지 */
   narrow: boolean
   /** 데스크탑에서 폰 화면 미리보기 중인지 */
@@ -59,6 +62,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<ModalState>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [chatOpen, setChatOpen] = useState(false)
   const [narrow, setNarrow] = useState(() => isNarrow())
   const [preview, setPreview] = useState(() => new URLSearchParams(location.search).get('preview') === 'phone')
   const isMobile = narrow || preview
@@ -115,6 +119,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         toggleTheme: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')),
         panelOpen,
         togglePanel: () => setPanelOpen((v) => !v),
+        chatOpen,
+        setChatOpen,
         narrow,
         preview,
         setPreview,
