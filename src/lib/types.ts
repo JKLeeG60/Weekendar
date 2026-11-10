@@ -124,6 +124,8 @@ export interface DB {
   messages: Message[]
   /** 사람별 대화 마지막 읽은 시각(ms) */
   chatReads: Record<string, number>
+  /** 메시지별 읽은 기록: 메시지 id → (사람 id → 읽은 시각 ms) */
+  messageReads: Record<string, Record<string, number>>
   currentUserId: string | null
 }
 

@@ -5,7 +5,7 @@ import { Ctx, type Store } from './store'
 import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
 import { chatCounts, parseMentions } from './chat'
 
-const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, currentUserId: null }
+const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
 /* ─ 행 ↔ 앱 모델 변환 ─ */
 const evFrom = (r: any): EventItem => ({
@@ -92,6 +92,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       todos: (td.data ?? []).map(todoFrom),
       messages: (ms.data ?? []).map(msgFrom).reverse(),
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
+      messageReads: {},
     })
   }, [])
 
@@ -275,8 +276,18 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const last = messages.length ? messages[messages.length - 1].createdAt : 0
         if (lastRead >= last) return
         const at = Math.max(last, Date.now())
+        const fresh = messages.filter((m) => m.authorId !== me_id && !m.deleted && m.createdAt > lastRead).map((m) => m.id)
         setDb((p) => ({ ...p, chatReads: { ...p.chatReads, [me_id]: at } }))
         supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(at).toISOString() }).then(() => {})
+        // 메시지별 읽은 시각 기록 (마이그레이션 6 전이면 조용히 실패)
+        if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
+      },
+      getReadReceipts: async (messageId) => {
+        const m = messages.find((x) => x.id === messageId)
+        if (!m || m.authorId !== me_id) return {}
+        const { data, error } = await supabase.from('message_reads').select('user_id, read_at').eq('message_id', messageId)
+        if (error) { console.warn(error.message); return {} }
+        return Object.fromEntries((data ?? []).map((x: any) => [x.user_id, Date.parse(x.read_at)]))
       },
 
       markAllRead: () => {

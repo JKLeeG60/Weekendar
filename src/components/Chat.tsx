@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import React, { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
@@ -56,7 +56,8 @@ export function ChatWindow() {
 
 /** 대화 목록 + 입력창 (데스크탑 창과 모바일 탭에서 함께 사용) */
 export function ChatPanel({ onClose }: { onClose?: () => void }) {
-  const { messages, me, team, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db } = useStore()
+  const { messages, me, team, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts } = useStore()
+  const [receipt, setReceipt] = useState<{ m: Message; rect: DOMRect } | null>(null)
   const { selected, setSelected } = useUI()
   const listRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -170,11 +171,22 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
                 isLeader={tableMembers.find((x) => x.userId === m.authorId)?.role === 'leader'}
                 onDelete={() => deleteMessage(m.id)}
                 onRef={(r) => setSelected(r.date)}
+                onHold={(rect) => setReceipt({ m, rect })}
               />
             </Fragment>
           )
         })}
       </div>
+
+      {receipt && (
+        <ReadReceipts
+          m={receipt.m}
+          rect={receipt.rect}
+          load={getReadReceipts}
+          people={tableMembers.filter((x) => x.userId !== receipt.m.authorId).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
+          onClose={() => setReceipt(null)}
+        />
+      )}
 
       <footer className="chat-foot">
         {options.length > 0 && (
@@ -259,17 +271,58 @@ function RefCard({ r, onClick }: { r: ChatRef; onClick?: () => void }) {
 
 function Bubble(props: {
   m: Message; mine: boolean; hit: boolean; grouped: boolean; names: string[]; author: string; isLeader: boolean
-  onDelete: () => void; onRef: (r: ChatRef) => void
+  onDelete: () => void; onRef: (r: ChatRef) => void; onHold: (rect: DOMRect) => void
 }) {
   const { m, mine, hit, grouped, names, author, isLeader } = props
   const [confirm, setConfirm] = useState(false)
+  const [pressed, setPressed] = useState(false)
+  const timer = useRef<number | null>(null)
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const bubRef = useRef<HTMLDivElement>(null)
+  const canHold = mine && !m.deleted // 내가 보낸 메시지만 읽음 확인 가능
+
+  const cancel = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = null
+    start.current = null
+    setPressed(false)
+  }
+  const open = () => {
+    cancel()
+    if (bubRef.current) props.onHold(bubRef.current.getBoundingClientRect())
+  }
+  const hold = canHold
+    ? {
+        onPointerDown: (e: React.PointerEvent) => {
+          if (e.button !== 0) return
+          start.current = { x: e.clientX, y: e.clientY }
+          setPressed(true)
+          timer.current = window.setTimeout(open, 500)
+        },
+        onPointerMove: (e: React.PointerEvent) => {
+          if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) cancel()
+        },
+        onPointerUp: cancel,
+        onPointerLeave: cancel,
+        onPointerCancel: cancel,
+        onContextMenu: (e: React.MouseEvent) => {
+          e.preventDefault()
+          open()
+        },
+      }
+    : {}
   return (
     <div className={'bub-row' + (mine ? ' mine' : '') + (hit ? ' hit' : '') + (grouped ? ' grouped' : '')}>
       {!mine && <span className="bub-av">{!grouped && <Avatar name={author} size={30} />}</span>}
       <div className="bub-col">
         {!mine && !grouped && <span className="bub-name">{author}{isLeader ? ' · 팀장' : ''}</span>}
         <div className="bub-line">
-          <div className={'bub' + (m.deleted ? ' deleted' : '')}>
+          <div
+            ref={bubRef}
+            className={'bub' + (m.deleted ? ' deleted' : '') + (canHold ? ' holdable' : '') + (pressed ? ' pressed' : '')}
+            title={canHold ? '길게 누르면 읽은 사람을 볼 수 있어요' : undefined}
+            {...hold}
+          >
             {m.deleted ? '삭제된 메시지예요' : (
               <>
                 {m.body && splitMentions(m.body, names).map((p, i) => (p.mention ? <span key={i} className="mn">{p.text}</span> : <Fragment key={i}>{p.text}</Fragment>))}
@@ -290,5 +343,76 @@ function Bubble(props: {
         </div>
       </div>
     </div>
+  )
+}
+
+/** 내 메시지를 길게 눌렀을 때: 팀원별 읽은 시각 */
+function ReadReceipts(props: {
+  m: Message
+  rect: DOMRect
+  people: { id: string; name: string; leader: boolean }[]
+  load: (id: string) => Promise<Record<string, number>>
+  onClose: () => void
+}) {
+  const { m, rect, people, load, onClose } = props
+  const [reads, setReads] = useState<Record<string, number> | null>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    load(m.id).then((r) => alive && setReads(r))
+    return () => { alive = false }
+  }, [m.id, load])
+
+  useEffect(() => {
+    const h = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  // 말풍선 바로 위(공간이 없으면 아래)에, 화면 밖으로 나가지 않게
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const w = el.offsetWidth, h = el.offsetHeight, pad = 10
+    const left = Math.min(Math.max(pad, rect.right - w), window.innerWidth - w - pad)
+    let top = rect.top - h - 8
+    if (top < pad) top = Math.min(rect.bottom + 8, window.innerHeight - h - pad)
+    setPos({ left, top })
+  }, [rect, reads])
+
+  const read = people.filter((p) => reads?.[p.id]).sort((a, b) => reads![a.id] - reads![b.id])
+  const unread = people.filter((p) => !reads?.[p.id])
+
+  return (
+    <>
+      <div className="rr-scrim" onPointerDown={onClose} />
+      <div ref={boxRef} className="rr" role="dialog" aria-label="읽은 사람" style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}>
+        <h4>읽음 <b>{reads ? read.length : '–'}/{people.length}</b></h4>
+        {reads === null ? (
+          <p className="rr-loading">불러오는 중…</p>
+        ) : (
+          <>
+            {read.map((p) => (
+              <div key={p.id} className="rr-row">
+                <Avatar name={p.name} size={26} />
+                <span>{p.name}{p.leader ? ' · 팀장' : ''}</span>
+                <small>{timeLabel(reads[p.id])}</small>
+              </div>
+            ))}
+            {read.length > 0 && unread.length > 0 && <div className="rr-sep" />}
+            {unread.map((p) => (
+              <div key={p.id} className="rr-row no">
+                <Avatar name={p.name} size={26} />
+                <span>{p.name}{p.leader ? ' · 팀장' : ''}</span>
+                <small>아직 안 읽음</small>
+              </div>
+            ))}
+          </>
+        )}
+        <div className="rr-lock">읽은 시각은 보낸 사람에게만 보여요</div>
+      </div>
+    </>
   )
 }

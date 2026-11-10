@@ -143,7 +143,7 @@ function seed(): DB {
   ]
   const chatReads: Record<string, number> = Object.fromEntries(users.map((u) => [u.id, ago(60)]))
 
-  return { users, teams, members, events, requests, todos, notices, messages, chatReads, currentUserId: null }
+  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, currentUserId: null }
 }
 
 function load(): DB {
@@ -153,7 +153,7 @@ function load(): DB {
     if (raw) {
       const db = JSON.parse(raw) as DB
       // 예전에 저장된 체험 데이터에는 대화가 없을 수 있다
-      return { ...db, messages: db.messages ?? [], chatReads: db.chatReads ?? {} }
+      return { ...db, messages: db.messages ?? [], chatReads: db.chatReads ?? {}, messageReads: db.messageReads ?? {} }
     }
   } catch {
     /* 저장소를 못 읽으면 새로 시작 */
@@ -208,6 +208,8 @@ export interface Store {
   sendMessage: (body: string, ref?: ChatRef) => void
   deleteMessage: (id: string) => void
   markChatRead: () => void
+  /** 내가 보낸 메시지의 읽음 기록 (사람 id → 읽은 시각). 남의 메시지는 빈 값 */
+  getReadReceipts: (messageId: string) => Promise<Record<string, number>>
 }
 
 export const Ctx = createContext<Store | null>(null)
@@ -241,7 +243,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const next = JSON.parse(e.newValue) as DB
         fromOtherTab.current = true
-        setDb((p) => ({ ...next, messages: next.messages ?? [], chatReads: next.chatReads ?? {}, currentUserId: p.currentUserId }))
+        setDb((p) => ({ ...next, messages: next.messages ?? [], chatReads: next.chatReads ?? {}, messageReads: next.messageReads ?? {}, currentUserId: p.currentUserId }))
       } catch {
         /* 무시 */
       }
@@ -476,8 +478,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const me = db.currentUserId
         if (!me) return
         const last = messages.length ? messages[messages.length - 1].createdAt : 0
-        if ((db.chatReads[me] ?? 0) >= last) return
-        set((p) => ({ ...p, chatReads: { ...p.chatReads, [me]: Math.max(last, Date.now()) } }))
+        const lastRead = db.chatReads[me] ?? 0
+        if (lastRead >= last) return
+        const now = Date.now()
+        const fresh = messages.filter((m) => m.authorId !== me && !m.deleted && m.createdAt > lastRead)
+        set((p) => {
+          const reads = { ...p.messageReads }
+          fresh.forEach((m) => {
+            if (!reads[m.id]?.[me]) reads[m.id] = { ...reads[m.id], [me]: now }
+          })
+          return { ...p, messageReads: reads, chatReads: { ...p.chatReads, [me]: Math.max(last, now) } }
+        })
+      },
+      getReadReceipts: async (messageId) => {
+        const m = db.messages.find((x) => x.id === messageId)
+        if (!m || m.authorId !== db.currentUserId) return {}
+        return { ...(db.messageReads[messageId] ?? {}) }
       },
     }
   }, [db])

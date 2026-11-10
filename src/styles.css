@@ -698,3 +698,20 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 /* 대화창이 열려 있으면 알림 팝업은 대화창 왼쪽에 */
 .ntoast-stack.beside-chat { right: calc(min(26rem, 100vw - 2.8rem) + 2.2rem); }
 [data-mobile='true'] .ntoast-stack.beside-chat { right: 0.8rem; }
+
+/* 읽음 확인 (내 메시지를 길게 누름) */
+.bub.holdable { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; cursor: pointer; transition: transform 0.15s, filter 0.15s; }
+.bub.pressed { transform: scale(0.96); filter: brightness(0.9); }
+.rr-scrim { position: fixed; inset: 0; z-index: 70; }
+[data-mobile='true'] .rr-scrim { background: rgba(0,0,0,0.16); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.rr { position: fixed; z-index: 71; width: 17.5rem; max-height: 60vh; overflow-y: auto; background: var(--surface); border-radius: 1rem; box-shadow: 0 16px 40px rgba(0,0,0,0.18), 0 0 0 1px var(--line-soft); padding: 0.5rem; animation: rrin 0.16s ease; }
+@keyframes rrin { from { transform: scale(0.96); opacity: 0; } }
+.rr h4 { font-size: 0.82rem; font-weight: 650; color: var(--muted); padding: 0.35rem 0.5rem 0.45rem; }
+.rr h4 b { color: var(--accent); font-weight: 750; margin-left: 0.2rem; }
+.rr-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 0.5rem; border-radius: 0.6rem; font-size: 0.88rem; }
+.rr-row small { margin-left: auto; font-size: 0.76rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.rr-row.no { color: var(--faint); }
+.rr-row.no small { color: var(--faint); }
+.rr-sep { height: 1px; background: var(--line-soft); margin: 0.3rem 0.5rem; }
+.rr-lock { font-size: 0.7rem; color: var(--faint); padding: 0.35rem 0.5rem 0.2rem; }
+.rr-loading { font-size: 0.84rem; color: var(--faint); padding: 0.4rem 0.5rem; }
