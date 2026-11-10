@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
@@ -352,13 +352,10 @@ function AdminModal() {
                   <option value="member">팀원</option>
                   {m.isAdmin && <option value="none">관리자 전용 (표 미표시)</option>}
                 </select>
-                <input
-                  className="w-title"
+                <TitleInput
                   value={m.role === 'leader' ? '팀장' : m.title}
                   disabled={m.role === 'leader' || m.role === 'none'}
-                  onChange={(e) => updateMember(m.userId, { title: e.target.value })}
-                  placeholder="직급"
-                  aria-label="직급"
+                  onSave={(title) => updateMember(m.userId, { title })}
                 />
                 <span className="order">
                   <button className="icon-btn tiny" disabled={mi <= 0} onClick={() => moveMember(m.userId, -1)} aria-label="위로"><Icon name="up" size={15} /></button>
@@ -442,5 +439,26 @@ function CalendarModal() {
         </section>
       </div>
     </Modal>
+  )
+}
+
+/** 직급 입력: 입력 중에는 화면에만 반영하고, 칸을 벗어나거나 Enter를 누를 때 한 번만 저장 */
+function TitleInput({ value, disabled, onSave }: { value: string; disabled: boolean; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  const focused = useRef(false)
+  useEffect(() => { if (!focused.current) setDraft(value) }, [value])
+  const commit = () => { const v = draft.trim(); if (v !== value) onSave(v); else setDraft(value) }
+  return (
+    <input
+      className="w-title"
+      value={draft}
+      disabled={disabled}
+      onFocus={() => { focused.current = true }}
+      onBlur={() => { focused.current = false; commit() }}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur() }}
+      placeholder="직급"
+      aria-label="직급"
+    />
   )
 }
