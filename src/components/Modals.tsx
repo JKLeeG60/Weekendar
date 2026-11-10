@@ -4,7 +4,7 @@ import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
 import { fmtLong, holidayName, isWeekend } from '../lib/date'
 import {
-  CATEGORY_LABEL, isAbsence,
+  CATEGORY_LABEL,
   type Category, type EventItem, type Occurrence, type Repeat, type Role,
 } from '../lib/types'
 import { Avatar, Icon, Modal, Switch } from './ui'
@@ -41,13 +41,11 @@ function EventModal({ date, start: startHint, occ }: { date: string; start?: str
   const [place, setPlace] = useState(base?.place ?? '')
   const [category, setCategory] = useState<Category>(base?.category ?? 'work')
   const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
-  const [shared, setShared] = useState(base?.shared ?? false)
-  const [touched, setTouched] = useState(!!base)
+  const [shared, setShared] = useState(base?.shared ?? true) // 기본값: 팀에 공유 ON
   const bad = !title.trim() || end <= start
 
   function pickCategory(c: Category) {
     setCategory(c)
-    if (!touched) setShared(isAbsence(c)) // 부재 유형은 기본 공유 ON
   }
 
   function save() {
@@ -103,7 +101,7 @@ function EventModal({ date, start: startHint, occ }: { date: string; start?: str
               <span>팀에 공유</span>
               <small>{shared ? '팀 주간표에 표시됩니다' : '내 패널에만 표시됩니다'}</small>
             </div>
-            <Switch on={shared} onChange={(v) => { setShared(v); setTouched(true) }} label="팀에 공유" />
+            <Switch on={shared} onChange={(v) => setShared(v)} label="팀에 공유" />
           </div>
         </div>
         {base && base.repeat !== 'none' && <p className="hint">반복 일정은 수정·삭제 시 모든 날짜에 적용됩니다.</p>}

@@ -6,7 +6,7 @@ import { fmtHead, holidayName, todayStr, weekDays } from '../lib/date'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 
-const MAX_CHIPS = 3
+const MAX_CHIPS = 5
 
 export function TeamTable() {
   const { db, me, myMember, tableMembers, userOf } = useStore()
