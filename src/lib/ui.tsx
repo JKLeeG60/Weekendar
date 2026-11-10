@@ -38,19 +38,38 @@ export const useUI = () => {
   return c
 }
 
+/** 폰에서 브라우저의 '데스크톱 사이트 요청'을 켠 경우 (터치 기기인데 모바일 UA가 아님) */
+function desktopSiteRequested(): boolean {
+  const ua = navigator.userAgent
+  const mobileUA = /iPhone|iPod|Android.*Mobile|Mobile.*Safari/.test(ua) && !/Macintosh|X11|Windows NT/.test(ua)
+  return !mobileUA && navigator.maxTouchPoints > 0
+}
+
+/** 모바일 레이아웃을 쓸지: ?view=mobile|desktop 으로 강제 가능 */
+function isNarrow(): boolean {
+  const v = new URLSearchParams(location.search).get('view')
+  if (v === 'mobile') return true
+  if (v === 'desktop') return false
+  if (desktopSiteRequested()) return false
+  return matchMedia('(max-width: 820px)').matches
+}
+
 export function UIProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('date') ?? initialDate())
   const [modal, setModal] = useState<ModalState>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(true)
-  const [narrow, setNarrow] = useState(() => matchMedia('(max-width: 820px)').matches)
+  const [narrow, setNarrow] = useState(() => isNarrow())
   const [preview, setPreview] = useState(() => new URLSearchParams(location.search).get('preview') === 'phone')
   const isMobile = narrow || preview
 
   useEffect(() => {
     const mq = matchMedia('(max-width: 820px)')
-    const h = () => setNarrow(mq.matches)
+    const h = () => setNarrow(isNarrow())
     mq.addEventListener('change', h)
+    // 폰의 "데스크톱 사이트" 모드: 화면 폭을 넓게 잡아 데스크탑 화면 전체가 보이게 한다.
+    const meta = document.querySelector('meta[name=viewport]')
+    if (meta) meta.setAttribute('content', desktopSiteRequested() ? 'width=1280' : 'width=device-width, initial-scale=1.0')
     return () => mq.removeEventListener('change', h)
   }, [])
 
