@@ -7,6 +7,7 @@ import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurr
 import { Header } from './Header'
 import { DayAgenda, Todos } from './PersonalPanel'
 import { Modals } from './Modals'
+import { NoticeToasts } from './NoticeToasts'
 import { Avatar, Icon } from './ui'
 
 type Tab = 'team' | 'me' | 'todo'
@@ -44,6 +45,7 @@ export function MobileMain() {
       </nav>
       <Modals />
       {toast && <div className="toast" role="status">{toast}</div>}
+      <NoticeToasts />
     </div>
   )
 }

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { addDays, mondayOf, weekRangeLabel } from '../lib/date'
-import { initialDate } from '../lib/store'
+import { addDays, isoWeek, mondayOf, weekRangeLabel } from '../lib/date'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
 
@@ -14,17 +13,20 @@ export function Header() {
 
   return (
     <header className="topbar">
+      <div className="tb-side" aria-hidden="true" />
       <div className="titles">
-        <h1>{team?.name} 주간예정사항</h1>
-        <p>{weekRangeLabel(mon)}</p>
+        <div className="title-row">
+          <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
+          <h1>{team?.name} 주간예정사항</h1>
+          <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→) · 이번 주로 돌아가기: T"><Icon name="chevR" /></button>
+        </div>
+        <p className="subtitle">
+          <span>{weekRangeLabel(mon)}</span>
+          <span className="week-pill">{isoWeek(mon)}주차</span>
+        </p>
       </div>
       <div className="tools">
-        <div className="weeknav">
-          <button className="icon-btn" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
-          <button className="btn small" onClick={() => setSelected(initialDate())} title="오늘 (T)">오늘</button>
-          <button className="icon-btn" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→)"><Icon name="chevR" /></button>
-        </div>
-        <span className="sep" />
+        <div className="toolgroup">
         <div className="rel">
           <button className="icon-btn" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-label="알림" title="알림">
             <Icon name="bell" />
@@ -43,6 +45,7 @@ export function Header() {
         <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label="개인 패널 접기/펴기" title="개인 패널">
           <Icon name="panel" />
         </button>
+        </div>
         <div className="rel">
           <button className="avatar-btn" onClick={() => setPop(pop === 'menu' ? null : 'menu')} aria-label="계정 메뉴">
             <Avatar name={me?.name ?? '?'} size={32} />

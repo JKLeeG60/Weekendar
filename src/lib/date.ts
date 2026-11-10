@@ -40,6 +40,16 @@ export function fmtLong(s: string): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`
 }
 
+/** ISO 8601 주차 (월요일 시작, 그 주의 목요일이 속한 연도 기준) */
+export function isoWeek(s: string): number {
+  const d = parse(s)
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = t.getUTCDay() || 7
+  t.setUTCDate(t.getUTCDate() + 4 - day) // 그 주의 목요일
+  const jan1 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+  return Math.ceil(((t.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
+}
+
 export function weekRangeLabel(monday: string): string {
   const a = parse(monday)
   const b = parse(addDays(monday, 4))

@@ -7,6 +7,7 @@ import { TeamTable } from './TeamTable'
 import { PersonalPanel } from './PersonalPanel'
 import { Modals } from './Modals'
 import { MobileMain } from './Mobile'
+import { NoticeToasts } from './NoticeToasts'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile } = useUI()
@@ -29,7 +30,7 @@ export function Main() {
   if (isMobile) return <MobileMain />
 
   return (
-    <div className="app" style={{ gridTemplateColumns: panelOpen ? '2fr 1fr' : '1fr 0fr' }}>
+    <div className={'app' + (panelOpen ? '' : ' panel-closed')} style={{ gridTemplateColumns: panelOpen ? '2fr 1fr' : '1fr 0fr' }}>
       <main className="team">
         <Header />
         {myMember && <TeamTable />}
@@ -39,6 +40,7 @@ export function Main() {
       </div>
       <Modals />
       {toast && <div className="toast" role="status">{toast}</div>}
+      <NoticeToasts />
     </div>
   )
 }

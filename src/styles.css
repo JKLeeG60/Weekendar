@@ -476,3 +476,52 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .m-day.holiday:not(.on) { background: color-mix(in srgb, var(--surface) 86%, var(--holiday) 14%); }
 .m-day.holiday:not(.on) strong, .m-day.holiday:not(.on) small { color: var(--red); }
 .m-holiday { background: color-mix(in srgb, var(--surface) 84%, var(--holiday) 16%); color: var(--holiday); font-weight: 650; font-size: 0.88rem; padding: 0.6rem 0.85rem; border-radius: 1rem; }
+
+/* ═════════ 제목 줄 가운데 정렬 · 둥근 표 카드 · 알림 팝업 ═════════ */
+.app { background: var(--bg); }
+.team { margin: 0.9rem 0 0.9rem 0.9rem; border-right: 0; border-radius: 1.2rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px var(--line-soft); }
+.app.panel-closed .team { margin-right: 0.9rem; }
+
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; }
+.topbar .tools { justify-self: end; }
+.titles { text-align: center; }
+.title-row { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+.title-arrow { color: var(--muted); }
+.title-arrow:hover { color: var(--text); }
+
+.team-table thead .corner { font-size: 0.97rem; font-weight: 750; color: var(--text); }
+.team-table thead th.day { font-weight: 750; }
+
+.m-app .topbar { display: flex; }
+.m-app .tb-side, .m-app .title-arrow { display: none; }
+.m-app .titles { text-align: left; }
+.m-app .title-row { justify-content: flex-start; }
+
+.ntoast-stack { position: fixed; right: 1.4rem; bottom: 1.4rem; z-index: 90; display: flex; flex-direction: column; gap: 0.5rem; width: min(22rem, calc(100% - 1.6rem)); }
+.ntoast { display: flex; align-items: flex-start; gap: 0.7rem; text-align: left; padding: 0.8rem 0.9rem; border-radius: 1rem; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6); box-shadow: 0 10px 30px rgba(0,0,0,0.14), 0 0 0 1px var(--line-soft); animation: ntoastin 0.28s cubic-bezier(.2,.9,.3,1.2); }
+.ntoast-ico { flex: none; width: 2rem; height: 2rem; border-radius: 0.6rem; background: var(--accent); color: #fff; display: grid; place-items: center; }
+.ntoast-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.ntoast-body strong { font-size: 0.88rem; }
+.ntoast-body span { font-size: 0.84rem; color: var(--muted); line-height: 1.35; }
+.ntoast-time { font-size: 0.72rem; color: var(--faint); flex: none; }
+@keyframes ntoastin { from { transform: translateX(30px); opacity: 0; } }
+[data-mobile='true'] .ntoast-stack { right: 0.8rem; left: 0.8rem; width: auto; bottom: 5.4rem; }
+
+/* ═════════ 헤더 리디자인 (애플 스타일) ═════════ */
+.topbar { border-bottom: 0; padding: 1.25rem 1.5rem 0.85rem; align-items: center; }
+.titles h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+.title-row { gap: 0.85rem; }
+.title-arrow { width: 2rem; height: 2rem; border-radius: 50%; background: var(--line-soft); color: var(--muted); transition: background 0.15s, color 0.15s, transform 0.1s; }
+.title-arrow svg { width: 1rem; height: 1rem; }
+.title-arrow:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.title-arrow:active { transform: scale(0.94); }
+.titles p.subtitle { display: flex; align-items: center; justify-content: center; gap: 0.45rem; margin-top: 0.35rem; font-size: 0.86rem; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.week-pill { font-size: 0.74rem; font-weight: 650; color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); padding: 0.14rem 0.55rem; border-radius: 99px; letter-spacing: 0; }
+.toolgroup { display: flex; align-items: center; gap: 0.1rem; padding: 0.2rem; border-radius: 0.85rem; background: var(--line-soft); }
+.toolgroup .icon-btn { width: 2.1rem; height: 2.1rem; border-radius: 0.65rem; }
+.toolgroup .icon-btn:hover:not(:disabled) { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.tools { gap: 0.6rem; }
+.avatar-btn { margin-left: 0; }
+.team-table thead th { border-top: 1px solid var(--line-soft); }
+.m-app .toolgroup { background: transparent; padding: 0; }
+.m-app .titles p.subtitle { justify-content: flex-start; }
