@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { disablePush, enablePush, isIOS, isStandalone, pushState, pushSupported, sendTestPush } from '../lib/push'
 import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
@@ -33,6 +34,7 @@ export function Modals() {
     case 'day': return <DayModal userId={modal.userId} date={modal.date} />
     case 'admin': return <AdminModal />
     case 'calendar': return <CalendarModal />
+    case 'push': return <PushModal />
   }
 }
 
@@ -460,5 +462,86 @@ function TitleInput({ value, disabled, onSave }: { value: string; disabled: bool
       placeholder="직급"
       aria-label="직급"
     />
+  )
+}
+
+/* ───────── 휴대폰 알림 (PWA 푸쉬) ───────── */
+function PushModal() {
+  const { mode } = useStore()
+  const { closeModal, showToast } = useUI()
+  const [state, setState] = useState<'loading' | 'on' | 'off'>('loading')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const ios = isIOS()
+  const installed = isStandalone()
+  const needInstall = ios && !installed
+  const supported = pushSupported()
+  const denied = supported && Notification.permission === 'denied'
+
+  useEffect(() => { pushState().then(setState) }, [])
+
+  const toggle = async () => {
+    setBusy(true); setErr(null)
+    try {
+      if (state === 'on') { await disablePush(); setState('off'); showToast('이 기기의 알림을 껐어요') }
+      else {
+        const e = await enablePush()
+        if (e) setErr(e)
+        else { setState('on'); showToast('이 기기로 알림을 보내드릴게요') }
+      }
+    } catch { setErr('알림을 설정하지 못했어요. 잠시 후 다시 시도해주세요.') }
+    setBusy(false)
+  }
+  const test = async () => {
+    setBusy(true); setErr(null)
+    const e = await sendTestPush()
+    if (e) setErr(e); else showToast('테스트 알림을 보냈어요. 잠시 후 도착해요')
+    setBusy(false)
+  }
+
+  return (
+    <Modal title="휴대폰 알림" onClose={closeModal} width={480}>
+      <div className="cal-export push-set">
+        <section>
+          <h4>앱을 닫아도 알려드려요</h4>
+          <ul className="push-kinds">
+            <li><Icon name="clock" size={15} /> 일정 미리 알림</li>
+            <li><Icon name="chat" size={15} /> 팀 대화에서 나를 @로 불렀을 때</li>
+            <li><Icon name="bell" size={15} /> 팀장 동의 요청 · 결과, 참여 요청</li>
+          </ul>
+        </section>
+        {mode !== 'cloud' ? (
+          <p className="hint">체험 모드에서는 휴대폰 알림을 켤 수 없어요.</p>
+        ) : needInstall ? (
+          <section>
+            <h4>먼저 홈 화면에 추가해주세요 <small>아이폰은 홈 화면 앱에서만 알림을 받을 수 있어요</small></h4>
+            <ol className="cal-steps push-steps">
+              <li>Safari 아래쪽 <b>공유 버튼</b>(네모에 위쪽 화살표)을 눌러요</li>
+              <li><b>홈 화면에 추가</b>를 눌러요</li>
+              <li>홈 화면의 <b>Weekendar</b> 아이콘으로 열고, 이 메뉴에서 알림을 켜요</li>
+            </ol>
+          </section>
+        ) : !supported ? (
+          <p className="hint">이 브라우저는 휴대폰 알림을 지원하지 않아요. 크롬, 엣지, Safari(홈 화면 앱)를 이용해주세요.</p>
+        ) : denied ? (
+          <p className="hint">알림이 차단되어 있어요. 기기(또는 브라우저) 설정에서 Weekendar 알림을 허용한 뒤 다시 열어주세요.</p>
+        ) : (
+          <section>
+            <div className="push-row">
+              <div>
+                <strong>이 기기로 알림 받기</strong>
+                <span>{state === 'loading' ? '확인하는 중…' : state === 'on' ? '켜져 있어요' : '꺼져 있어요'}</span>
+              </div>
+              <button className={'switch' + (state === 'on' ? ' on' : '')} disabled={busy || state === 'loading'} onClick={toggle} role="switch" aria-checked={state === 'on'} aria-label="이 기기로 알림 받기">
+                <span />
+              </button>
+            </div>
+            {state === 'on' && <button className="btn small" disabled={busy} onClick={test}>테스트 알림 보내기</button>}
+            {!installed && !ios && <p className="hint">주소창 오른쪽의 설치 아이콘을 누르면 Weekendar를 앱처럼 설치할 수 있어요.</p>}
+          </section>
+        )}
+        {err && <p className="push-err">{err}</p>}
+      </div>
+    </Modal>
   )
 }

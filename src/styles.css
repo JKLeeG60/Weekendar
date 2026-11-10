@@ -759,3 +759,16 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 .invite-banner b { color: var(--accent); font-weight: 700; }
 .invite-hint { color: var(--accent); }
 .invite { flex-wrap: wrap; }
+
+/* ═════════ 앱 설치(PWA) · 휴대폰 알림 ═════════ */
+/* 홈 화면 앱으로 열면 화면이 노치 아래까지 확장되므로 위쪽 여백 확보 */
+.m-app .topbar { padding-top: calc(0.9rem + env(safe-area-inset-top, 0px)); }
+.push-kinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.push-kinds li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.9rem; color: var(--text); }
+.push-kinds li svg { color: var(--accent); flex: none; }
+.push-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 0.95rem; border-radius: 0.9rem; background: var(--bg); margin-bottom: 0.7rem; }
+.push-row div { display: flex; flex-direction: column; gap: 0.1rem; }
+.push-row strong { font-size: 0.95rem; }
+.push-row span { font-size: 0.8rem; color: var(--muted); }
+.push-steps { counter-reset: s; }
+.push-err { margin: 0; padding: 0.6rem 0.8rem; border-radius: 0.7rem; background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); font-size: 0.84rem; }

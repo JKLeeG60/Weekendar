@@ -9,6 +9,7 @@ export type ModalState =
   | { type: 'day'; userId: string; date: string }
   | { type: 'admin' }
   | { type: 'calendar' }
+  | { type: 'push' }
   | null
 
 interface UI {

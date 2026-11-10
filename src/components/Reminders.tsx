@@ -3,6 +3,7 @@ import { useStore } from '../lib/store'
 import { occurrencesOn } from '../lib/events'
 import { todayStr } from '../lib/date'
 import { popup } from '../lib/bus'
+import { pushOnHere } from '../lib/push'
 
 const KEY = 'weekendar-reminded'
 const load = (): Record<string, number> => {
@@ -44,7 +45,8 @@ export function Reminders() {
           const text = `${o.start}–${o.end}${o.place ? ' · ' + o.place : ''} · ${when}`
           popup({ id: 'r_' + key, title: o.title, text, tag: '미리 알림', icon: 'clock' })
           try {
-            if ('Notification' in window && Notification.permission === 'granted') new Notification(o.title, { body: text, tag: key })
+            // 이 기기에서 휴대폰 알림이 켜져 있으면 서버가 보내므로 창 알림은 생략 (중복 방지)
+            if (!pushOnHere() && 'Notification' in window && Notification.permission === 'granted') new Notification(o.title, { body: text, tag: key })
           } catch { /* 일부 브라우저는 창 알림을 막음 */ }
         }
       }
