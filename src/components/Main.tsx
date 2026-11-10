@@ -10,10 +10,20 @@ import { MobileMain } from './Mobile'
 import { NoticeToasts } from './NoticeToasts'
 import { ChatWindow } from './Chat'
 import { Reminders } from './Reminders'
+import { clearInvite, getInvite } from '../lib/invite'
 
 export function Main() {
-  const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile } = useUI()
-  const { myMember } = useStore()
+  const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile, showToast } = useUI()
+  const { myMember, team } = useStore()
+
+  // 이미 팀이 있는데 초대 링크로 들어온 경우: 안내하고 코드는 버린다
+  useEffect(() => {
+    const code = getInvite()
+    if (!code || !team) return
+    clearInvite()
+    if (code !== team.inviteCode) showToast('이미 팀에 속해 있어서 초대 링크를 사용할 수 없어요. (1인 1팀)')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team?.id])
 
   // 키보드 단축키: ← → 주 이동, T 이번 주, N 새 일정
   useEffect(() => {

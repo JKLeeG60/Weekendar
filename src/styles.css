@@ -752,3 +752,10 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 [data-mobile='true'] .todo-item .icon-btn.tiny { opacity: 1; color: var(--faint); }
 [data-mobile='true'] .todo-item .icon-btn.to-event { color: var(--accent); }
 [data-mobile='true'] .todo-item .flag.on { color: var(--c-halfday); }
+
+/* 초대 링크 안내 */
+.invite-banner { display: flex; gap: 0.5rem; align-items: flex-start; text-align: left; padding: 0.7rem 0.85rem; border-radius: 0.85rem; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); color: var(--text); font-size: 0.86rem; line-height: 1.45; margin: 0.4rem 0 0.2rem; }
+.invite-banner svg { color: var(--accent); flex: none; margin-top: 0.1rem; }
+.invite-banner b { color: var(--accent); font-weight: 700; }
+.invite-hint { color: var(--accent); }
+.invite { flex-wrap: wrap; }

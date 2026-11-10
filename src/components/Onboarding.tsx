@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
+import { clearInvite, getInvite } from '../lib/invite'
 import { GoogleMark, Icon } from './ui'
 
 export function Logo({ size = 44 }: { size?: number }) {
@@ -37,6 +38,12 @@ export function Login() {
         <Logo size={64} />
         <h1 className="brand">Weekendar</h1>
         <p className="tagline">우리 팀의 한 주를, 한눈에.</p>
+        {getInvite() && (
+          <div className="invite-banner">
+            <Icon name="users" size={16} />
+            <span>초대 링크로 들어왔어요. 로그인하면 <b>{getInvite()}</b> 팀에 바로 참여 요청할 수 있어요.</span>
+          </div>
+        )}
         <button className="btn google" onClick={() => (mode === 'cloud' ? loginGoogle() : login('u_new'))}>
           <GoogleMark />
           Google로 계속하기
@@ -70,9 +77,10 @@ export function Login() {
 
 export function TeamChoice() {
   const { me, createTeam, joinTeam, logout } = useStore()
-  const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose')
+  const invited = getInvite()
+  const [mode, setMode] = useState<'choose' | 'create' | 'join'>(invited ? 'join' : 'choose')
   const [name, setName] = useState('')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(invited ?? '')
   const [err, setErr] = useState<string | null>(null)
 
   return (
@@ -122,16 +130,19 @@ export function TeamChoice() {
             className="stack"
             onSubmit={async (e) => {
               e.preventDefault()
-              setErr(await joinTeam(code))
+              const r = await joinTeam(code)
+              setErr(r)
+              if (!r) clearInvite()
             }}
           >
+            {invited && code === invited && <p className="hint invite-hint">초대 링크로 받은 코드예요. "참여 요청"을 누르면 관리자 승인 후 팀에 들어가요.</p>}
             <label className="field">
               <span>초대 코드</span>
               <input autoFocus value={code} onChange={(e) => { setCode(e.target.value); setErr(null) }} placeholder="예: WKND-2026" />
             </label>
             {err && <p className="error">{err}</p>}
             <div className="row-end">
-              <button type="button" className="btn ghost" onClick={() => setMode('choose')}>뒤로</button>
+              <button type="button" className="btn ghost" onClick={() => { setMode('choose'); clearInvite() }}>뒤로</button>
               <button className="btn primary" disabled={!code.trim()}>참여 요청</button>
             </div>
           </form>

@@ -246,7 +246,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         void a; void b
       },
 
-      removeMember: (userId) => run(() => supabase.from('members').delete().eq('user_id', userId)) as unknown as void,
+      // 구성원 삭제: 소속과 함께 그 사람의 일정·할 일·대기 요청까지 서버 함수가 한 번에 정리
+      removeMember: (userId) => run(() => supabase.rpc('remove_member', { p_user: userId })) as unknown as void,
 
       addEvent: (e) => run(() => supabase.from('events').insert({ ...evTo(e), owner_id: me_id })) as unknown as void,
       updateEvent: (id, patch) => run(() => supabase.from('events').update(evTo(patch)).eq('id', id)) as unknown as void,

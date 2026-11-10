@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { buildICS, downloadICS } from '../lib/ics'
+import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
@@ -296,7 +297,10 @@ function AdminModal() {
             <span>초대 코드</span>
             <code>{team?.inviteCode}</code>
             <button className="btn small ghost" onClick={() => { navigator.clipboard?.writeText(team?.inviteCode ?? ''); showToast('초대 코드를 복사했어요.') }}>
-              <Icon name="copy" size={14} /> 복사
+              <Icon name="copy" size={14} /> 코드 복사
+            </button>
+            <button className="btn small primary" onClick={() => { navigator.clipboard?.writeText(inviteLink(team?.inviteCode ?? '')); showToast('초대 링크를 복사했어요. 카톡이나 메일로 보내주세요.') }}>
+              <Icon name="copy" size={14} /> 초대 링크 복사
             </button>
           </div>
         </section>
