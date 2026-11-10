@@ -23,7 +23,7 @@ export function Logo({ size = 44 }: { size?: number }) {
 }
 
 export function Login() {
-  const { login, db } = useStore()
+  const { login, db, mode, loginGoogle } = useStore()
   const { narrow, preview, setPreview } = useUI()
   const demo = [
     { id: 'u_admin', label: '관리자 · 김하늘' },
@@ -37,11 +37,17 @@ export function Login() {
         <Logo size={64} />
         <h1 className="brand">Weekendar</h1>
         <p className="tagline">우리 팀의 한 주를, 한눈에.</p>
-        <button className="btn google" onClick={() => login('u_new')}>
+        <button className="btn google" onClick={() => (mode === 'cloud' ? loginGoogle() : login('u_new'))}>
           <GoogleMark />
           Google로 계속하기
         </button>
-        <div className="demo-box">
+        {mode === 'cloud' && !narrow && (
+          <button className="link-btn preview-link" onClick={() => setPreview(!preview)}>
+            {preview ? '데스크탑 화면으로 보기' : '폰 화면으로 미리보기'}
+          </button>
+        )}
+        {mode === 'cloud' && <p className="fine">Google 계정으로 로그인하면 팀을 만들거나 초대 코드로 참여할 수 있어요.</p>}
+        {mode === 'demo' && <div className="demo-box">
           <div className="demo-title">데모 계정으로 둘러보기</div>
           <div className="demo-list">
             {demo.map((d) => (
@@ -55,8 +61,8 @@ export function Login() {
               {preview ? '데스크탑 화면으로 보기' : '폰 화면으로 미리보기'}
             </button>
           )}
-          <p className="fine">현재는 브라우저에 저장되는 체험용 데이터입니다. 실제 Google 로그인은 서버 연결 후 활성화됩니다.</p>
-        </div>
+          <p className="fine">현재는 브라우저에 저장되는 체험용 데이터입니다.</p>
+        </div>}
       </div>
     </div>
   )
@@ -114,9 +120,9 @@ export function TeamChoice() {
         {mode === 'join' && (
           <form
             className="stack"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault()
-              setErr(joinTeam(code))
+              setErr(await joinTeam(code))
             }}
           >
             <label className="field">

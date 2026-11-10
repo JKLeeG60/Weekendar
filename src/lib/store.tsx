@@ -141,6 +141,10 @@ function load(): DB {
 }
 
 export interface Store {
+  /** demo = 브라우저 저장 체험 모드, cloud = Supabase */
+  mode: 'demo' | 'cloud'
+  loading: boolean
+  loginGoogle: () => void
   db: DB
   me: User | null
   myMember: Member | undefined
@@ -154,8 +158,8 @@ export interface Store {
   // 인증/온보딩
   login: (userId: string) => void
   logout: () => void
-  createTeam: (name: string) => void
-  joinTeam: (code: string) => string | null
+  createTeam: (name: string) => void | Promise<void>
+  joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
   renameTeam: (name: string) => void
   updateMember: (userId: string, patch: Partial<Member>) => void
@@ -177,7 +181,7 @@ export interface Store {
   markAllRead: () => void
 }
 
-const Ctx = createContext<Store | null>(null)
+export const Ctx = createContext<Store | null>(null)
 export const useStore = () => {
   const s = useContext(Ctx)
   if (!s) throw new Error('StoreProvider 필요')
@@ -218,6 +222,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]
 
     return {
+      mode: 'demo', loading: false, loginGoogle: () => {},
       db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),

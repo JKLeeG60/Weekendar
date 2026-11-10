@@ -4,7 +4,9 @@ import { Login, PendingScreen, TeamChoice } from './components/Onboarding'
 import { Main } from './components/Main'
 
 function Screen() {
-  const { me, myMember } = useStore()
+  const { me, myMember, loading, mode, db } = useStore()
+  if (loading) return <div className="center-screen"><p className="fine">불러오는 중…</p></div>
+  if (mode === 'cloud' && db.currentUserId && !me) return <div className="center-screen"><p className="fine">프로필을 준비하는 중…</p></div>
   if (!me) return <Login />
   if (!myMember) return <TeamChoice />
   if (myMember.role === 'pending') return <PendingScreen />
