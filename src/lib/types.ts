@@ -1,0 +1,118 @@
+export type Role = 'leader' | 'member' | 'none' | 'pending'
+
+export interface User {
+  id: string
+  name: string
+  email: string
+}
+
+export interface Team {
+  id: string
+  name: string
+  inviteCode: string
+}
+
+/** 1인 1팀: userId 는 유일해야 한다 (Supabase 에서는 unique 제약). */
+export interface Member {
+  userId: string
+  teamId: string
+  role: Role // none = 관리자 전용(표에 표시되지 않음)
+  isAdmin: boolean
+  title: string // 직급
+  sort: number // 팀원 표시 순서
+}
+
+export type Category =
+  | 'meeting'
+  | 'work'
+  | 'personal'
+  | 'leave'
+  | 'halfday'
+  | 'outside'
+  | 'trip'
+  | 'training'
+
+export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly'
+
+export interface EventItem {
+  id: string
+  ownerId: string
+  title: string
+  date: string // YYYY-MM-DD
+  start: string // HH:mm
+  end: string
+  place: string
+  category: Category
+  shared: boolean
+  repeat: Repeat
+  until?: string
+}
+
+export interface Occurrence extends EventItem {
+  baseId: string
+}
+
+export interface RequestPayload {
+  title: string
+  date: string
+  start: string
+  end: string
+  place: string
+}
+
+export interface ChangeRequest {
+  id: string
+  requesterId: string
+  leaderId: string
+  type: 'add' | 'edit' | 'delete'
+  eventId?: string
+  payload: RequestPayload
+  status: 'pending' | 'accepted' | 'rejected'
+  reason?: string
+  createdAt: number
+}
+
+export interface Todo {
+  id: string
+  ownerId: string
+  text: string
+  date: string
+  done: boolean
+  priority: boolean
+}
+
+export interface Notice {
+  id: string
+  userId: string
+  kind: 'request' | 'result' | 'join'
+  text: string
+  refId?: string
+  read: boolean
+  createdAt: number
+}
+
+export interface DB {
+  users: User[]
+  teams: Team[]
+  members: Member[]
+  events: EventItem[]
+  requests: ChangeRequest[]
+  todos: Todo[]
+  notices: Notice[]
+  currentUserId: string | null
+}
+
+export const CATEGORY_LABEL: Record<Category, string> = {
+  meeting: '회의',
+  work: '업무',
+  personal: '개인',
+  leave: '휴가',
+  halfday: '반차',
+  outside: '외근',
+  trip: '출장',
+  training: '교육',
+}
+
+/** 부재자 명단에 올라가는 카테고리 */
+export const ABSENCE: Category[] = ['leave', 'halfday', 'outside', 'trip', 'training']
+export const isAbsence = (c: Category) => ABSENCE.includes(c)
