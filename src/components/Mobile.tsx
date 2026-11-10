@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
-import { addDays, dowLabel, mondayOf, parse, todayStr, weekDays } from '../lib/date'
+import { addDays, dowLabel, holidayName, mondayOf, parse, todayStr, weekDays } from '../lib/date'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Header } from './Header'
 import { DayAgenda, Todos } from './PersonalPanel'
@@ -99,7 +99,7 @@ function MobileTeam() {
                 key={d}
                 role="tab"
                 aria-selected={d === day}
-                className={'m-day' + (d === day ? ' on' : '') + (d === today ? ' today' : '')}
+                className={'m-day' + (d === day ? ' on' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}
                 onClick={() => setSelected(d)}
               >
                 <small>{dowLabel(d)}</small>
@@ -109,6 +109,7 @@ function MobileTeam() {
           </div>
 
           <div className="m-scroll">
+            {holidayName(day) && <div className="m-holiday">{holidayName(day)} · 휴일</div>}
             <section className="m-absent">
               <h3>부재자</h3>
               <div className="m-pills">

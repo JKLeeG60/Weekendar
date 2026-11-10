@@ -10,6 +10,8 @@
   --accent: #007aff;
   --accent-soft: rgba(0, 122, 255, 0.1);
   --red: #ff3b30;
+  --holiday: #ff9500;
+  --holiday-bg: color-mix(in srgb, #ff9500 9%, var(--surface));
   --green: #34c759;
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
   --today-bg: rgba(255, 59, 48, 0.022);
@@ -36,6 +38,8 @@
   --accent: #0a84ff;
   --accent-soft: rgba(10, 132, 255, 0.18);
   --red: #ff453a;
+  --holiday: #ff9f0a;
+  --holiday-bg: color-mix(in srgb, #ff9f0a 12%, var(--surface));
   --today-bg: rgba(255, 69, 58, 0.04);
   --mine-bg: rgba(10, 132, 255, 0.09);
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
@@ -461,3 +465,14 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 [data-mobile='true'] .auth-card, [data-mobile='true'] .auth-card.wide { width: 100%; padding: 1.8rem 1.3rem 1.4rem; margin-top: 1.2rem; }
 [data-mobile='true'] .choice-row { flex-direction: column; }
 [data-mobile='true'] .brand { font-size: 1.7rem; }
+
+/* ═════════ 공휴일 표시 (칸은 유지, 옅은 주황 + 붉은 날짜) ═════════ */
+.team-table td.holiday { background: var(--holiday-bg); }
+.team-table tr.mine td.holiday { background: color-mix(in srgb, var(--holiday-bg) 70%, var(--mine-bg)); }
+.team-table tfoot td.holiday { background: color-mix(in srgb, var(--surface-2) 82%, var(--holiday) 14%); }
+.team-table thead th.day.holiday { background: color-mix(in srgb, var(--surface) 86%, var(--holiday) 14%); }
+.team-table thead .day.holiday:not(.today) span { color: var(--red); }
+.team-table thead .day .hol-name { display: block; font-size: 0.7rem; font-weight: 650; color: var(--holiday); margin-top: 0.05rem; letter-spacing: -0.01em; }
+.m-day.holiday:not(.on) { background: color-mix(in srgb, var(--surface) 86%, var(--holiday) 14%); }
+.m-day.holiday:not(.on) strong, .m-day.holiday:not(.on) small { color: var(--red); }
+.m-holiday { background: color-mix(in srgb, var(--surface) 84%, var(--holiday) 16%); color: var(--holiday); font-weight: 650; font-size: 0.88rem; padding: 0.6rem 0.85rem; border-radius: 1rem; }

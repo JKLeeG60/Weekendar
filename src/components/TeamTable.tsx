@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
-import { fmtHead, todayStr, weekDays } from '../lib/date'
+import { fmtHead, holidayName, todayStr, weekDays } from '../lib/date'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 
@@ -47,8 +47,9 @@ export function TeamTable() {
           <tr>
             <th className="corner">구성원</th>
             {days.map((d) => (
-              <th key={d} className={'day' + (d === today ? ' today' : '')}>
+              <th key={d} className={'day' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
                 <span>{fmtHead(d)}</span>
+                {holidayName(d) && <small className="hol-name">{holidayName(d)}</small>}
               </th>
             ))}
           </tr>
@@ -85,7 +86,7 @@ export function TeamTable() {
                   return (
                     <td
                       key={d}
-                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '')}
+                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}
                       onClick={() => {
                         onCell(m, d)
                       }}
@@ -158,7 +159,7 @@ export function TeamTable() {
                 return o ? [{ m, o }] : []
               })
               return (
-                <td key={d} className={'cell absent' + (d === today ? ' today' : '')}>
+                <td key={d} className={'cell absent' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
                   <div className="cell-inner row">
                     {absent.length === 0 && <span className="none">–</span>}
                     {absent.map(({ m, o }) => (

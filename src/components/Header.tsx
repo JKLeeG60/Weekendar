@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { addDays, fmtHead, holidayName, mondayOf, weekRangeLabel } from '../lib/date'
+import { addDays, mondayOf, weekRangeLabel } from '../lib/date'
 import { initialDate } from '../lib/store'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
@@ -11,18 +11,12 @@ export function Header() {
   const { selected, setSelected, theme, toggleTheme, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   const mon = mondayOf(selected)
-  const skipped = [0, 1, 2, 3, 4].map((i) => addDays(mon, i)).filter((d) => holidayName(d))
 
   return (
     <header className="topbar">
       <div className="titles">
         <h1>{team?.name} 주간예정사항</h1>
-        <p>
-          {weekRangeLabel(mon)}
-          {skipped.length > 0 && (
-            <span className="skipped"> · 제외: {skipped.map((d) => `${fmtHead(d)} ${holidayName(d)}`).join(', ')}</span>
-          )}
-        </p>
+        <p>{weekRangeLabel(mon)}</p>
       </div>
       <div className="tools">
         <div className="weeknav">

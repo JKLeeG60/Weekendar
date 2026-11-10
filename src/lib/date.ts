@@ -148,10 +148,10 @@ export function holidayName(s: string): string | undefined {
   return m[s]
 }
 
-/** 팀 표에 표시할 날짜: 월~금 중 공휴일 제외 */
+/** 팀 표에 표시할 날짜: 월~금 (공휴일도 칸은 유지하고 화면에서 휴일로 표시) */
 export function weekDays(selected: string): string[] {
   const mon = mondayOf(selected)
-  return [0, 1, 2, 3, 4].map((i) => addDays(mon, i)).filter((d) => !holidayName(d))
+  return [0, 1, 2, 3, 4].map((i) => addDays(mon, i))
 }
 
 /** 달력 격자 (일요일 시작, 6주) */
