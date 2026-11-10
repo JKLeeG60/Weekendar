@@ -72,6 +72,9 @@ export function Header() {
                   )
                 })}
                 <div className="menu-sep" />
+                <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'calendar' }) }}>
+                  캘린더 앱에서 보기
+                </button>
                 {!narrow && (
                   <button className="menu-item" onClick={() => { setPop(null); setPreview(!preview) }}>
                     {preview ? '데스크탑 화면으로 돌아가기' : '폰 화면 미리보기'}

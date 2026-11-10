@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { buildICS, downloadICS } from '../lib/ics'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
@@ -11,16 +12,26 @@ import { Avatar, Icon, Modal, Switch } from './ui'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
+export const REMIND_OPTIONS: [number | undefined, string][] = [
+  [undefined, '없음'], [0, '정각'], [5, '5분 전'], [10, '10분 전'], [30, '30분 전'], [60, '1시간 전'],
+]
+/** 브라우저 알림 권한을 한 번만 물어본다 */
+function askNotifyPermission() {
+  try {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission()
+  } catch { /* 지원 안 하는 브라우저 */ }
+}
 
 export function Modals() {
   const { modal } = useUI()
   if (!modal) return null
   switch (modal.type) {
-    case 'event': return <EventModal date={modal.date} start={modal.start} occ={modal.event} />
+    case 'event': return <EventModal date={modal.date} start={modal.start} occ={modal.event} titleHint={modal.title} sharedHint={modal.shared} />
     case 'detail': return <EventDetail occ={modal.occ} />
     case 'request': return <RequestModal mode={modal.mode} date={modal.date} occ={modal.occ} />
     case 'day': return <DayModal userId={modal.userId} date={modal.date} />
     case 'admin': return <AdminModal />
+    case 'calendar': return <CalendarModal />
   }
 }
 
@@ -30,18 +41,19 @@ const addHour = (t: string) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 }
 
-function EventModal({ date, start: startHint, occ }: { date: string; start?: string; occ?: Occurrence }) {
+function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean }) {
   const { db, addEvent, updateEvent, deleteEvent } = useStore()
   const { closeModal, showToast } = useUI()
   const base: EventItem | undefined = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
-  const [title, setTitle] = useState(base?.title ?? '')
+  const [title, setTitle] = useState(base?.title ?? titleHint ?? '')
   const [d, setD] = useState(base?.date ?? date)
   const [start, setStart] = useState(base?.start ?? startHint ?? '09:00')
   const [end, setEnd] = useState(base?.end ?? addHour(startHint ?? '09:00'))
   const [place, setPlace] = useState(base?.place ?? '')
   const [category, setCategory] = useState<Category>(base?.category ?? 'work')
   const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
-  const [shared, setShared] = useState(base?.shared ?? true) // 기본값: 팀에 공유 ON
+  const [shared, setShared] = useState(base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
+  const [remind, setRemind] = useState<number | undefined>(base?.remind)
   const bad = !title.trim() || end <= start
 
   function pickCategory(c: Category) {
@@ -49,7 +61,8 @@ function EventModal({ date, start: startHint, occ }: { date: string; start?: str
   }
 
   function save() {
-    const data = { title: title.trim(), date: d, start, end, place: place.trim(), category, repeat, shared }
+    const data = { title: title.trim(), date: d, start, end, place: place.trim(), category, repeat, shared, remind }
+    if (remind !== undefined) askNotifyPermission()
     if (base) updateEvent(base.id, data)
     else addEvent(data)
     closeModal()
@@ -94,6 +107,12 @@ function EventModal({ date, start: startHint, occ }: { date: string; start?: str
             <span>반복</span>
             <select value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
               {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <option key={r} value={r}>{REPEAT_LABEL[r]}</option>)}
+            </select>
+          </label>
+          <label className="gr">
+            <span>알림</span>
+            <select value={remind === undefined ? '' : String(remind)} onChange={(e) => setRemind(e.target.value === '' ? undefined : Number(e.target.value))} aria-label="미리 알림">
+              {REMIND_OPTIONS.map(([v, l]) => <option key={l} value={v === undefined ? '' : String(v)}>{l}</option>)}
             </select>
           </label>
           <div className="gr">
@@ -351,6 +370,71 @@ function AdminModal() {
               </div>
             )
           })}
+        </section>
+      </div>
+    </Modal>
+  )
+}
+
+/* ───────── 캘린더 앱에서 보기 ───────── */
+function CalendarModal() {
+  const { db, me, mode, getCalendarUrl } = useStore()
+  const { closeModal, showToast } = useUI()
+  const [url, setUrl] = useState<string | null>(null)
+  const [busy, setBusy] = useState(mode === 'cloud')
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  useEffect(() => {
+    if (mode !== 'cloud') return
+    getCalendarUrl().then((u) => { setUrl(u); setBusy(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const mine = db.events.filter((e) => e.ownerId === me?.id)
+  const copy = async () => {
+    if (!url) return
+    try { await navigator.clipboard.writeText(url); showToast('구독 주소를 복사했어요') } catch { showToast('복사하지 못했어요. 주소를 길게 눌러 복사해주세요') }
+  }
+
+  return (
+    <Modal title="캘린더 앱에서 보기" onClose={closeModal} width={500}>
+      <div className="cal-export">
+        <section>
+          <h4>구독 주소 <small>일정이 바뀌면 캘린더 앱에도 자동으로 반영돼요</small></h4>
+          {mode !== 'cloud' ? (
+            <p className="hint">체험 모드에서는 구독 주소를 만들 수 없어요. 아래 파일 내려받기를 이용하세요.</p>
+          ) : busy ? (
+            <p className="hint">주소를 준비하는 중…</p>
+          ) : url ? (
+            <>
+              <div className="cal-url">
+                <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="구독 주소" />
+                <button className="btn small primary" onClick={copy}><Icon name="copy" size={14} /> 복사</button>
+              </div>
+              <ul className="cal-steps">
+                <li><b>구글 캘린더 (PC)</b> 왼쪽 "다른 캘린더" 옆 + → "URL로 추가" → 주소 붙여넣기</li>
+                <li><b>아이폰 캘린더</b> 설정 → 캘린더 → 계정 → 계정 추가 → 기타 → "구독 캘린더 추가"</li>
+              </ul>
+              <p className="hint">구글 캘린더는 반영까지 몇 시간 걸릴 수 있어요. 이 주소를 아는 사람은 내 일정을 볼 수 있으니 공유하지 마세요.</p>
+              {confirmReset ? (
+                <div className="cal-reset">
+                  <span>이전 주소는 더 이상 동작하지 않아요.</span>
+                  <button className="btn small ghost" onClick={() => setConfirmReset(false)}>취소</button>
+                  <button className="btn small danger" onClick={async () => { setBusy(true); setUrl(await getCalendarUrl(true)); setBusy(false); setConfirmReset(false); showToast('새 주소로 바꿨어요') }}>새 주소로 바꾸기</button>
+                </div>
+              ) : (
+                <button className="link-btn" onClick={() => setConfirmReset(true)}>주소가 유출됐다면: 새 주소로 바꾸기</button>
+              )}
+            </>
+          ) : (
+            <p className="hint">주소를 만들지 못했어요. 서버 설정(migration_007)을 확인해주세요.</p>
+          )}
+        </section>
+        <section>
+          <h4>파일로 내려받기 <small>지금 시점의 일정만 담겨요</small></h4>
+          <button className="btn" onClick={() => downloadICS(buildICS(mine, 'Weekendar · ' + (me?.name ?? '')), 'weekendar.ics')}>
+            <Icon name="cal" size={15} /> 내 일정 {mine.length}개 .ics 내려받기
+          </button>
         </section>
       </div>
     </Modal>

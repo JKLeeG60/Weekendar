@@ -210,6 +210,8 @@ export interface Store {
   markChatRead: () => void
   /** 내가 보낸 메시지의 읽음 기록 (사람 id → 읽은 시각). 남의 메시지는 빈 값 */
   getReadReceipts: (messageId: string) => Promise<Record<string, number>>
+  // 캘린더 구독 주소 (서버 모드만, 체험 모드는 null)
+  getCalendarUrl: (reset?: boolean) => Promise<string | null>
 }
 
 export const Ctx = createContext<Store | null>(null)
@@ -490,6 +492,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...p, messageReads: reads, chatReads: { ...p.chatReads, [me]: Math.max(last, now) } }
         })
       },
+      getCalendarUrl: async () => null,
       getReadReceipts: async (messageId) => {
         const m = db.messages.find((x) => x.id === messageId)
         if (!m || m.authorId !== db.currentUserId) return {}

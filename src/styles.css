@@ -715,3 +715,40 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 .rr-sep { height: 1px; background: var(--line-soft); margin: 0.3rem 0.5rem; }
 .rr-lock { font-size: 0.7rem; color: var(--faint); padding: 0.35rem 0.5rem 0.2rem; }
 .rr-loading { font-size: 0.84rem; color: var(--faint); padding: 0.4rem 0.5rem; }
+
+/* ═════════ 타임라인 드래그 · 할 일 드롭 ═════════ */
+.tl-event { touch-action: pan-y; cursor: grab; }
+.timeline.dragging, .timeline.dragging .tl-event { cursor: grabbing; }
+.tl-event.lifted { z-index: 6; box-shadow: 0 10px 24px rgba(0,0,0,0.16), 0 0 0 1.5px var(--cc); opacity: 0.96; transition: none; }
+.tl-event.holding { filter: brightness(0.95); }
+.tl-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 0.6rem; cursor: ns-resize; }
+.tl-resize::after { content: ''; position: absolute; left: 50%; bottom: 0.18rem; width: 1.4rem; height: 0.2rem; margin-left: -0.7rem; border-radius: 99px; background: var(--cc); opacity: 0; transition: opacity 0.15s; }
+.tl-event:hover .tl-resize::after, .tl-event.lifted .tl-resize::after { opacity: 0.55; }
+[data-mobile='true'] .tl-resize { height: 0.9rem; }
+[data-mobile='true'] .tl-resize::after { opacity: 0.35; }
+.tl-title svg { flex: none; }
+.drop-ghost { position: absolute; left: 3.6rem; right: 0.2rem; border-radius: 0.6rem; border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); z-index: 5; pointer-events: none; display: flex; align-items: flex-start; padding: 0.35rem 0.6rem; }
+.drop-ghost span { font-size: 0.78rem; font-weight: 650; color: var(--accent); }
+.todo-item[draggable='true'] { cursor: grab; }
+.todo-item[draggable='true']:active { cursor: grabbing; }
+.icon-btn.to-event { color: var(--faint); opacity: 0; }
+.todo-item:hover .to-event { opacity: 1; }
+[data-mobile='true'] .icon-btn.to-event { opacity: 1; color: var(--accent); }
+.ntoast.remind .ntoast-ico { background: #ff9500; }
+
+/* ═════════ 캘린더 앱에서 보기 ═════════ */
+.cal-export { display: flex; flex-direction: column; gap: 1.2rem; }
+.cal-export section { display: flex; flex-direction: column; gap: 0.55rem; }
+.cal-export h4 { font-size: 0.95rem; font-weight: 700; display: flex; flex-direction: column; gap: 0.15rem; }
+.cal-export h4 small { font-size: 0.78rem; font-weight: 500; color: var(--muted); }
+.cal-url { display: flex; gap: 0.4rem; }
+.cal-url input { flex: 1; min-width: 0; padding: 0.5rem 0.7rem; border-radius: 0.65rem; border: 1px solid var(--line); background: var(--surface-2); font: inherit; font-size: 0.8rem; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cal-steps { margin: 0; padding: 0 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.84rem; color: var(--muted); }
+.cal-steps b { color: var(--text); font-weight: 650; margin-right: 0.25rem; }
+.cal-reset { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; }
+.cal-export .btn { align-self: flex-start; display: inline-flex; gap: 0.4rem; align-items: center; }
+.ntoast.remind.info .ntoast-ico { background: var(--accent); }
+/* 폰에는 마우스 올리기가 없으므로 할 일 버튼을 항상 보이게 */
+[data-mobile='true'] .todo-item .icon-btn.tiny { opacity: 1; color: var(--faint); }
+[data-mobile='true'] .todo-item .icon-btn.to-event { color: var(--accent); }
+[data-mobile='true'] .todo-item .flag.on { color: var(--c-halfday); }

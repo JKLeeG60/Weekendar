@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/cal/:token", "destination": "/api/ics?token=:token" }]
+}

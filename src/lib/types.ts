@@ -46,6 +46,8 @@ export interface EventItem {
   shared: boolean
   repeat: Repeat
   until?: string
+  /** 미리 알림: 시작 몇 분 전 (없으면 알림 없음) */
+  remind?: number
 }
 
 export interface Occurrence extends EventItem {

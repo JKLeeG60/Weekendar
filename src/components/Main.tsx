@@ -9,6 +9,7 @@ import { Modals } from './Modals'
 import { MobileMain } from './Mobile'
 import { NoticeToasts } from './NoticeToasts'
 import { ChatWindow } from './Chat'
+import { Reminders } from './Reminders'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile } = useUI()
@@ -43,6 +44,7 @@ export function Main() {
       {toast && <div className="toast" role="status">{toast}</div>}
       <ChatWindow />
       <NoticeToasts />
+      <Reminders />
     </div>
   )
 }

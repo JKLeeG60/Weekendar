@@ -3,11 +3,12 @@ import type { Occurrence } from './types'
 import { initialDate } from './store'
 
 export type ModalState =
-  | { type: 'event'; date: string; start?: string; event?: Occurrence }
+  | { type: 'event'; date: string; start?: string; event?: Occurrence; title?: string; shared?: boolean }
   | { type: 'detail'; occ: Occurrence }
   | { type: 'request'; mode: 'add' | 'edit' | 'delete'; date: string; occ?: Occurrence }
   | { type: 'day'; userId: string; date: string }
   | { type: 'admin' }
+  | { type: 'calendar' }
   | null
 
 interface UI {

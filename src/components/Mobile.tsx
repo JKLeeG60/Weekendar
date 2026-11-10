@@ -9,6 +9,7 @@ import { DayAgenda, Todos } from './PersonalPanel'
 import { Modals } from './Modals'
 import { NoticeToasts } from './NoticeToasts'
 import { ChatPanel } from './Chat'
+import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
 
 type Tab = 'team' | 'me' | 'todo' | 'chat'
@@ -54,6 +55,7 @@ export function MobileMain() {
       <Modals />
       {toast && <div className="toast" role="status">{toast}</div>}
       <NoticeToasts />
+      <Reminders />
     </div>
   )
 }

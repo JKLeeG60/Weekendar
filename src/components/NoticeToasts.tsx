@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { mentionsMe } from '../lib/chat'
+import { onPopup } from '../lib/bus'
 import { Icon } from './ui'
 
 const SHOW_MS = 5000
 
 interface Item {
   id: string
-  kind: 'notice' | 'mention'
+  kind: 'notice' | 'mention' | 'remind'
   title: string
   text: string
+  tag?: string
+  icon?: 'clock' | 'cal'
 }
 
 const noticeTitle = (k: string) => (k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : '요청 결과')
@@ -34,6 +37,9 @@ export function NoticeToasts() {
     setItems((prev) => [...prev, ...fresh].slice(-3))
     fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), SHOW_MS))
   }
+
+  // 미리 알림 등 다른 곳에서 보낸 팝업
+  useEffect(() => onPopup((m) => push([{ id: m.id, kind: 'remind', title: m.title, text: m.text, tag: m.tag, icon: m.icon }])), [])
 
   // 계정이 바뀌면 이미 있던 것은 띄우지 않는다
   useEffect(() => {
@@ -81,18 +87,18 @@ export function NoticeToasts() {
       {items.map((n) => (
         <button
           key={n.id}
-          className={'ntoast' + (n.kind === 'mention' ? ' mention' : '')}
+          className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' ? ' info' : '')}
           onClick={() => {
             setItems((p) => p.filter((x) => x.id !== n.id))
             if (n.kind === 'mention') setChatOpen(true)
           }}
         >
-          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name="bell" size={18} />}</span>
+          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name={n.kind === 'remind' ? n.icon ?? 'clock' : 'bell'} size={18} />}</span>
           <span className="ntoast-body">
             <strong>{n.title}</strong>
             <span>{n.text}</span>
           </span>
-          <span className="ntoast-time">지금</span>
+          <span className="ntoast-time">{n.tag ?? '지금'}</span>
         </button>
       ))}
     </div>

@@ -12,6 +12,7 @@ const evFrom = (r: any): EventItem => ({
   id: r.id, ownerId: r.owner_id, title: r.title, date: r.date,
   start: r.start_time, end: r.end_time, place: r.place ?? '', category: r.category,
   shared: r.shared, repeat: r.repeat_rule, until: r.until ?? undefined,
+  remind: r.remind_min ?? undefined,
 })
 const evTo = (e: Partial<EventItem>) => {
   const o: Record<string, unknown> = {}
@@ -24,6 +25,7 @@ const evTo = (e: Partial<EventItem>) => {
   if (e.shared !== undefined) o.shared = e.shared
   if (e.repeat !== undefined) o.repeat_rule = e.repeat
   if ('until' in e) o.until = e.until || null
+  if ('remind' in e) o.remind_min = e.remind ?? null
   return o
 }
 const todoFrom = (r: any): Todo => ({
@@ -116,10 +118,36 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
   // 다른 사람의 변경 반영: 주기적 + 창으로 돌아올 때 새로고침
   useEffect(() => {
     const tick = () => { if (document.visibilityState === 'visible') refresh() }
-    const id = setInterval(tick, 20000)
+    const id = setInterval(tick, 60000) // 실시간이 끊겼을 때를 대비한 보조 갱신
     document.addEventListener('visibilitychange', tick)
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
   }, [refresh])
+
+  // 팀 표·요청·알림·구성원·할 일 실시간: 바뀌면 바로 다시 불러온다 (여러 변경은 묶어서 한 번)
+  useEffect(() => {
+    const me = db.currentUserId
+    const teamId = db.members.find((m) => m.userId === me)?.teamId
+    if (!me) return
+    let timer: number | undefined
+    const kick = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => refresh(), 350)
+    }
+    const ch = supabase.channel('data-' + me)
+    const on = (table: string, filter?: string) =>
+      ch.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, kick)
+    on('events')
+    on('notices', `user_id=eq.${me}`)
+    on('todos', `owner_id=eq.${me}`)
+    on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
+    if (teamId) {
+      on('requests', `team_id=eq.${teamId}`)
+      on('teams', `id=eq.${teamId}`)
+    }
+    ch.subscribe()
+    return () => { window.clearTimeout(timer); supabase.removeChannel(ch) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.currentUserId, db.members.find((m) => m.userId === db.currentUserId)?.teamId, refresh])
 
   // 팀 대화 실시간: 새 메시지·삭제를 서버가 바로 밀어준다
   const myTeamId = db.members.find((m) => m.userId === db.currentUserId)?.teamId
@@ -281,6 +309,11 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(at).toISOString() }).then(() => {})
         // 메시지별 읽은 시각 기록 (마이그레이션 6 전이면 조용히 실패)
         if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
+      },
+      getCalendarUrl: async (reset) => {
+        const { data, error } = await supabase.rpc(reset ? 'reset_calendar_token' : 'get_calendar_token')
+        if (error || !data) { console.warn(error?.message); return null }
+        return `${window.location.origin}/cal/${data}.ics`
       },
       getReadReceipts: async (messageId) => {
         const m = messages.find((x) => x.id === messageId)
