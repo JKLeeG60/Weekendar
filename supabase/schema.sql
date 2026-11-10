@@ -223,7 +223,7 @@ begin
     raise exception '이미 팀에 속해 있습니다';
   end if;
   loop
-    code := 'WKND-' || upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 6));
+    code := 'WKND-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
     exit when not exists (select 1 from public.teams where invite_code = code);
   end loop;
   insert into public.teams (name, invite_code, created_by) values (trim(p_name), code, auth.uid()) returning id into t;
