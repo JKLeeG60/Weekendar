@@ -15,6 +15,8 @@ import { Avatar, Icon } from './ui'
 type Tab = 'team' | 'me' | 'todo' | 'chat'
 
 /** 좁은 화면용 레이아웃: 하단 탭 + 요일 탭 중심의 팀 일정 */
+const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo: '할 일', chat: '대화' }
+
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
   const { toast, setChatOpen } = useUI()
@@ -28,7 +30,8 @@ export function MobileMain() {
 
   return (
     <div className="m-app">
-      <Header />
+      {/* 팀 탭은 기존 제목(○○팀 주간예정사항), 나머지 탭은 탭 이름 */}
+      <Header mobileTitle={tab === 'team' ? undefined : TAB_TITLE[tab]} />
       <div className="m-body">
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}

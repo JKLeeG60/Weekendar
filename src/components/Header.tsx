@@ -6,9 +6,10 @@ import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
 
-export function Header() {
+/** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
+export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
   const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
-  const { selected, setSelected, theme, toggleTheme, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
+  const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   const mon = mondayOf(selected)
 
@@ -16,9 +17,10 @@ export function Header() {
     <header className="topbar">
       <div className="tb-side" aria-hidden="true" />
       <div className="titles">
+        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <div className="title-row">
           <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
-          <h1>{team?.name} 주간예정사항</h1>
+          <h1>{mobileTitle ?? `${team?.name} 주간예정사항`}</h1>
           <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→) · 이번 주로 돌아가기: T"><Icon name="chevR" /></button>
         </div>
         <p className="subtitle">
@@ -41,10 +43,7 @@ export function Header() {
             <Icon name="users" />
           </button>
         )}
-        <button className="icon-btn" onClick={toggleTheme} aria-label="테마 전환" title="라이트/다크">
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-        </button>
-        <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label="개인 패널 접기/펴기" title="개인 패널">
+        <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label="내 일정 패널 접기/펴기" title={panelOpen ? '내 일정·할 일 패널 숨기기' : '내 일정·할 일 패널 보이기'}>
           <Icon name="panel" />
         </button>
         </div>
@@ -71,6 +70,15 @@ export function Header() {
                     </button>
                   )
                 })}
+                <div className="menu-sep" />
+                <div className="menu-theme">
+                  <span>화면</span>
+                  <div className="theme-seg" role="radiogroup" aria-label="화면 모드">
+                    {([['system', '자동'], ['light', '라이트'], ['dark', '다크']] as const).map(([v, l]) => (
+                      <button key={v} role="radio" aria-checked={themePref === v} className={themePref === v ? 'on' : ''} onClick={() => setThemePref(v)}>{l}</button>
+                    ))}
+                  </div>
+                </div>
                 <div className="menu-sep" />
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'calendar' }) }}>
                   캘린더 앱에서 보기

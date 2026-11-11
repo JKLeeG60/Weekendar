@@ -816,3 +816,22 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 .pick.line:hover, .pick.line:focus-within { background: var(--accent-soft); }
 .pick.line svg { flex: none; }
 .pick.line input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; }
+
+/* ═════════ UI 다듬기 (색 줄이기 · 오늘 표시 · 화면 모드 · 모바일 탭 제목) ═════════ */
+/* 1. 일정 칸: 색은 왼쪽 막대와 옅은 배경에만, 시간은 차분한 회색 */
+.chip-time { color: var(--muted); font-weight: 600; }
+/* 2. 오늘: 머리글의 빨간 동그라미만. 열 전체 붉은 배경은 없앰 (공휴일 색과 겹치지 않게) */
+td.today:not(.holiday) { background: transparent; }
+.team-table tfoot td.today:not(.holiday) { background: var(--surface-2); }
+tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
+/* 3. 프로필 메뉴의 화면 모드 */
+.menu-theme { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.75rem; font-size: 0.88rem; }
+.theme-seg { display: inline-flex; padding: 2px; border-radius: 0.55rem; background: var(--line-soft); }
+.theme-seg button { padding: 0.25rem 0.6rem; border-radius: 0.45rem; font-size: 0.8rem; color: var(--muted); }
+.theme-seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+/* 4. 모바일: 탭마다 큰 제목, 첫 탭은 위에 팀 이름 */
+.eyebrow { display: none; }
+.m-app .eyebrow { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 0.05rem; }
+/* 모바일 할 일 탭: 화면 제목이 이미 "할 일"이라 카드 안 제목은 숨기고 남은 개수만 */
+.m-app .section-label.big { display: none; }
+.m-app .todo .panel-head { justify-content: flex-end; }

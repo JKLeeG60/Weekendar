@@ -21,6 +21,8 @@ interface UI {
   toast: string | null
   showToast: (t: string) => void
   theme: 'light' | 'dark'
+  themePref: ThemePref
+  setThemePref: (v: ThemePref) => void
   toggleTheme: () => void
   panelOpen: boolean
   togglePanel: () => void
@@ -35,6 +37,8 @@ interface UI {
   /** 모바일 레이아웃을 쓸지 (좁은 화면이거나 미리보기) */
   isMobile: boolean
 }
+
+export type ThemePref = 'system' | 'light' | 'dark'
 
 const Ctx = createContext<UI | null>(null)
 export const useUI = () => {
@@ -82,24 +86,35 @@ export function UIProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.style.fontSize = isMobile ? '15px' : ''
   }, [isMobile])
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  // 화면 모드: 기본은 기기(시스템) 설정을 따르고, 프로필 메뉴에서 라이트·다크로 고정할 수 있음
+  const [themePref, setThemePref] = useState<ThemePref>(() => {
     try {
       const saved = localStorage.getItem('weekendar-theme')
-      if (saved === 'dark' || saved === 'light') return saved
+      if (saved === 'dark' || saved === 'light' || saved === 'system') return saved
     } catch {
       /* 저장소를 못 쓰는 환경 */
     }
-    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    return 'system'
   })
+  const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)')
+    const on = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  const theme: 'light' | 'dark' = themePref === 'system' ? (systemDark ? 'dark' : 'light') : themePref
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+  }, [theme])
+  useEffect(() => {
     try {
-      localStorage.setItem('weekendar-theme', theme)
+      localStorage.setItem('weekendar-theme', themePref)
     } catch {
       /* 무시 */
     }
-  }, [theme])
+  }, [themePref])
 
   useEffect(() => {
     if (!toast) return
@@ -118,7 +133,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
         toast,
         showToast: setToast,
         theme,
-        toggleTheme: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')),
+        toggleTheme: () => setThemePref(theme === 'light' ? 'dark' : 'light'),
+        themePref,
+        setThemePref,
         panelOpen,
         togglePanel: () => setPanelOpen((v) => !v),
         chatOpen,
