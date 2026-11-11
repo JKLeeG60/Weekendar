@@ -772,3 +772,7 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 .push-row span { font-size: 0.8rem; color: var(--muted); }
 .push-steps { counter-reset: s; }
 .push-err { margin: 0; padding: 0.6rem 0.8rem; border-radius: 0.7rem; background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); font-size: 0.84rem; }
+/* 홈 화면 앱(PWA)에서는 iOS가 화면 위쪽에 흐림 효과를 덮으므로, 제목을 그 아래로 내림 */
+@media (display-mode: standalone) {
+  .m-app .topbar { padding-top: calc(2.9rem + env(safe-area-inset-top, 0px)); }
+}
