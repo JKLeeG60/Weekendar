@@ -112,7 +112,13 @@ export function Todos() {
           <Icon name="plus" size={16} />
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="새로운 할 일" aria-label="새로운 할 일" />
         </form>
-        {list.length === 0 && <div className="empty">할 일이 없어요. 여유로운 하루네요.</div>}
+        {list.length === 0 && (
+          <div className="empty-guide">
+            <span className="eg-icon"><Icon name="check" size={18} /></span>
+            <strong>오늘 할 일이 없어요</strong>
+            <small>위 칸에 할 일을 적어 보세요.<br />적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.</small>
+          </div>
+        )}
         <ul className="todos">
           {list.map((t) => (
             <li
@@ -221,7 +227,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
     const el = ref.current
     if (!el) return
     const target = items.length ? Math.min(...items.map((i) => i.s)) - 40 : 8 * 60
-    el.scrollTop = Math.max(0, topOf(target) * remPx())
+    el.scrollTop = Math.max(0, (topOf(target) - 0.9) * remPx()) // 0.9rem: 맨 위 시각 글자가 잘리지 않도록
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, occs.length])
 

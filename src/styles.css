@@ -835,3 +835,16 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
 /* 모바일 할 일 탭: 화면 제목이 이미 "할 일"이라 카드 안 제목은 숨기고 남은 개수만 */
 .m-app .section-label.big { display: none; }
 .m-app .todo .panel-head { justify-content: flex-end; }
+
+/* ═════════ UI 다듬기 2 (상세 창 · 타임라인 · 빈 할 일 · 모바일 + 버튼) ═════════ */
+/* 5. 일정 상세: 일정 제목이 곧 창 제목 */
+.modal-head h2.big { font-size: 1.3rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.3; }
+.detail > div > .detail-line:first-child { margin-top: 0.1rem; }
+.foot-note { margin-right: auto; font-size: 0.8rem; color: var(--muted); }
+/* 7. 빈 할 일: 다음에 할 행동 안내 */
+.empty-guide { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.35rem; padding: 1.8rem 1rem; color: var(--muted); }
+.eg-icon { width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); margin-bottom: 0.2rem; }
+.empty-guide strong { font-size: 0.95rem; color: var(--text); font-weight: 650; }
+.empty-guide small { font-size: 0.8rem; line-height: 1.5; }
+/* 6. 타임라인 맨 위 시각 글자가 잘리지 않도록 위 여백 */
+.timeline-scroll { padding-top: 0.85rem; }

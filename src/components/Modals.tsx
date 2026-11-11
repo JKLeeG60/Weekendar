@@ -173,7 +173,8 @@ function EventDetail({ occ }: { occ: Occurrence }) {
 
   return (
     <Modal
-      title="일정"
+      title={occ.title}
+      big
       onClose={closeModal}
       footer={
         mine ? (
@@ -183,7 +184,8 @@ function EventDetail({ occ }: { occ: Occurrence }) {
           </>
         ) : canRequest ? (
           <>
-            <button className="btn danger-ghost left" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>삭제 요청</button>
+            <span className="foot-note">팀장이 동의하면 반영돼요</span>
+            <button className="btn danger-ghost" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>삭제 요청</button>
             <button className="btn primary" onClick={() => openModal({ type: 'request', mode: 'edit', date: occ.date, occ })}>변경 요청</button>
           </>
         ) : (
@@ -194,14 +196,12 @@ function EventDetail({ occ }: { occ: Occurrence }) {
       <div className="detail" data-cat={occ.category}>
         <div className="detail-bar" />
         <div>
-          <h3>{occ.title}</h3>
           <p className="detail-line"><Icon name="clock" size={15} /> {isMultiDay(occ) ? `${spanLabel(occ)} · 종일` : `${fmtLong(occ.date)} · ${occ.start}–${occ.end}${occ.repeat !== 'none' ? ` · ${REPEAT_LABEL[occ.repeat]} 반복` : ''}`}</p>
           {occ.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
           <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ' (팀장)' : ''} · {occ.shared ? '팀에 공유' : '나만 보기'}</p>
           <span className="cat-tag" data-cat={occ.category}>{CATEGORY_LABEL[occ.category]}</span>
         </div>
       </div>
-      {canRequest && <p className="hint">팀장 일정은 직접 수정할 수 없어요. 요청을 보내면 팀장이 동의한 뒤 반영됩니다.</p>}
     </Modal>
   )
 }

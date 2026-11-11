@@ -6,12 +6,15 @@ export function Modal({
   children,
   footer,
   width = 480,
+  big,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
   width?: number
+  /** 제목을 크게 (일정 상세처럼 제목이 곧 내용일 때) */
+  big?: boolean
 }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -22,7 +25,7 @@ export function Modal({
     <div className="scrim" onMouseDown={onClose}>
       <div className="modal" style={{ width: `${width / 16}rem` }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="modal-head">
-          <h2>{title}</h2>
+          <h2 className={big ? 'big' : undefined}>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="닫기">
             <Icon name="x" />
           </button>
