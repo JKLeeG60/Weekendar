@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../lib/store'
 import { occurrencesOn } from '../lib/events'
-import { todayStr } from '../lib/date'
+import { addDays, todayStr } from '../lib/date'
 import { popup } from '../lib/bus'
 import { pushOnHere } from '../lib/push'
 
@@ -33,15 +33,21 @@ export function Reminders() {
       const done = load()
       let changed = false
       const mine = db.events.filter((e) => e.ownerId === me.id && e.remind !== undefined && e.remind !== null)
-      for (const o of occurrencesOn(mine, today)) {
-        const start = Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3))
+      // 하루 전 알림까지 있으므로 오늘·내일 일정을 함께 확인 (분은 오늘 0시 기준)
+      const days: [string, number][] = [[today, 0], [addDays(today, 1), 1440]]
+      for (const [day, offset] of days) for (const o of occurrencesOn(mine, day)) {
+        const start = offset + Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3))
         const at = start - (o.remind ?? 0)
-        const key = `${o.baseId}:${today}:${o.start}:${o.remind}`
+        const key = `${o.baseId}:${day}:${o.start}:${o.remind}`
         // 알림 시각이 지났고, 시작 후 5분이 넘지 않았을 때만
         if (nowMin >= at && nowMin <= start + 5 && !done[key]) {
           done[key] = Date.now()
           changed = true
-          const when = o.remind === 0 || nowMin >= start ? '지금 시작해요' : `${start - nowMin}분 뒤 시작`
+          const left = start - nowMin
+          const when = o.remind === 0 || left <= 0 ? '지금 시작해요'
+            : offset > 0 ? `내일 ${o.start} 시작`
+            : left < 60 ? `${left}분 뒤 시작`
+            : `${Math.floor(left / 60)}시간${left % 60 ? ` ${left % 60}분` : ''} 뒤 시작`
           const text = `${o.start}–${o.end}${o.place ? ' · ' + o.place : ''} · ${when}`
           popup({ id: 'r_' + key, title: o.title, text, tag: '미리 알림', icon: 'clock' })
           try {

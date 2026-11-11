@@ -143,33 +143,45 @@ function occursOn(e: any, date: string) {
 }
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
 
+/** 남은 시간 문구: 지금 시작해요 / 25분 뒤 시작 / 2시간 30분 뒤 시작 / 내일 09:00 시작 */
+function whenLabel(left: number, remind: number, start: string, tomorrow: boolean) {
+  if (remind === 0 || left <= 0) return '지금 시작해요'
+  if (tomorrow) return `내일 ${start} 시작`
+  if (left < 60) return `${left}분 뒤 시작`
+  return `${Math.floor(left / 60)}시간${left % 60 ? ` ${left % 60}분` : ''} 뒤 시작`
+}
+
 async function onRemind() {
   const seoul = new Date(Date.now() + 9 * 3600 * 1000)
   const today = seoul.toISOString().slice(0, 10)
+  const tomorrow = addDaysStr(today, 1)
   const nowMin = seoul.getUTCHours() * 60 + seoul.getUTCMinutes()
+  // 하루 전 알림까지 있으므로 내일 일정도 함께 확인
   const evs: any[] = await db(
-    `events?select=id,owner_id,title,date,until,start_time,end_time,place,repeat_rule,remind_min&remind_min=not.is.null&date=lte.${today}&or=(until.is.null,until.gte.${today})`,
+    `events?select=id,owner_id,title,date,until,start_time,end_time,place,repeat_rule,remind_min&remind_min=not.is.null&date=lte.${tomorrow}&or=(until.is.null,until.gte.${today})`,
   )
-  const due = (evs || []).filter((e) => {
-    if (!occursOn(e, today)) return false
-    const start = toMin(e.start_time)
-    return nowMin >= start - e.remind_min && nowMin <= start + 5
-  })
+  type Due = { e: any; day: string; left: number; isTomorrow: boolean }
+  const due: Due[] = []
+  for (const [day, offset] of [[today, 0], [tomorrow, 1440]] as const) {
+    for (const e of evs || []) {
+      if (!occursOn(e, day)) continue
+      const start = offset + toMin(e.start_time) // 오늘 0시 기준 분
+      if (nowMin >= start - e.remind_min && nowMin <= start + 5) due.push({ e, day, left: start - nowMin, isTomorrow: offset > 0 })
+    }
+  }
   if (!due.length) return 0
   // 처음 보내는 것만 골라냄 (이미 기록된 것은 무시)
   const fresh: any[] = await db('reminder_log?on_conflict=event_id,occ_date,start_time,remind_min', {
     method: 'POST',
     headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
-    body: JSON.stringify(due.map((e) => ({ event_id: e.id, occ_date: today, start_time: e.start_time, remind_min: e.remind_min }))),
+    body: JSON.stringify(due.map(({ e, day }) => ({ event_id: e.id, occ_date: day, start_time: e.start_time, remind_min: e.remind_min }))),
   })
-  const freshIds = new Set((fresh || []).map((x) => x.event_id))
+  const freshKeys = new Set((fresh || []).map((x) => `${x.event_id}:${x.occ_date}`))
   let sent = 0
-  for (const e of due) {
-    if (!freshIds.has(e.id)) continue
-    const start = toMin(e.start_time)
-    const when = e.remind_min === 0 || nowMin >= start ? '지금 시작해요' : `${start - nowMin}분 뒤 시작`
-    const body = `${e.start_time}–${e.end_time}${e.place ? ' · ' + e.place : ''} · ${when}`
-    sent += await sendTo([e.owner_id], { title: e.title, body, tag: `remind-${e.id}-${today}`, url: '/' })
+  for (const { e, day, left, isTomorrow } of due) {
+    if (!freshKeys.has(`${e.id}:${day}`)) continue
+    const body = `${e.start_time}–${e.end_time}${e.place ? ' · ' + e.place : ''} · ${whenLabel(left, e.remind_min, e.start_time, isTomorrow)}`
+    sent += await sendTo([e.owner_id], { title: e.title, body, tag: `remind-${e.id}-${day}`, url: '/' })
   }
   return sent
 }

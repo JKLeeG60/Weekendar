@@ -15,7 +15,8 @@ import { Avatar, Icon, Modal, Switch } from './ui'
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
 export const REMIND_OPTIONS: [number | undefined, string][] = [
-  [undefined, '없음'], [0, '정각'], [5, '5분 전'], [10, '10분 전'], [30, '30분 전'], [60, '1시간 전'],
+  [undefined, '없음'], [0, '정각'], [5, '5분 전'], [10, '10분 전'], [15, '15분 전'], [30, '30분 전'],
+  [60, '1시간 전'], [120, '2시간 전'], [180, '3시간 전'], [360, '6시간 전'], [720, '12시간 전'], [1440, '하루 전'],
 ]
 /** 브라우저 알림 권한을 한 번만 물어본다 */
 function askNotifyPermission() {
