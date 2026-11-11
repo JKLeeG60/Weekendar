@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { spanLabel } from '../lib/events'
+import { CATEGORY_LABEL } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { fmtHead } from '../lib/date'
@@ -80,7 +81,7 @@ function RequestCard({ r, who, onDecide }: { r: ChangeRequest; who: string; onDe
         <small>{ago(r.createdAt)}</small>
       </div>
       <dl className="req-dl">
-        <div><dt>일정</dt><dd>{p.title}</dd></div>
+        <div><dt>일정</dt><dd>{p.title} <span className="cat-tag" data-cat={p.category ?? 'meeting'}>{CATEGORY_LABEL[p.category ?? 'meeting']}</span></dd></div>
         <div><dt>시간</dt><dd>{p.endDate && p.endDate > p.date ? `${spanLabel({ date: p.date, endDate: p.endDate })} · 종일` : `${fmtHead(p.date)} ${p.start}–${p.end}`}</dd></div>
         <div><dt>장소</dt><dd>{p.place || '–'}</dd></div>
       </dl>

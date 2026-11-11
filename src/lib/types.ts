@@ -61,6 +61,8 @@ export interface RequestPayload {
   date: string
   /** 여러 날 요청이면 마지막 날, 하루 요청이면 null (팀장 동의 시 그대로 반영) */
   endDate?: string | null
+  /** 카테고리 (없으면 회의) */
+  category?: Category
   start: string
   end: string
   place: string

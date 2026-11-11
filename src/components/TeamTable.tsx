@@ -144,7 +144,7 @@ export function TeamTable() {
                               <div
                                 key={r.id}
                                 className={'chip ghost' + (roomy ? ' roomy' : '')}
-                                data-cat="meeting"
+                                data-cat={r.payload.category ?? 'meeting'}
                                 title={`팀장 동의 대기 중 · ${r.payload.start}–${r.payload.end} ${r.payload.title}`}
                                 onClick={(ev) => ev.stopPropagation()}
                               >

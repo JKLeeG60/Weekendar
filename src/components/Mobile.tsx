@@ -176,7 +176,7 @@ function MobileTeam() {
                     <ul>
                       {entries.map((en) =>
                         en.req ? (
-                          <li key={en.req.id} className="m-item ghost" data-cat="meeting">
+                          <li key={en.req.id} className="m-item ghost" data-cat={en.req.payload.category ?? 'meeting'}>
                             {en.req.payload.endDate && en.req.payload.endDate > en.req.payload.date
                               ? <span className="m-time allday-time">종일</span>
                               : <span className="m-time">{en.req.payload.start}<small>{en.req.payload.end}</small></span>}

@@ -216,6 +216,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
   const [start, setStart] = useState(occ?.start ?? '10:00')
   const [end, setEnd] = useState(occ?.end ?? '11:00')
   const [place, setPlace] = useState(occ?.place ?? '')
+  const [category, setCategory] = useState<Category>(occ?.category ?? 'meeting')
   // 여러 날 요청 (예: 팀장 교육 일정 월~수)
   const [multi, setMulti] = useState(base ? isMultiDay(base) : false)
   const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2))
@@ -229,8 +230,8 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
       type: mode,
       eventId: base?.id,
       payload: multi
-        ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim() }
-        : { title: title.trim(), date: d, endDate: null, start, end, place: place.trim() },
+        ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category }
+        : { title: title.trim(), date: d, endDate: null, start, end, place: place.trim(), category },
     })
     closeModal()
     showToast('팀장에게 요청을 보냈어요. 동의하면 일정에 반영됩니다.')
@@ -293,6 +294,18 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
             </div>
             {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
               : end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
+            <div className="group">
+              <div className="gr col">
+                <span>카테고리</span>
+                <div className="seg">
+                  {CATS.map((c) => (
+                    <button key={c} type="button" data-cat={c} className={'seg-item' + (category === c ? ' on' : '')} onClick={() => setCategory(c)}>
+                      {CATEGORY_LABEL[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             {!multi && (isWeekend(d) || holidayName(d)) && <p className="hint">선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.</p>}
           </>
         )}
