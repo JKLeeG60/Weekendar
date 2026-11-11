@@ -146,7 +146,7 @@ function MobileTeam() {
               const u = userOf(m.userId)
               const mine = m.userId === me?.id
               const evs = eventsOf(m.userId, day)
-              const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && r.payload.date === day)
+              const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && (r.payload.endDate && r.payload.endDate > r.payload.date ? r.payload.date <= day && day <= r.payload.endDate : r.payload.date === day))
               type Entry = { start: string; ev?: Occurrence; req?: ChangeRequest }
               const entries: Entry[] = [
                 ...evs.map((ev) => ({ start: ev.start, ev })),
@@ -177,7 +177,9 @@ function MobileTeam() {
                       {entries.map((en) =>
                         en.req ? (
                           <li key={en.req.id} className="m-item ghost" data-cat="meeting">
-                            <span className="m-time">{en.req.payload.start}<small>{en.req.payload.end}</small></span>
+                            {en.req.payload.endDate && en.req.payload.endDate > en.req.payload.date
+                              ? <span className="m-time allday-time">종일</span>
+                              : <span className="m-time">{en.req.payload.start}<small>{en.req.payload.end}</small></span>}
                             <span className="m-main">
                               <b>{en.req.payload.title}</b>
                               {en.req.payload.place && <small>{en.req.payload.place}</small>}

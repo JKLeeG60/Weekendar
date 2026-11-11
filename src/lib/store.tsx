@@ -412,10 +412,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (accept) {
             if (r.type === 'add') {
               events = [...events, {
-                id: uid(), ownerId: r.leaderId, category: 'meeting', shared: true, repeat: 'none', ...r.payload,
+                id: uid(), ownerId: r.leaderId, category: 'meeting', shared: true, repeat: 'none', ...r.payload, endDate: r.payload.endDate ?? undefined,
               }]
             } else if (r.type === 'edit' && r.eventId) {
-              events = events.map((e) => (e.id === r.eventId ? { ...e, ...r.payload, date: e.repeat === 'none' ? r.payload.date : e.date } : e))
+              events = events.map((e) => (e.id === r.eventId
+                ? { ...e, ...r.payload, date: e.repeat === 'none' ? r.payload.date : e.date, endDate: e.repeat === 'none' ? r.payload.endDate ?? undefined : e.endDate }
+                : e))
             } else if (r.type === 'delete' && r.eventId) {
               events = events.filter((e) => e.id !== r.eventId)
             }
@@ -427,15 +429,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             requests: p.requests.map((x) =>
               x.id === id ? { ...x, status: accept ? 'accepted' : 'rejected', reason } : x,
             ),
-            notices: [
-              ...notify(p, r.requesterId, {
+            // notify 는 기존 알림 목록까지 포함해 돌려주므로, 읽음 처리한 목록을 넘겨 한 번만 합친다 (중복 방지)
+            notices: notify(
+              { ...p, notices: p.notices.map((n) => (n.refId === id && n.userId === r.leaderId ? { ...n, read: true } : n)) },
+              r.requesterId,
+              {
                 kind: 'result', refId: id,
                 text: accept
                   ? `팀장이 일정 ${verb} 요청에 동의했습니다. (${r.payload.title})`
                   : `팀장이 일정 ${verb} 요청을 거절했습니다. (${r.payload.title})${reason ? ' 사유: ' + reason : ''}`,
-              }),
-              ...p.notices.map((n) => (n.refId === id && n.userId === r.leaderId ? { ...n, read: true } : n)),
-            ].slice(0, 200),
+              },
+            ).slice(0, 200),
           }
         }),
 

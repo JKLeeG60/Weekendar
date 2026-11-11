@@ -215,16 +215,21 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
   const [start, setStart] = useState(occ?.start ?? '10:00')
   const [end, setEnd] = useState(occ?.end ?? '11:00')
   const [place, setPlace] = useState(occ?.place ?? '')
+  // 여러 날 요청 (예: 팀장 교육 일정 월~수)
+  const [multi, setMulti] = useState(base ? isMultiDay(base) : false)
+  const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2))
   const leader = db.members.find((m) => m.role === 'leader')
   const del = mode === 'delete'
-  const bad = !del && (!title.trim() || end <= start)
+  const bad = !del && (!title.trim() || (multi ? endDate <= d : end <= start))
   const heading = mode === 'add' ? '팀장 일정 요청' : mode === 'edit' ? '팀장 일정 변경 요청' : '팀장 일정 삭제 요청'
 
   function submit() {
     createRequest({
       type: mode,
       eventId: base?.id,
-      payload: { title: title.trim(), date: d, start, end, place: place.trim() },
+      payload: multi
+        ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim() }
+        : { title: title.trim(), date: d, endDate: null, start, end, place: place.trim() },
     })
     closeModal()
     showToast('팀장에게 요청을 보냈어요. 동의하면 일정에 반영됩니다.')
@@ -251,21 +256,43 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
             <div className="detail-bar" />
             <div>
               <h3>{occ?.title}</h3>
-              <p className="detail-line"><Icon name="clock" size={15} /> {fmtLong(d)} · {occ?.start}–{occ?.end}</p>
+              <p className="detail-line"><Icon name="clock" size={15} /> {occ && isMultiDay(occ) ? `${spanLabel(occ)} · 종일` : `${fmtLong(d)} · ${occ?.start}–${occ?.end}`}</p>
               {occ?.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
             </div>
           </div>
         ) : (
           <>
             <input className="title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="일정 (예: 신규 캠페인 킥오프)" />
+            {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
             <div className="group">
-              <label className="gr"><span>날짜</span><input type="date" value={d} onChange={(e) => setD(e.target.value)} /></label>
-              <label className="gr"><span>시작</span><input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-              <label className="gr"><span>종료</span><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+              <div className="gr">
+                <div className="gr-text">
+                  <span>여러 날</span>
+                  <small>{multi ? '하루 종일 일정으로, 기간 전체에 표시돼요' : '교육·출장처럼 며칠 이어지는 일정'}</small>
+                </div>
+                <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label="여러 날" />
+              </div>
+              <div className="gr">
+                <span>시작</span>
+                <span className="pills">
+                  {multi
+                    ? <PickerField kind="date" value={d} onChange={setD} label="시작 날짜" />
+                    : <PickerField kind="time" value={start} onChange={setStart} label="시작 시간" />}
+                </span>
+              </div>
+              <div className="gr">
+                <span>종료</span>
+                <span className="pills">
+                  {multi
+                    ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" bad={endDate <= d} />
+                    : <PickerField kind="time" value={end} onChange={setEnd} label="종료 시간" bad={end <= start} />}
+                </span>
+              </div>
               <label className="gr"><span>장소</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="장소 추가" /></label>
             </div>
-            {end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
-            {(isWeekend(d) || holidayName(d)) && <p className="hint">선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.</p>}
+            {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
+              : end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
+            {!multi && (isWeekend(d) || holidayName(d)) && <p className="hint">선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.</p>}
           </>
         )}
         <p className="hint">저장하면 팀장에게 알림이 전달되고, 팀장이 ‘동의’하면 팀장 일정에 반영되어 모든 팀원에게 보입니다.</p>

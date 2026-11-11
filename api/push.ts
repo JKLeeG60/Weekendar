@@ -73,9 +73,67 @@ async function onMessage(id: string) {
 // 미리 알림: 앱 화면(Reminders.tsx)과 같은 규칙으로 오늘 발생하는 일정을 계산
 const dowOf = (d: string) => new Date(d + 'T00:00:00Z').getUTCDay()
 const dayOf = (d: string) => Number(d.slice(8, 10))
+// 공휴일: 앱(src/lib/date.ts)과 같은 규칙. 반복 일정은 공휴일에 미리 알림을 보내지 않는다.
+// ※ 공휴일 규칙을 바꾸면 src/lib/date.ts 와 이 부분을 함께 고쳐야 함
+const EXTRA_HOLIDAYS: Record<string, string> = { '2026-06-03': '지방선거' }
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const addDaysStr = (d: string, n: number) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10) }
+const isWeekendStr = (d: string) => { const w = dowOf(d); return w === 0 || w === 6 }
+const lunarFmt = new Intl.DateTimeFormat('en-u-ca-chinese-nu-latn', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' })
+function lunarToSolar(year: number, lm: number, ld: number) {
+  for (let i = 0; i < 366; i++) {
+    const d = new Date(Date.UTC(year, 0, 1 + i, 3))
+    if (d.getUTCFullYear() !== year) break
+    const parts = lunarFmt.formatToParts(d)
+    if (parts.find((x) => x.type === 'month')?.value === String(lm) && Number(parts.find((x) => x.type === 'day')?.value) === ld)
+      return `${year}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
+  }
+  return ''
+}
+const holidayCache = new Map<number, Set<string>>()
+function isHoliday(date: string) {
+  const year = Number(date.slice(0, 4))
+  let set = holidayCache.get(year)
+  if (!set) {
+    const f = (md: string) => `${year}-${md}`
+    type Rule = { name: string; dates: string[]; sub: 'sunday' | 'weekend' | 'none' }
+    const rules: Rule[] = [
+      { name: '신정', dates: [f('01-01')], sub: 'none' }, { name: '삼일절', dates: [f('03-01')], sub: 'weekend' },
+      { name: '어린이날', dates: [f('05-05')], sub: 'weekend' }, { name: '현충일', dates: [f('06-06')], sub: 'none' },
+      { name: '광복절', dates: [f('08-15')], sub: 'weekend' }, { name: '개천절', dates: [f('10-03')], sub: 'weekend' },
+      { name: '한글날', dates: [f('10-09')], sub: 'weekend' }, { name: '성탄절', dates: [f('12-25')], sub: 'weekend' },
+    ]
+    if (year >= 2026) rules.push({ name: '노동절', dates: [f('05-01')], sub: 'none' }, { name: '제헌절', dates: [f('07-17')], sub: 'weekend' })
+    const seol = lunarToSolar(year, 1, 1), chuseok = lunarToSolar(year, 8, 15), buddha = lunarToSolar(year, 4, 8)
+    if (seol) rules.push({ name: '설날', dates: [addDaysStr(seol, -1), seol, addDaysStr(seol, 1)], sub: 'sunday' })
+    if (chuseok) rules.push({ name: '추석', dates: [addDaysStr(chuseok, -1), chuseok, addDaysStr(chuseok, 1)], sub: 'sunday' })
+    if (buddha) rules.push({ name: '부처님오신날', dates: [buddha], sub: 'weekend' })
+    const map: Record<string, string> = {}
+    for (const r of rules) r.dates.forEach((d, i) => { map[d] = r.dates.length > 1 && i !== 1 ? `${r.name} 연휴` : r.name })
+    for (const [d, n] of Object.entries(EXTRA_HOLIDAYS)) if (d.startsWith(String(year))) map[d] = n
+    const origin = { ...map }
+    for (const r of [...rules].sort((a, b) => a.dates[0].localeCompare(b.dates[0]))) {
+      if (r.sub === 'none') continue
+      const hit = r.dates.some((d) => {
+        const w = dowOf(d)
+        if (w === 0 || (r.sub === 'weekend' && w === 6)) return true
+        return Object.keys(origin).some((o) => o === d && origin[o] !== (r.dates.length > 1 ? (d === r.dates[1] ? r.name : `${r.name} 연휴`) : r.name))
+      })
+      if (!hit) continue
+      let d = addDaysStr(r.dates[r.dates.length - 1], 1)
+      while (isWeekendStr(d) || map[d]) d = addDaysStr(d, 1)
+      map[d] = '대체공휴일'
+    }
+    set = new Set(Object.keys(map))
+    holidayCache.set(year, set)
+  }
+  return set.has(date)
+}
+
 function occursOn(e: any, date: string) {
   if (date < e.date) return false
   if (e.until && date > e.until) return false
+  if (e.repeat_rule !== 'none' && date !== e.date && isHoliday(date)) return false
   switch (e.repeat_rule) {
     case 'daily': return true
     case 'weekly': return dowOf(date) === dowOf(e.date)

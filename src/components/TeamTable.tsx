@@ -100,7 +100,7 @@ export function TeamTable() {
                 </th>
                 {days.map((d, di) => {
                   const evs = dayEventsOf(m.userId, d)
-                  const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && r.payload.date === d)
+                  const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && (r.payload.endDate && r.payload.endDate > r.payload.date ? r.payload.date <= d && d <= r.payload.endDate : r.payload.date === d))
                   type Entry = { start: string; ev?: Occurrence; req?: ChangeRequest }
                   const entries: Entry[] = [
                     ...evs.map((ev) => ({ start: ev.start, ev })),
@@ -148,7 +148,7 @@ export function TeamTable() {
                                 title={`팀장 동의 대기 중 · ${r.payload.start}–${r.payload.end} ${r.payload.title}`}
                                 onClick={(ev) => ev.stopPropagation()}
                               >
-                                <span className="chip-time">{r.payload.start}</span>
+                                <span className="chip-time">{r.payload.endDate && r.payload.endDate > r.payload.date ? '종일' : r.payload.start}</span>
                                 <span className="chip-title">{r.payload.title}</span>
                                 <span className="wait-tag">대기</span>
                                 {roomy && r.payload.place && <span className="chip-place">{r.payload.place}</span>}

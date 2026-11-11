@@ -1,5 +1,5 @@
 import type { EventItem, Occurrence } from './types'
-import { dow, parse } from './date'
+import { dow, holidayName, parse } from './date'
 
 /** 여러 날(종일) 일정인가 */
 export const isMultiDay = (e: Pick<EventItem, 'date' | 'endDate'>) => !!e.endDate && e.endDate > e.date
@@ -8,6 +8,8 @@ function occursOn(e: EventItem, date: string): boolean {
   if (date < e.date) return false
   if (isMultiDay(e)) return date <= e.endDate!
   if (e.until && date > e.until) return false
+  // 반복 일정은 공휴일(대체공휴일 포함)에는 쉰다. 첫날로 지정한 날짜는 그대로 표시
+  if (e.repeat !== 'none' && date !== e.date && holidayName(date)) return false
   switch (e.repeat) {
     case 'none':
       return date === e.date
