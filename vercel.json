@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/cal/:token", "destination": "/api/ics?token=:token" }]
+  "rewrites": [
+    { "source": "/cal/:token", "destination": "/api/ics?token=:token" },
+    { "source": "/join/:code", "destination": "/api/invite?code=:code" }
+  ]
 }
