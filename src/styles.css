@@ -801,8 +801,18 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 .allday-item b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .allday-item small { margin-left: auto; flex: none; color: var(--muted); font-size: 0.75rem; }
 .m-time.allday-time { font-size: 0.85rem; font-weight: 700; color: var(--cc); }
-/* 날짜 칸: "2026. 11. 9." 표시 + 투명한 날짜 선택기 겹치기 */
-.date-field { position: relative; display: inline-flex; align-items: center; justify-content: flex-end; min-width: 7.5rem; cursor: pointer; }
-.date-text { font-variant-numeric: tabular-nums; color: var(--text); pointer-events: none; }
-.date-field input[type='date'] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; }
-.date-field:focus-within .date-text { color: var(--accent); }
+/* 날짜·시간 알약 버튼 (아이폰 캘린더 스타일) */
+.pills { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.4rem; flex-wrap: wrap; }
+.pick { position: relative; display: inline-flex; align-items: center; height: 2.1rem; padding: 0 0.7rem; border-radius: 0.55rem; background: var(--line-soft); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.pick:hover { background: var(--line); }
+.pick-text { font-variant-numeric: tabular-nums; font-size: 0.95rem; color: var(--text); white-space: nowrap; pointer-events: none; }
+.gr .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; flex: none; }
+.pick:focus-within { background: var(--accent-soft); }
+.pick:focus-within .pick-text { color: var(--accent); }
+.pick.bad .pick-text { color: var(--red); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* 하루 일정의 날짜: 제목 아래 작은 파란 글씨 (누르면 달력) */
+.pick.line { align-self: flex-start; height: auto; gap: 0.35rem; padding: 0.3rem 0.55rem; margin: -0.35rem 0 0 -0.55rem; background: transparent; color: var(--accent); }
+.pick.line .pick-text { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+.pick.line:hover, .pick.line:focus-within { background: var(--accent-soft); }
+.pick.line svg { flex: none; }
+.pick.line input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; }

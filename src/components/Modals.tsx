@@ -93,6 +93,8 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
     >
       <div className="form">
         <input className="title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 주간회의)" />
+        {/* 하루 일정의 날짜: 평소엔 누른 칸의 날짜 그대로, 바꾸고 싶을 때만 눌러서 변경 */}
+        {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
         <div className="group">
           <div className="gr">
             <div className="gr-text">
@@ -101,18 +103,23 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
             </div>
             <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label="여러 날" />
           </div>
-          {multi ? (
-            <>
-              <label className="gr"><span>시작 날짜</span><DateField value={d} onChange={setD} label="시작 날짜" /></label>
-              <label className="gr"><span>종료 날짜</span><DateField value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" /></label>
-            </>
-          ) : (
-            <>
-              <label className="gr"><span>날짜</span><DateField value={d} onChange={setD} label="날짜" /></label>
-              <label className="gr"><span>시작</span><input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-              <label className="gr"><span>종료</span><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
-            </>
-          )}
+          {/* 아이폰 캘린더처럼: 줄마다 오른쪽 끝에 맞춘 회색 알약 버튼 */}
+          <div className="gr">
+            <span>시작</span>
+            <span className="pills">
+              {multi
+                ? <PickerField kind="date" value={d} onChange={setD} label="시작 날짜" />
+                : <PickerField kind="time" value={start} onChange={setStart} label="시작 시간" />}
+            </span>
+          </div>
+          <div className="gr">
+            <span>종료</span>
+            <span className="pills">
+              {multi
+                ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" bad={endDate <= d} />
+                : <PickerField kind="time" value={end} onChange={setEnd} label="종료 시간" bad={end <= start} />}
+            </span>
+          </div>
           <label className="gr"><span>장소</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="장소 추가" /></label>
         </div>
         {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
@@ -569,16 +576,27 @@ function PushModal() {
 }
 
 
-/** 날짜 칸: 브라우저 언어와 상관없이 "2026. 11. 9." 형태로 보여주고, 누르면 달력이 열림 */
-function DateField({ value, onChange, min, label }: { value: string; onChange: (v: string) => void; min?: string; label: string }) {
+/** 날짜·시간 칸: 브라우저 언어와 상관없이 "2026. 11. 9." / "오전 9:00" 형태의 알약 버튼으로 보여주고, 누르면 선택 창이 열림 */
+function PickerField({ kind, value, onChange, min, label, bad, variant }: { kind: 'date' | 'time'; value: string; onChange: (v: string) => void; min?: string; label: string; bad?: boolean; variant?: 'line' }) {
   const ref = useRef<HTMLInputElement>(null)
-  const text = value ? `${Number(value.slice(0, 4))}. ${Number(value.slice(5, 7))}. ${Number(value.slice(8, 10))}.` : '날짜 선택'
+  let text = kind === 'date' ? '날짜 선택' : '시간 선택'
+  if (value && kind === 'date') {
+    text = variant === 'line'
+      ? `${Number(value.slice(5, 7))}월 ${Number(value.slice(8, 10))}일 (${'일월화수목금토'[new Date(value + 'T00:00:00').getDay()]})`
+      : `${Number(value.slice(0, 4))}. ${Number(value.slice(5, 7))}. ${Number(value.slice(8, 10))}.`
+  }
+  if (value && kind === 'time') {
+    const h = Number(value.slice(0, 2)), m = value.slice(3, 5)
+    text = `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${m}`
+  }
   return (
-    <span className="date-field">
-      <span className="date-text" aria-hidden>{text}</span>
+    <span className={'pick' + (bad ? ' bad' : '') + (variant === 'line' ? ' line' : '')}>
+      {variant === 'line' && <Icon name="cal" size={14} />}
+      <span className="pick-text" aria-hidden>{text}</span>
+      {variant === 'line' && <Icon name="chevD" size={12} />}
       <input
         ref={ref}
-        type="date"
+        type={kind}
         value={value}
         min={min}
         aria-label={label}
