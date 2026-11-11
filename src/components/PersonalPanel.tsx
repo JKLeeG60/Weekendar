@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { popup } from '../lib/bus'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { occurrencesOn } from '../lib/events'
+import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
 import type { Occurrence } from '../lib/types'
 import { MiniCalendar } from './MiniCalendar'
@@ -12,7 +12,9 @@ export function DayAgenda() {
   const { db, me, updateEvent, addEvent } = useStore()
   const { selected, setSelected, openModal, showToast } = useUI()
   const [cal, setCal] = useState(false)
-  const mine = occurrencesOn(db.events.filter((e) => e.ownerId === me?.id), selected)
+  const all = occurrencesOn(db.events.filter((e) => e.ownerId === me?.id), selected)
+  const allDay = all.filter((o) => isMultiDay(o))
+  const mine = all.filter((o) => !isMultiDay(o))
   const isToday = selected === todayStr()
 
   return (
@@ -39,6 +41,18 @@ export function DayAgenda() {
             <Icon name="plus" />
           </button>
         </div>
+        {allDay.length > 0 && (
+          <div className="allday">
+            <span className="allday-label">종일</span>
+            <div className="allday-list">
+              {allDay.map((o) => (
+                <button key={o.id} className="allday-item" data-cat={o.category} onClick={() => openModal({ type: 'detail', occ: o })}>
+                  <b>{o.title}</b><small>{spanLabel(o)}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <Timeline
           occs={mine}
           date={selected}

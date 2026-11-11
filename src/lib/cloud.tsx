@@ -11,7 +11,7 @@ const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [],
 const evFrom = (r: any): EventItem => ({
   id: r.id, ownerId: r.owner_id, title: r.title, date: r.date,
   start: r.start_time, end: r.end_time, place: r.place ?? '', category: r.category,
-  shared: r.shared, repeat: r.repeat_rule, until: r.until ?? undefined,
+  shared: r.shared, repeat: r.repeat_rule, until: r.until ?? undefined, endDate: r.end_date ?? undefined,
   remind: r.remind_min ?? undefined,
 })
 const evTo = (e: Partial<EventItem>) => {
@@ -25,6 +25,7 @@ const evTo = (e: Partial<EventItem>) => {
   if (e.shared !== undefined) o.shared = e.shared
   if (e.repeat !== undefined) o.repeat_rule = e.repeat
   if ('until' in e) o.until = e.until || null
+  if ('endDate' in e) o.end_date = e.endDate || null
   if ('remind' in e) o.remind_min = e.remind ?? null
   return o
 }

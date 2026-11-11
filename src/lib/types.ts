@@ -46,6 +46,8 @@ export interface EventItem {
   shared: boolean
   repeat: Repeat
   until?: string
+  /** 여러 날 일정의 마지막 날 (있으면 date~endDate 종일 일정) */
+  endDate?: string
   /** 미리 알림: 시작 몇 분 전 (없으면 알림 없음) */
   remind?: number
 }

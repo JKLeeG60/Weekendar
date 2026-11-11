@@ -1,8 +1,12 @@
 import type { EventItem, Occurrence } from './types'
 import { dow, parse } from './date'
 
+/** 여러 날(종일) 일정인가 */
+export const isMultiDay = (e: Pick<EventItem, 'date' | 'endDate'>) => !!e.endDate && e.endDate > e.date
+
 function occursOn(e: EventItem, date: string): boolean {
   if (date < e.date) return false
+  if (isMultiDay(e)) return date <= e.endDate!
   if (e.until && date > e.until) return false
   switch (e.repeat) {
     case 'none':
@@ -20,6 +24,13 @@ function occursOn(e: EventItem, date: string): boolean {
 export function occurrencesOn(events: EventItem[], date: string): Occurrence[] {
   return events
     .filter((e) => occursOn(e, date))
-    .map((e) => ({ ...e, date, baseId: e.id }))
+    // 여러 날 일정은 기간 정보를 지키도록 시작 날짜를 그대로 둔다
+    .map((e) => ({ ...e, date: isMultiDay(e) ? e.date : date, baseId: e.id }))
     .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title))
+}
+
+/** 여러 날 일정 기간 표시: 11/9(월)–11/11(수) */
+export function spanLabel(e: Pick<EventItem, 'date' | 'endDate'>) {
+  const f = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}(${'일월화수목금토'[dow(d)]})`
+  return isMultiDay(e) ? `${f(e.date)}–${f(e.endDate!)}` : f(e.date)
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { occurrencesOn } from '../lib/events'
+import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, dowLabel, holidayName, isoWeek, mondayOf, parse, todayStr, weekDays } from '../lib/date'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Header } from './Header'
@@ -187,10 +187,14 @@ function MobileTeam() {
                         ) : (
                           <li key={en.ev!.id + en.ev!.date}>
                             <button className="m-item" data-cat={en.ev!.category} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
-                              <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>
+                              {isMultiDay(en.ev!)
+                                ? <span className="m-time allday-time">종일</span>
+                                : <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>}
                               <span className="m-main">
                                 <b>{en.ev!.title}</b>
-                                {en.ev!.place && <small>{en.ev!.place}</small>}
+                                {isMultiDay(en.ev!)
+                                  ? <small>{spanLabel(en.ev!)}{en.ev!.place ? ` · ${en.ev!.place}` : ''}</small>
+                                  : en.ev!.place && <small>{en.ev!.place}</small>}
                               </span>
                               <span className="cat-tag" data-cat={en.ev!.category}>{CATEGORY_LABEL[en.ev!.category]}</span>
                             </button>

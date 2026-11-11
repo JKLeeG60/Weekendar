@@ -3,6 +3,7 @@ import type { EventItem } from './types'
 const esc = (t: string) => t.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
 const d8 = (date: string) => date.replace(/-/g, '')
 const t6 = (hm: string) => hm.replace(':', '') + '00'
+const nextDay = (d: string) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10) }
 const stamp = () => new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
 
 /** 내 일정을 캘린더 앱용 .ics 형식으로 (서버의 구독 주소와 같은 형식) */
@@ -15,12 +16,14 @@ export function buildICS(events: EventItem[], calName: string): string {
   ]
   const now = stamp()
   for (const e of events) {
+    const multi = !!e.endDate && e.endDate > e.date
     L.push('BEGIN:VEVENT', `UID:${e.id}@weekendar`, `DTSTAMP:${now}`,
-      `DTSTART;TZID=Asia/Seoul:${d8(e.date)}T${t6(e.start)}`,
-      `DTEND;TZID=Asia/Seoul:${d8(e.date)}T${t6(e.end)}`,
+      ...(multi
+        ? [`DTSTART;VALUE=DATE:${d8(e.date)}`, `DTEND;VALUE=DATE:${d8(nextDay(e.endDate!))}`] // 종일: 끝 날짜는 다음 날(미포함)
+        : [`DTSTART;TZID=Asia/Seoul:${d8(e.date)}T${t6(e.start)}`, `DTEND;TZID=Asia/Seoul:${d8(e.date)}T${t6(e.end)}`]),
       'SUMMARY:' + esc(e.title))
     if (e.place) L.push('LOCATION:' + esc(e.place))
-    if (e.repeat !== 'none') {
+    if (e.repeat !== 'none' && !multi) {
       const f = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY' }[e.repeat]
       // UNTIL 은 UTC 로: 그날 한국 시간 23:59:59 = 14:59:59Z
       L.push(`RRULE:FREQ=${f}` + (e.until ? `;UNTIL=${d8(e.until)}T145959Z` : ''))

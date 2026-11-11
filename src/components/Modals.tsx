@@ -4,8 +4,8 @@ import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { occurrencesOn } from '../lib/events'
-import { fmtLong, holidayName, isWeekend } from '../lib/date'
+import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
+import { addDays, fmtLong, holidayName, isWeekend } from '../lib/date'
 import {
   CATEGORY_LABEL,
   type Category, type EventItem, type Occurrence, type Repeat, type Role,
@@ -57,15 +57,20 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
   const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
   const [shared, setShared] = useState(base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
   const [remind, setRemind] = useState<number | undefined>(base?.remind)
-  const bad = !title.trim() || end <= start
+  // 여러 날(종일) 일정: 예) 월~수 출장
+  const [multi, setMulti] = useState(base ? isMultiDay(base) : false)
+  const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2))
+  const bad = !title.trim() || (multi ? endDate <= d : end <= start)
 
   function pickCategory(c: Category) {
     setCategory(c)
   }
 
   function save() {
-    const data = { title: title.trim(), date: d, start, end, place: place.trim(), category, repeat, shared, remind }
-    if (remind !== undefined) askNotifyPermission()
+    const data = multi
+      ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category, repeat: 'none' as Repeat, shared, remind: undefined }
+      : { title: title.trim(), date: d, endDate: undefined, start, end, place: place.trim(), category, repeat, shared, remind }
+    if (data.remind !== undefined) askNotifyPermission()
     if (base) updateEvent(base.id, data)
     else addEvent(data)
     closeModal()
@@ -89,12 +94,29 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
       <div className="form">
         <input className="title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 주간회의)" />
         <div className="group">
-          <label className="gr"><span>날짜</span><input type="date" value={d} onChange={(e) => setD(e.target.value)} /></label>
-          <label className="gr"><span>시작</span><input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-          <label className="gr"><span>종료</span><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+          <div className="gr">
+            <div className="gr-text">
+              <span>여러 날</span>
+              <small>{multi ? '하루 종일 일정으로, 기간 전체에 표시돼요' : '휴가·출장처럼 며칠 이어지는 일정'}</small>
+            </div>
+            <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label="여러 날" />
+          </div>
+          {multi ? (
+            <>
+              <label className="gr"><span>시작 날짜</span><DateField value={d} onChange={setD} label="시작 날짜" /></label>
+              <label className="gr"><span>종료 날짜</span><DateField value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" /></label>
+            </>
+          ) : (
+            <>
+              <label className="gr"><span>날짜</span><DateField value={d} onChange={setD} label="날짜" /></label>
+              <label className="gr"><span>시작</span><input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+              <label className="gr"><span>종료</span><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+            </>
+          )}
           <label className="gr"><span>장소</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="장소 추가" /></label>
         </div>
-        {end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
+        {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
+          : end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
         <div className="group">
           <div className="gr col">
             <span>카테고리</span>
@@ -106,18 +128,18 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
               ))}
             </div>
           </div>
-          <label className="gr">
+          {!multi && <label className="gr">
             <span>반복</span>
             <select value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
               {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <option key={r} value={r}>{REPEAT_LABEL[r]}</option>)}
             </select>
-          </label>
-          <label className="gr">
+          </label>}
+          {!multi && <label className="gr">
             <span>알림</span>
             <select value={remind === undefined ? '' : String(remind)} onChange={(e) => setRemind(e.target.value === '' ? undefined : Number(e.target.value))} aria-label="미리 알림">
               {REMIND_OPTIONS.map(([v, l]) => <option key={l} value={v === undefined ? '' : String(v)}>{l}</option>)}
             </select>
-          </label>
+          </label>}
           <div className="gr">
             <div className="gr-text">
               <span>팀에 공유</span>
@@ -165,7 +187,7 @@ function EventDetail({ occ }: { occ: Occurrence }) {
         <div className="detail-bar" />
         <div>
           <h3>{occ.title}</h3>
-          <p className="detail-line"><Icon name="clock" size={15} /> {fmtLong(occ.date)} · {occ.start}–{occ.end}{occ.repeat !== 'none' ? ` · ${REPEAT_LABEL[occ.repeat]} 반복` : ''}</p>
+          <p className="detail-line"><Icon name="clock" size={15} /> {isMultiDay(occ) ? `${spanLabel(occ)} · 종일` : `${fmtLong(occ.date)} · ${occ.start}–${occ.end}${occ.repeat !== 'none' ? ` · ${REPEAT_LABEL[occ.repeat]} 반복` : ''}`}</p>
           {occ.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
           <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ' (팀장)' : ''} · {occ.shared ? '팀에 공유' : '나만 보기'}</p>
           <span className="cat-tag" data-cat={occ.category}>{CATEGORY_LABEL[occ.category]}</span>
@@ -256,11 +278,11 @@ function DayModal({ userId, date }: { userId: string; date: string }) {
         {list.map((o) => (
           <li key={o.id}>
             <button className="agenda-item" data-cat={o.category} onClick={() => openModal({ type: 'detail', occ: o })}>
-              <span className="agenda-time">{o.start}</span>
+              <span className="agenda-time">{isMultiDay(o) ? '종일' : o.start}</span>
               <span className="agenda-bar" />
               <span className="agenda-body">
                 <span className="agenda-title">{o.title}</span>
-                <span className="agenda-sub">{o.start}–{o.end}{o.place ? ` · ${o.place}` : ''}</span>
+                <span className="agenda-sub">{isMultiDay(o) ? spanLabel(o) : `${o.start}–${o.end}`}{o.place ? ` · ${o.place}` : ''}</span>
               </span>
             </button>
           </li>
@@ -543,5 +565,26 @@ function PushModal() {
         {err && <p className="push-err">{err}</p>}
       </div>
     </Modal>
+  )
+}
+
+
+/** 날짜 칸: 브라우저 언어와 상관없이 "2026. 11. 9." 형태로 보여주고, 누르면 달력이 열림 */
+function DateField({ value, onChange, min, label }: { value: string; onChange: (v: string) => void; min?: string; label: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const text = value ? `${Number(value.slice(0, 4))}. ${Number(value.slice(5, 7))}. ${Number(value.slice(8, 10))}.` : '날짜 선택'
+  return (
+    <span className="date-field">
+      <span className="date-text" aria-hidden>{text}</span>
+      <input
+        ref={ref}
+        type="date"
+        value={value}
+        min={min}
+        aria-label={label}
+        onChange={(e) => { if (e.target.value) onChange(e.target.value) }}
+        onClick={() => { try { ref.current?.showPicker() } catch { /* 지원 안 하는 브라우저는 기본 동작 */ } }}
+      />
+    </span>
   )
 }

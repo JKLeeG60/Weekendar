@@ -1,12 +1,35 @@
 import { Fragment } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { occurrencesOn } from '../lib/events'
+import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { fmtHead, holidayName, todayStr, weekDays } from '../lib/date'
-import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
+import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 
 const MAX_CHIPS = 5
+
+/** 여러 날 일정 막대: 이번 주 표에서 어느 칸부터 몇 칸을 차지하는지, 몇 번째 줄(lane)인지 */
+type Span = { e: EventItem; from: number; to: number; lane: number; cutL: boolean; cutR: boolean }
+function spansOf(events: EventItem[], days: string[]): { spans: Span[]; lanes: number } {
+  const first = days[0], last = days[days.length - 1]
+  const raw = events
+    .filter((e) => isMultiDay(e) && e.date <= last && e.endDate! >= first)
+    .map((e) => {
+      const from = days.findIndex((d) => d >= e.date)
+      let to = -1
+      days.forEach((d, i) => { if (d <= e.endDate!) to = i })
+      return { e, from, to, cutL: e.date < days[from], cutR: e.endDate! > days[to] }
+    })
+    .filter((s) => s.from >= 0 && s.to >= s.from)
+    .sort((a, b) => a.from - b.from || b.to - a.to)
+  const laneEnd: number[] = [] // 줄마다 마지막으로 차지한 칸
+  const spans = raw.map((s) => {
+    let lane = laneEnd.findIndex((end) => end < s.from)
+    if (lane < 0) { lane = laneEnd.length; laneEnd.push(s.to) } else laneEnd[lane] = s.to
+    return { ...s, lane }
+  })
+  return { spans, lanes: laneEnd.length }
+}
 
 export function TeamTable() {
   const { db, me, myMember, tableMembers, userOf } = useStore()
@@ -24,6 +47,8 @@ export function TeamTable() {
 
   const eventsOf = (userId: string, day: string): Occurrence[] =>
     occurrencesOn(shared.filter((e) => e.ownerId === userId), day)
+  // 칸 안에 넣을 일정 (여러 날 일정은 막대로 따로 그림)
+  const dayEventsOf = (userId: string, day: string): Occurrence[] => eventsOf(userId, day).filter((o) => !isMultiDay(o))
 
   function onCell(m: Member, day: string) {
     if (m.userId === me?.id) openModal({ type: 'event', date: day })
@@ -58,8 +83,9 @@ export function TeamTable() {
           {tableMembers.map((m) => {
             const u = userOf(m.userId)
             const mine = m.userId === me?.id
+            const { spans, lanes } = spansOf(shared.filter((e) => e.ownerId === m.userId), days)
             return (
-              <tr key={m.userId} className={mine ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%` }}>
+              <tr key={m.userId} className={mine ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%`, ['--lanes' as string]: lanes }}>
                 <th className="who" scope="row">
                   <div className="who-wrap">
                     <Avatar name={u.name} size={32} />
@@ -72,8 +98,8 @@ export function TeamTable() {
                     </div>
                   </div>
                 </th>
-                {days.map((d) => {
-                  const evs = eventsOf(m.userId, d)
+                {days.map((d, di) => {
+                  const evs = dayEventsOf(m.userId, d)
                   const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && r.payload.date === d)
                   type Entry = { start: string; ev?: Occurrence; req?: ChangeRequest }
                   const entries: Entry[] = [
@@ -92,6 +118,24 @@ export function TeamTable() {
                       }}
                       title={clickable(m) ? (mine ? '클릭해서 내 일정 추가' : '클릭해서 팀장에게 일정 요청') : undefined}
                     >
+                      {spans.filter((s) => s.from === di).map((s) => {
+                        const n = s.to - s.from + 1
+                        const o: Occurrence = { ...s.e, baseId: s.e.id }
+                        return (
+                          <button
+                            key={s.e.id}
+                            className={'span-bar' + (s.cutL ? ' cut-l' : '') + (s.cutR ? ' cut-r' : '')}
+                            data-cat={s.e.category}
+                            style={{ top: `calc(0.35rem + ${s.lane} * var(--bar-step))`, width: `calc(${n} * 100% + ${n - 1}px - ${0.7 - (s.cutL ? 0.35 : 0) - (s.cutR ? 0.35 : 0)}rem)` }}
+                            title={`${spanLabel(s.e)} ${s.e.title}${s.e.place ? ' · ' + s.e.place : ''}`}
+                            onClick={(ev) => { ev.stopPropagation(); openModal({ type: 'detail', occ: o }) }}
+                          >
+                            <span className="span-tag">{CATEGORY_LABEL[s.e.category]}</span>
+                            <span className="span-title">{s.e.title}</span>
+                            <span className="span-range">{spanLabel(s.e)}</span>
+                          </button>
+                        )
+                      })}
                       <div className="cell-inner">
                         {shown.map((en) => {
                           if (en.req) {
