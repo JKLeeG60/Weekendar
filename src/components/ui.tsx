@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
 
 export function Modal({
   title,
@@ -16,24 +16,41 @@ export function Modal({
   /** 제목을 크게 (일정 상세처럼 제목이 곧 내용일 때) */
   big?: boolean
 }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  // 브라우저 기본 창(<dialog>)으로 연다: 뒤 화면 막기, 초점 가두기, 닫은 뒤 초점 돌려주기를 브라우저가 해 준다
+  useLayoutEffect(() => {
+    const d = ref.current
+    if (!d) return
+    // React 의 autoFocus 는 창이 열리기 전에 실행되어 무시되므로, 연 뒤에 그 입력칸에 다시 초점을 준다
+    const want = d.querySelector<HTMLElement>('[data-autofocus]')
+    if (!d.open) d.showModal()
+    want?.focus()
+    return () => d.close()
+  }, [])
   return (
-    <div className="scrim" onMouseDown={onClose}>
-      <div className="modal" style={{ width: `${width / 16}rem` }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
-        <div className="modal-head">
-          <h2 className={big ? 'big' : undefined}>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="닫기">
-            <Icon name="x" />
-          </button>
-        </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-foot">{footer}</div>}
+    <dialog
+      ref={ref}
+      className="modal"
+      style={{ width: `${width / 16}rem` }}
+      aria-labelledby={titleId}
+      // Esc 키·안드로이드 뒤로가기: 브라우저가 직접 닫지 않게 막고, 앱 상태(onClose)로 닫는다
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+      // 창 바깥(어두운 배경)을 누르면 닫기. 배경을 누르면 이벤트 대상이 <dialog> 자신이 된다
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal-head">
+        <h2 id={titleId} className={big ? 'big' : undefined}>{title}</h2>
+        <button className="icon-btn" onClick={onClose} aria-label="닫기">
+          <Icon name="x" />
+        </button>
       </div>
-    </div>
+      <div className="modal-body">{children}</div>
+      {footer && <div className="modal-foot">{footer}</div>}
+    </dialog>
   )
 }
 

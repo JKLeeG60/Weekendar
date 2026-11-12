@@ -94,7 +94,7 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
       }
     >
       <div className="form">
-        <input className="title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 주간회의)" />
+        <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 주간회의)" />
         {/* 하루 일정의 날짜: 평소엔 누른 칸의 날짜 그대로, 바꾸고 싶을 때만 눌러서 변경 */}
         {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
         <div className="group">
@@ -265,7 +265,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
           </div>
         ) : (
           <>
-            <input className="title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="일정 (예: 신규 캠페인 킥오프)" />
+            <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="일정 (예: 신규 캠페인 킥오프)" />
             {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
             <div className="group">
               <div className="gr">

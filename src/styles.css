@@ -281,11 +281,17 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .mc-day.sel { background: var(--accent); color: #fff; box-shadow: none; font-weight: 700; }
 
 /* ───────── 모달/팝오버 ───────── */
-.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(6px); display: grid; place-items: center; z-index: 60; animation: fade 0.15s; }
-.modal { max-width: 94vw; max-height: 90vh; max-height: 90dvh; background: var(--surface); border-radius: 1.3rem; box-shadow: var(--shadow); display: flex; flex-direction: column; animation: pop 0.18s; border: 1px solid var(--line-soft); }
+/* 입력·상세 창: 브라우저 기본 <dialog> (뒤 화면 어둡게 = ::backdrop) */
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade 0.15s;
+  /* 어두운 배경 위에서 쓸어도 뒤 화면이 같이 스크롤되지 않게 */
+  overflow: hidden; overscroll-behavior: contain;
+}
+.modal { padding: 0; color: var(--text); overflow: visible; max-width: 94vw; max-height: 90vh; max-height: 90dvh; background: var(--surface); border-radius: 1.3rem; box-shadow: var(--shadow); display: flex; flex-direction: column; animation: pop 0.18s; border: 1px solid var(--line-soft); }
+.modal:not([open]) { display: none; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.3rem 0.6rem; }
 .modal-head h2 { font-size: 1.15rem; font-weight: 750; letter-spacing: -0.02em; }
-.modal-body { padding: 0.4rem 1.3rem 1.1rem; overflow: auto; }
+.modal-body { padding: 0.4rem 1.3rem 1.1rem; overflow: auto; overscroll-behavior: contain; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.9rem 1.3rem 1.1rem; border-top: 1px solid var(--line-soft); }
 .modal-body > .hint { margin-top: 0.9rem; }
 .form { display: flex; flex-direction: column; gap: 0.9rem; }
@@ -444,8 +450,7 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .m-app .datebtn { font-size: 1.2rem; min-width: 9rem; }
 
 /* 팝업은 아래에서 올라오는 바텀 시트 */
-[data-mobile='true'] .scrim { place-items: end center; }
-[data-mobile='true'] .modal { width: 100% !important; max-width: none; max-height: 90%; border-radius: 1.3rem 1.3rem 0 0; animation: sheet 0.22s ease; border-bottom: 0; }
+[data-mobile='true'] .modal { margin: auto auto 0; width: 100% !important; max-width: none; max-height: 90%; border-radius: 1.3rem 1.3rem 0 0; animation: sheet 0.22s ease; border-bottom: 0; }
 [data-mobile='true'] .modal-foot { padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
 @keyframes sheet { from { transform: translateY(40px); opacity: 0; } }
 [data-mobile='true'] .notif { position: fixed; left: 0.6rem; right: 0.6rem; top: 4.2rem; width: auto; }

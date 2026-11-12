@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { mentionsMe } from '../lib/chat'
@@ -26,8 +27,25 @@ const noticeTitle = (k: string) => (k === 'request' ? '일정 요청' : k === 'j
  */
 export function NoticeToasts() {
   const { db, me, messages, userOf } = useStore()
-  const { chatOpen, setChatOpen } = useUI()
+  const { chatOpen, setChatOpen, modal } = useUI()
   const [items, setItems] = useState<Item[]>([])
+  // 입력·상세 창(<dialog>)이 열려 있으면 알림을 그 창 안에 그린다.
+  // 브라우저 기본 창은 항상 맨 앞이라, 창 밖에 있으면 어두운 배경 뒤로 가려지고 누를 수도 없기 때문.
+  const [dialogEl, setDialogEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    const d = modal ? document.querySelector<HTMLElement>('dialog.modal[open]') : null
+    if (!d) return setDialogEl(null)
+    // 창이 튀어나오는 애니메이션 중에는 창 안의 알림 위치가 창 기준으로 틀어지므로, 끝난 뒤에 옮긴다
+    let alive = true
+    // (탭이 백그라운드라 애니메이션이 멈춰 있어도 0.4초 뒤에는 옮긴다)
+    Promise.race([Promise.all(d.getAnimations().map((a) => a.finished)), new Promise((r) => setTimeout(r, 400))])
+      .catch(() => undefined)
+      .then(() => alive && setDialogEl(d))
+    return () => {
+      alive = false
+    }
+  }, [modal])
+  const host = modal ? dialogEl : null
   const seenNotice = useRef<Set<string> | null>(null)
   const seenMsg = useRef<Set<string> | null>(null)
   const owner = useRef<string | null>(null)
@@ -82,7 +100,7 @@ export function NoticeToasts() {
   }, [chatOpen])
 
   if (items.length === 0) return null
-  return (
+  const stack = (
     <div className={'ntoast-stack' + (chatOpen ? ' beside-chat' : '')} role="status" aria-live="polite">
       {items.map((n) => (
         <button
@@ -103,4 +121,5 @@ export function NoticeToasts() {
       ))}
     </div>
   )
+  return host ? createPortal(stack, host) : stack
 }
