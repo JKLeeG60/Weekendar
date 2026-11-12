@@ -282,7 +282,7 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 
 /* ───────── 모달/팝오버 ───────── */
 .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(6px); display: grid; place-items: center; z-index: 60; animation: fade 0.15s; }
-.modal { max-width: 94vw; max-height: 90vh; background: var(--surface); border-radius: 1.3rem; box-shadow: var(--shadow); display: flex; flex-direction: column; animation: pop 0.18s; border: 1px solid var(--line-soft); }
+.modal { max-width: 94vw; max-height: 90vh; max-height: 90dvh; background: var(--surface); border-radius: 1.3rem; box-shadow: var(--shadow); display: flex; flex-direction: column; animation: pop 0.18s; border: 1px solid var(--line-soft); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.3rem 0.6rem; }
 .modal-head h2 { font-size: 1.15rem; font-weight: 750; letter-spacing: -0.02em; }
 .modal-body { padding: 0.4rem 1.3rem 1.1rem; overflow: auto; }
@@ -864,3 +864,12 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
 .member-row { flex-wrap: wrap; }
 .row-confirm { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem; padding: 0.55rem 0.7rem; border-radius: 0.7rem; background: var(--accent-soft); font-size: 0.84rem; }
 .row-confirm span { flex: 1; min-width: 0; line-height: 1.45; }
+/* 기기에서 "동작 줄이기"를 켠 사람: 창·알림이 움직이지 않고 바로 최종 모습으로 나타나게 한다 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

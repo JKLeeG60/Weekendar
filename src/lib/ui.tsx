@@ -108,6 +108,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    // 휴대폰 상단바(시계 줄) 색도 화면 배경색(--bg)과 맞춘다
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', theme === 'dark' ? '#000000' : '#f5f5f7')
   }, [theme])
   useEffect(() => {
     try {
