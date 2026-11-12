@@ -848,3 +848,7 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
 .empty-guide small { font-size: 0.8rem; line-height: 1.5; }
 /* 6. 타임라인 맨 위 시각 글자가 잘리지 않도록 위 여백 */
 .timeline-scroll { padding-top: 0.85rem; }
+
+/* 모바일 로그인·팀 선택 화면: 가운데 정렬 (내용이 화면보다 길면 위에서부터 스크롤되어 잘리지 않음) */
+[data-mobile='true'] .center-screen { display: flex; flex-direction: column; padding: 1rem 1rem calc(3rem + env(safe-area-inset-bottom, 0px)); }
+[data-mobile='true'] .center-screen > .auth-card { margin: auto 0; }

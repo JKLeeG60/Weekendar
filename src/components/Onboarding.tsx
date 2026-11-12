@@ -53,7 +53,7 @@ export function Login() {
             {preview ? '데스크탑 화면으로 보기' : '폰 화면으로 미리보기'}
           </button>
         )}
-        {mode === 'cloud' && <p className="fine">Google 계정으로 로그인하면 팀을 만들거나 초대 코드로 참여할 수 있어요.</p>}
+        {mode === 'cloud' && <p className="fine">Google 계정으로 로그인하면 팀을 만들거나<br />초대 코드로 참여할 수 있어요.</p>}
         {mode === 'demo' && <div className="demo-box">
           <div className="demo-title">데모 계정으로 둘러보기</div>
           <div className="demo-list">
