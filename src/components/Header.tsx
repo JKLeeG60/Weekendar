@@ -8,7 +8,7 @@ import { ChatButton } from './Chat'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
-  const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
+  const { team, me, myMember, isAdmin, unreadCount, logout, login, db, mode } = useStore()
   const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   const mon = mondayOf(selected)
@@ -89,6 +89,11 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                 {!narrow && (
                   <button className="menu-item" onClick={() => { setPop(null); setPreview(!preview) }}>
                     {preview ? '데스크탑 화면으로 돌아가기' : '폰 화면 미리보기'}
+                  </button>
+                )}
+                {myMember && myMember.role !== 'pending' && (
+                  <button className="menu-item danger" onClick={() => { setPop(null); openModal({ type: 'leave' }) }}>
+                    팀 나가기
                   </button>
                 )}
                 <button className="menu-item" onClick={() => { setPop(null); logout() }}>

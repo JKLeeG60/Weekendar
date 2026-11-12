@@ -852,3 +852,15 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
 /* 모바일 로그인·팀 선택 화면: 가운데 정렬 (내용이 화면보다 길면 위에서부터 스크롤되어 잘리지 않음) */
 [data-mobile='true'] .center-screen { display: flex; flex-direction: column; padding: 1rem 1rem calc(3rem + env(safe-area-inset-bottom, 0px)); }
 [data-mobile='true'] .center-screen > .auth-card { margin: auto 0; }
+/* 팀 나가기 */
+.menu-item.danger { color: var(--red); }
+.leave-text { margin: 0 0 0.7rem; line-height: 1.55; font-size: 0.95rem; }
+.leave-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+.leave-list b { color: var(--text); }
+.group.heir { margin: 0 0 0.8rem; }
+/* 관리자 넘기기 */
+.key-slot { width: 1.7rem; flex: none; }
+.icon-btn.key-slot.on { color: var(--accent); background: var(--accent-soft); }
+.member-row { flex-wrap: wrap; }
+.row-confirm { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem; padding: 0.55rem 0.7rem; border-radius: 0.7rem; background: var(--accent-soft); font-size: 0.84rem; }
+.row-confirm span { flex: 1; min-width: 0; line-height: 1.45; }

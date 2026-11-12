@@ -249,6 +249,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
 
       // 구성원 삭제: 소속과 함께 그 사람의 일정·할 일·대기 요청까지 서버 함수가 한 번에 정리
       removeMember: (userId) => run(() => supabase.rpc('remove_member', { p_user: userId })) as unknown as void,
+      leaveTeam: (newAdmin) => run(() => supabase.rpc('leave_team', { p_new_admin: newAdmin ?? null })) as unknown as void,
+      transferAdmin: (userId) => run(() => supabase.rpc('transfer_admin', { p_user: userId })) as unknown as void,
 
       addEvent: (e) => run(() => supabase.from('events').insert({ ...evTo(e), owner_id: me_id })) as unknown as void,
       updateEvent: (id, patch) => run(() => supabase.from('events').update(evTo(patch)).eq('id', id)) as unknown as void,

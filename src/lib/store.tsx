@@ -186,6 +186,11 @@ export interface Store {
   updateMember: (userId: string, patch: Partial<Member>) => void
   moveMember: (userId: string, dir: -1 | 1) => void
   removeMember: (userId: string) => void
+  /** 내가 팀에서 나가기 (내 일정·할 일·대기 요청 삭제, 혼자 남은 관리자면 팀도 삭제)
+   *  관리자는 newAdmin(관리자를 넘겨받을 사람)을 지정해야 나갈 수 있음 */
+  leaveTeam: (newAdmin?: string) => void
+  /** 관리자 넘기기: 지정한 구성원이 관리자가 되고 나는 일반 구성원이 됨 */
+  transferAdmin: (userId: string) => void
   // 일정
   addEvent: (e: Omit<EventItem, 'id' | 'ownerId'>) => void
   updateEvent: (id: string, patch: Partial<EventItem>) => void
@@ -378,6 +383,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           todos: p.todos.filter((t) => t.ownerId !== userId),
           requests: p.requests.filter((r) => r.requesterId !== userId && r.leaderId !== userId),
         })),
+
+      transferAdmin: (userId) =>
+        set((p) => {
+          const me = p.currentUserId
+          const mm = p.members.find((m) => m.userId === me)
+          const target = p.members.find((m) => m.userId === userId)
+          if (!me || !mm?.isAdmin || !target || target.teamId !== mm.teamId || target.role === 'pending') return p
+          return {
+            ...p,
+            members: p.members.map((m) =>
+              m.userId === userId ? { ...m, isAdmin: true }
+              : m.userId === me ? { ...m, isAdmin: false, role: m.role === 'none' ? 'member' : m.role }
+              : m),
+            notices: notify(p, userId, { kind: 'result', text: '관리자 권한을 넘겨받았어요. 이제 팀 관리 메뉴를 쓸 수 있어요.' }),
+          }
+        }),
+
+      leaveTeam: (newAdmin) =>
+        set((prev) => {
+          let p = prev
+          const me = p.currentUserId
+          const mm0 = p.members.find((m) => m.userId === me)
+          // 관리자가 나가면서 관리자를 넘기는 경우: 먼저 넘기고 나감
+          if (mm0?.isAdmin && newAdmin) {
+            const target = p.members.find((m) => m.userId === newAdmin && m.teamId === mm0.teamId && m.role !== 'pending')
+            if (!target) return prev
+            p = {
+              ...p,
+              members: p.members.map((m) => (m.userId === newAdmin ? { ...m, isAdmin: true } : m.userId === me ? { ...m, isAdmin: false } : m)),
+              notices: notify(p, newAdmin, { kind: 'result', text: '관리자 권한을 넘겨받았어요. 이제 팀 관리 메뉴를 쓸 수 있어요.' }),
+            }
+          }
+          const mm = p.members.find((m) => m.userId === me)
+          if (!me || !mm) return prev
+          const others = p.members.filter((m) => m.teamId === mm.teamId && m.userId !== me)
+          if (mm.isAdmin && others.length > 0) return prev // 관리자는 다른 사람이 남아 있으면 나갈 수 없음
+          const teamGone = others.length === 0
+          return {
+            ...p,
+            teams: teamGone ? p.teams.filter((t) => t.id !== mm.teamId) : p.teams,
+            members: p.members.filter((m) => m.userId !== me),
+            events: p.events.filter((e) => e.ownerId !== me),
+            todos: p.todos.filter((t) => t.ownerId !== me),
+            requests: p.requests.filter((r) => r.requesterId !== me && r.leaderId !== me),
+            messages: teamGone ? p.messages.filter((x) => x.teamId !== mm.teamId) : p.messages,
+          }
+        }),
 
       addEvent: (e) =>
         set((p) => ({ ...p, events: [...p.events, { ...e, id: uid(), ownerId: p.currentUserId! }] })),

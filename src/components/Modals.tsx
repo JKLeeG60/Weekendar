@@ -35,6 +35,7 @@ export function Modals() {
     case 'day': return <DayModal userId={modal.userId} date={modal.date} />
     case 'admin': return <AdminModal />
     case 'calendar': return <CalendarModal />
+    case 'leave': return <LeaveModal />
     case 'push': return <PushModal />
   }
 }
@@ -342,7 +343,7 @@ function DayModal({ userId, date }: { userId: string; date: string }) {
 
 /* ───────── 팀 관리 (관리자) ───────── */
 function AdminModal() {
-  const { db, me, team, userOf, renameTeam, updateMember, moveMember, removeMember } = useStore()
+  const { db, me, team, userOf, renameTeam, updateMember, moveMember, removeMember, transferAdmin } = useStore()
   const { closeModal, showToast } = useUI()
   const [name, setName] = useState(team?.name ?? '')
   const [confirm, setConfirm] = useState<string | null>(null)
@@ -433,12 +434,25 @@ function AdminModal() {
                   <button className="icon-btn tiny" disabled={mi <= 0} onClick={() => moveMember(m.userId, -1)} aria-label="위로"><Icon name="up" size={15} /></button>
                   <button className="icon-btn tiny" disabled={mi < 0 || mi >= movable.length - 1} onClick={() => moveMember(m.userId, 1)} aria-label="아래로"><Icon name="down" size={15} /></button>
                 </span>
+                {m.userId !== me?.id && !m.isAdmin && m.role !== 'pending' ? (
+                  <button className={'icon-btn tiny key-slot' + (confirm === 'admin:' + m.userId ? ' on' : '')} onClick={() => setConfirm(confirm === 'admin:' + m.userId ? null : 'admin:' + m.userId)} aria-label="관리자 넘기기" title={`${u.name}님에게 관리자 넘기기`}><Icon name="key" size={15} /></button>
+                ) : (
+                  <span className="key-slot" />
+                )}
                 {m.userId === me?.id ? (
                   <span className="del-slot" />
                 ) : confirm === m.userId ? (
                   <button className="btn small danger" onClick={() => { removeMember(m.userId); setConfirm(null); showToast(`${u.name}님을 팀에서 삭제했어요.`) }}>정말 삭제</button>
                 ) : (
                   <button className="icon-btn tiny del-slot" onClick={() => setConfirm(m.userId)} aria-label="구성원 삭제"><Icon name="trash" size={15} /></button>
+                )}
+                {/* 관리자 넘기기 확인: 줄 아래에 따로 (줄 정렬이 흐트러지지 않도록) */}
+                {confirm === 'admin:' + m.userId && (
+                  <div className="row-confirm">
+                    <span><b>{u.name}</b>님에게 관리자를 넘길까요? 나는 일반 구성원이 되고 팀 관리 메뉴를 쓸 수 없게 돼요.</span>
+                    <button className="btn small ghost" onClick={() => setConfirm(null)}>취소</button>
+                    <button className="btn small primary" onClick={() => { transferAdmin(m.userId); setConfirm(null); closeModal(); showToast(`${u.name}님에게 관리자를 넘겼어요.`) }}>넘기기</button>
+                  </div>
                 )}
               </div>
             )
@@ -645,5 +659,66 @@ function PickerField({ kind, value, onChange, min, label, bad, variant }: { kind
         onClick={() => { try { ref.current?.showPicker() } catch { /* 지원 안 하는 브라우저는 기본 동작 */ } }}
       />
     </span>
+  )
+}
+
+/* ───────── 팀 나가기 ───────── */
+function LeaveModal() {
+  const { team, myMember, db, leaveTeam, userOf } = useStore()
+  const { closeModal, showToast } = useUI()
+  const others = db.members.filter((m) => m.teamId === myMember?.teamId && m.userId !== myMember?.userId)
+  const candidates = others.filter((m) => m.role !== 'pending')
+  const mustHand = !!myMember?.isAdmin && others.length > 0 // 관리자는 관리자를 넘겨야 나갈 수 있음
+  const blocked = mustHand && candidates.length === 0 // 승인 대기 중인 사람만 있으면 넘길 사람이 없음
+  const [heir, setHeir] = useState(candidates[0]?.userId ?? '')
+  const alone = others.length === 0
+  return (
+    <Modal
+      title="팀 나가기"
+      onClose={closeModal}
+      width={440}
+      footer={
+        blocked ? (
+          <button className="btn primary" onClick={closeModal}>확인</button>
+        ) : (
+          <>
+            <button className="btn ghost" onClick={closeModal}>취소</button>
+            <button className="btn danger" disabled={mustHand && !heir} onClick={() => {
+              leaveTeam(mustHand ? heir : undefined); closeModal()
+              showToast(alone ? '팀을 삭제하고 나왔어요.' : mustHand ? `${userOf(heir).name}님에게 관리자를 넘기고 나왔어요.` : `${team?.name ?? '팀'}에서 나왔어요.`)
+            }}>
+              {alone ? '팀 삭제하고 나가기' : mustHand ? '관리자 넘기고 나가기' : '팀 나가기'}
+            </button>
+          </>
+        )
+      }
+    >
+      {blocked ? (
+        <p className="leave-text">
+          <b>지금은 관리자를 넘길 사람이 없어요.</b><br />
+          참여 승인을 기다리는 사람만 있어요. 먼저 팀 관리에서 승인하거나 거절한 뒤 다시 시도해주세요.
+        </p>
+      ) : (
+        <>
+          <p className="leave-text"><b>{team?.name}</b>에서 나갈까요?</p>
+          {mustHand && (
+            <div className="group heir">
+              <label className="gr">
+                <span>관리자 넘겨받을 사람</span>
+                <select value={heir} onChange={(e) => setHeir(e.target.value)} aria-label="관리자 넘겨받을 사람">
+                  {candidates.map((m) => <option key={m.userId} value={m.userId}>{userOf(m.userId).name}{m.role === 'leader' ? ' (팀장)' : m.title ? ` (${m.title})` : ''}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
+          <ul className="leave-list">
+            <li>내 일정과 할 일, 보내거나 받은 대기 중 요청이 <b>모두 삭제</b>돼요.</li>
+            <li>팀 대화에 남긴 메시지는 팀 기록으로 남아요.</li>
+            {alone && <li><b>마지막 구성원이라 팀도 함께 삭제</b>돼요.</li>}
+            <li>나간 뒤에는 새 팀을 만들거나 초대 코드로 다시 참여할 수 있어요.</li>
+          </ul>
+        </>
+      )}
+    </Modal>
   )
 }

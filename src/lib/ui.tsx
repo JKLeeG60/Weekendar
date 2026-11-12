@@ -10,6 +10,7 @@ export type ModalState =
   | { type: 'admin' }
   | { type: 'calendar' }
   | { type: 'push' }
+  | { type: 'leave' }
   | null
 
 interface UI {
