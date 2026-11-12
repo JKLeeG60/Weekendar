@@ -19,14 +19,15 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
       <div className="titles">
         {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <div className="title-row">
-          <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
           <h1>{mobileTitle ?? `${team?.name} 주간예정사항`}</h1>
-          <button className="icon-btn title-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→) · 이번 주로 돌아가기: T"><Icon name="chevR" /></button>
         </div>
-        <p className="subtitle">
-          <span>{weekRangeLabel(mon)}</span>
+        {/* 주 이동: 화살표가 바꾸는 대상(날짜) 양옆에 둔다. 모바일에서는 숨김(주간 카드에 따로 있음) */}
+        <div className="week-nav">
+          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
+          <span className="week-range">{weekRangeLabel(mon)}</span>
+          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→) · 이번 주로 돌아가기: T"><Icon name="chevR" /></button>
           <span className="week-pill">{isoWeek(mon)}주차</span>
-        </p>
+        </div>
       </div>
       <div className="tools">
         <div className="toolgroup">

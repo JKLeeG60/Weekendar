@@ -491,14 +491,12 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .topbar .tools { justify-self: end; }
 .titles { text-align: center; }
 .title-row { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
-.title-arrow { color: var(--muted); }
-.title-arrow:hover { color: var(--text); }
 
 .team-table thead .corner { font-size: 0.97rem; font-weight: 750; color: var(--text); }
 .team-table thead th.day { font-weight: 750; }
 
 .m-app .topbar { display: flex; }
-.m-app .tb-side, .m-app .title-arrow { display: none; }
+.m-app .tb-side, .m-app .week-nav { display: none; }
 .m-app .titles { text-align: left; }
 .m-app .title-row { justify-content: flex-start; }
 
@@ -516,15 +514,28 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .topbar { border-bottom: 0; padding: 1.25rem 1.5rem 0.85rem; align-items: center; }
 .titles h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
 .title-row { gap: 0.85rem; }
-.title-arrow { width: 2rem; height: 2rem; border-radius: 50%; background: var(--line-soft); color: var(--muted); transition: background 0.15s, color 0.15s, transform 0.1s; }
-.title-arrow svg { width: 1rem; height: 1rem; }
-.title-arrow:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
-.title-arrow:active { transform: scale(0.94); }
-.titles p.subtitle { display: flex; align-items: center; justify-content: center; gap: 0.45rem; margin-top: 0.35rem; font-size: 0.86rem; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+/* 주 이동 줄: (‹) 날짜 (›) 주차 — 회색 칠 대신 얇은 테두리 동그라미 (오른쪽 아이콘 묶음과 같은 느낌) */
+.week-nav { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.45rem; position: relative; width: fit-content; margin-inline: auto; }
+/* 주차 표시는 묶음 밖 오른쪽에 띄워서, (‹) 날짜 (›) 가 제목과 같은 가운데에 오게 한다 */
+.week-nav .week-pill { position: absolute; left: 100%; margin-left: 0.55rem; white-space: nowrap; }
+/* 제목 줄이 좁으면(오른쪽 패널이 열린 작은 화면 등) 오른쪽 아이콘과 겹치지 않게 주차 표시를 묶음 안으로 되돌린다 */
+.topbar { container: topbar / inline-size; }
+@container topbar (max-width: 760px) {
+  .week-nav .week-pill { position: static; margin-left: 0; }
+}
+.week-arrow { width: 2rem; height: 2rem; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.week-arrow svg { width: 1rem; height: 1rem; }
+.week-range { font-size: 0.95rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap; }
 .week-pill { font-size: 0.74rem; font-weight: 650; color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); padding: 0.14rem 0.55rem; border-radius: 99px; letter-spacing: 0; }
-.toolgroup { display: flex; align-items: center; gap: 0.1rem; padding: 0.2rem; border-radius: 0.85rem; background: var(--line-soft); }
-.toolgroup .icon-btn { width: 2.1rem; height: 2.1rem; border-radius: 0.65rem; }
-.toolgroup .icon-btn:hover:not(:disabled) { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+/* 오른쪽 아이콘 묶음: 얇은 테두리 + 진한 아이콘, 조금 더 크게 */
+.toolgroup { display: flex; align-items: center; gap: 0.1rem; padding: 0.2rem; border-radius: 0.95rem; border: 1px solid var(--line); }
+.toolgroup .icon-btn { width: 2.6rem; height: 2.6rem; border-radius: 0.7rem; color: var(--text); }
+.toolgroup .icon-btn svg { width: 1.5rem; height: 1.5rem; }
+/* 마우스가 있는 기기에서만 올렸을 때 옅게 칠한다 (터치 화면에서 칠이 남지 않게) */
+@media (hover: hover) {
+  .week-arrow:hover:not(:disabled), .toolgroup .icon-btn:hover:not(:disabled) { background: var(--line-soft); }
+}
+.week-arrow:active, .toolgroup .icon-btn:active { scale: 0.96; }
 .tools { gap: 0.6rem; }
 .avatar-btn { margin-left: 0; }
 .team-table thead th { border-top: 1px solid var(--line-soft); }
@@ -539,6 +550,10 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .m-app .toolgroup { gap: 0; }
 .m-app .toolgroup .icon-btn { width: 2.3rem; height: 2.3rem; color: var(--accent); border-radius: 50%; }
 .m-app .toolgroup .icon-btn:hover:not(:disabled) { background: transparent; box-shadow: none; }
+/* 데스크톱용 테두리·큰 아이콘·누름 효과는 모바일에 적용하지 않는다 (모바일은 이전 모습 그대로) */
+.m-app .toolgroup { border: 0; }
+.m-app .toolgroup .icon-btn svg { width: 18px; height: 18px; }
+.m-app .toolgroup .icon-btn:active { scale: none; }
 .m-app .tools { gap: 0.3rem; }
 .m-body { padding: 0.5rem 1rem 0; gap: 0.75rem; }
 
