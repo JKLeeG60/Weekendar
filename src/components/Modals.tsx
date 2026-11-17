@@ -29,6 +29,17 @@ function askNotifyPermission() {
 }
 
 export function Modals() {
+  const { peek } = useUI()
+  return (
+    <>
+      <ModalSwitch />
+      {/* 월간 일정 위에 겹쳐 보이는 일정 상세 */}
+      {peek && <EventDetail occ={peek} peek />}
+    </>
+  )
+}
+
+function ModalSwitch() {
   const { modal } = useUI()
   if (!modal) return null
   switch (modal.type) {
@@ -172,9 +183,14 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
 }
 
 /* ───────── 일정 상세 ───────── */
-function EventDetail({ occ }: { occ: Occurrence }) {
+function EventDetail({ occ, peek }: { occ: Occurrence; peek?: boolean }) {
   const { me, myMember, userOf, db, deleteEvent } = useStore()
-  const { closeModal, openModal, showToast } = useUI()
+  const ui = useUI()
+  const { showToast, modal, setPeek } = ui
+  // 월간 일정 위에 띄운 경우: 닫으면 이 창만 닫히고, 수정·요청 창을 닫으면 월간 일정으로 돌아온다
+  const closeModal = peek ? () => setPeek(null) : ui.closeModal
+  const back = peek && modal?.type === 'month' ? { ...modal, date: occ.date } : undefined
+  const openModal: typeof ui.openModal = (m) => { setPeek(null); ui.openModal(m && back ? { ...m, back } as typeof m : m) }
   const owner = db.members.find((m) => m.userId === occ.ownerId)
   const mine = occ.ownerId === me?.id
   const leaderEvent = owner?.role === 'leader'
@@ -184,6 +200,7 @@ function EventDetail({ occ }: { occ: Occurrence }) {
     <Modal
       title={occ.title}
       big
+      className={peek ? 'peek' : undefined}
       onClose={closeModal}
       footer={
         mine ? (

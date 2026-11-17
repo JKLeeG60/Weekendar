@@ -27,6 +27,9 @@ interface UI {
   modal: ModalState
   openModal: (m: ModalState) => void
   closeModal: () => void
+  /** 지금 열린 창 위에 겹쳐 보여 주는 일정 상세 (월간 일정을 닫지 않고 일정을 볼 때) */
+  peek: Occurrence | null
+  setPeek: (o: Occurrence | null) => void
   toast: string | null
   /** 안내에 붙은 버튼 (예: 되돌리기) */
   toastAction: { label: string; run: () => void } | null
@@ -86,6 +89,7 @@ function isNarrow(): boolean {
 export function UIProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('date') ?? initialDate())
   const [modal, setModal] = useState<ModalState>(null)
+  const [peek, setPeek] = useState<Occurrence | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [toastAction, setToastAction] = useState<{ label: string; run: () => void } | null>(null)
   const showToast = (t: string, action?: { label: string; run: () => void }) => {
@@ -164,6 +168,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         setSelected,
         modal,
         openModal: setModal,
+        peek,
+        setPeek,
         chatTab,
         setChatTab,
         dmPeer,

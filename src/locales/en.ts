@@ -549,4 +549,6 @@ export const EN: Record<string, string | [string, string]> = {
 
   // ── 월간 일정: 일정 추가 ──
   '{date}에 {what}': '{what} on {date}',
+  '빈 칸을 누르면 일정 추가, 날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요': 'Click an empty spot to add an event, a date number to open that week, or an event for details',
+  '날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요': 'Click a date number to open that week, or an event for details',
 }
