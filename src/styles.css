@@ -772,6 +772,8 @@ button.ref-card:hover { background: color-mix(in srgb, var(--accent) 6%, var(--s
 [data-mobile='true'] .todo-item .icon-btn.tiny { opacity: 1; color: var(--faint); }
 [data-mobile='true'] .todo-item .icon-btn.to-event { color: var(--accent); }
 [data-mobile='true'] .todo-item .flag.on { color: var(--c-halfday); }
+/* 폰: 할 일 오른쪽 아이콘을 좁게 (누르는 높이는 그대로) */
+.m-app .todo-item .icon-btn.tiny { width: 1.6rem; height: 2.2rem; margin-left: -0.6rem; }
 
 /* 초대 링크 안내 */
 .invite-banner { display: flex; gap: 0.5rem; align-items: flex-start; text-align: left; padding: 0.7rem 0.85rem; border-radius: 0.85rem; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); color: var(--text); font-size: 0.86rem; line-height: 1.45; margin: 0.4rem 0 0.2rem; }
