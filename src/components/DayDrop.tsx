@@ -121,8 +121,12 @@ export function DayDropStrip() {
         ))}
         <span className={'dd-arrow' + (d.over === 'next' ? ' on' : '')} data-drop-day="next" {...native('next')}><Icon name="chevR" size={16} /></span>
       </div>
-      {!d.native && (
-        <div className="dd-ghost" style={{ left: d.x, top: d.y }}>
+      {/* 손가락을 따라다니는 반투명 복사본 */}
+      {d.ghost && (
+        <div className={'dd-clone' + (d.over ? ' over' : '')} style={{ left: d.x - d.ghost.dx, top: d.y - d.ghost.dy, width: d.ghost.w }} dangerouslySetInnerHTML={{ __html: d.ghost.html }} />
+      )}
+      {!d.native && (!d.ghost || (d.over && /^\d{4}/.test(d.over))) && (
+        <div className={'dd-ghost' + (d.ghost ? ' below' : '')} style={d.ghost ? { left: d.x, top: d.y - d.ghost.dy + d.ghost.h + 10 } : { left: d.x, top: d.y }}>
           {d.over && /^\d{4}/.test(d.over) ? t('{date}로 옮기기', { date: fmtHead(d.over) }) : d.label}
         </div>
       )}
@@ -177,7 +181,7 @@ export function GestureRow({
             setLifted(true)
             setX(0)
             navigator.vibrate?.(10)
-            startDayDrag({ label: drag.label, onDrop: drag.onDrop, x: clientX, y: clientY })
+            startDayDrag({ label: drag.label, onDrop: drag.onDrop, x: clientX, y: clientY, source: rowRef.current?.querySelector('.swipe-body') })
           }, 420)
         }
       }}

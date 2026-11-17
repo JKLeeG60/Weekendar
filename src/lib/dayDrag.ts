@@ -19,9 +19,11 @@ export interface DayDragState {
   /** 날짜 띠를 놓을 기준 위치 (없으면 화면 위 가운데) */
   anchor: { left: number; top: number; width: number } | null
   onDrop: ((day: string) => void) | null
+  /** 손가락을 따라다니는 반투명 복사본 (끌고 있는 줄의 모양 그대로) */
+  ghost: { html: string; w: number; h: number; dx: number; dy: number } | null
 }
 
-const IDLE: DayDragState = { active: false, label: '', x: 0, y: 0, over: null, native: false, anchor: null, onDrop: null }
+const IDLE: DayDragState = { active: false, label: '', x: 0, y: 0, over: null, native: false, anchor: null, onDrop: null, ghost: null }
 let state = IDLE
 const subs = new Set<() => void>()
 const set = (patch: Partial<DayDragState>) => {
@@ -40,10 +42,14 @@ export const useDayDrag = () =>
     () => state,
   )
 
-export function startDayDrag(o: { label: string; onDrop: (day: string) => void; x?: number; y?: number; native?: boolean; anchor?: Element | null }) {
+export function startDayDrag(o: { label: string; onDrop: (day: string) => void; x?: number; y?: number; native?: boolean; anchor?: Element | null; source?: Element | null }) {
   const r = o.anchor?.getBoundingClientRect()
+  const x = o.x ?? 0, y = o.y ?? 0
+  // 끌고 있는 줄을 복사해 손가락을 따라다니게 한다 (잡은 자리 그대로)
+  const sr = o.source?.getBoundingClientRect()
+  const ghost = o.source && sr ? { html: o.source.outerHTML, w: sr.width, h: sr.height, dx: x - sr.left, dy: y - sr.top } : null
   set({
-    active: true, label: o.label, x: o.x ?? 0, y: o.y ?? 0, over: null, native: !!o.native, onDrop: o.onDrop,
+    active: true, label: o.label, x, y, over: null, native: !!o.native, onDrop: o.onDrop, ghost,
     anchor: r ? { left: r.left, top: r.top, width: r.width } : null,
   })
 }

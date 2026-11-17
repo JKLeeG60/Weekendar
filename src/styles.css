@@ -1047,3 +1047,10 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 
 /* 아이폰: 길게 누를 때 글자 선택·복사 메뉴가 뜨지 않게 (길게 눌러 끌기용) */
 .swipe-row, .swipe-row *, .tl-event, .tl-event * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* 끄는 동안 손가락을 따라다니는 반투명 복사본 */
+.dd-clone { position: fixed; z-index: 72; pointer-events: none; opacity: 0.85; transform: scale(1.03) rotate(-1.5deg); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22); border-radius: 0.7rem; overflow: hidden; background: var(--surface); }
+.dd-clone .swipe-body { transform: none !important; }
+.dd-ghost.below { transform: translateX(-50%); }
+/* 날짜 위에 올라가면 복사본을 옅게 해서 놓을 날짜가 보이게 */
+.dd-clone.over { opacity: 0.45; }
