@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
 import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
 import { chatCounts, dmPeer, dmThreads, parseMentions } from './chat'
-import { t as tr } from './i18n'
+import { t as tr, useLang } from './i18n'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
@@ -154,6 +154,13 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     return () => { window.clearTimeout(timer); supabase.removeChannel(ch) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db.currentUserId, db.members.find((m) => m.userId === db.currentUserId)?.teamId, refresh])
+
+  // 화면 언어를 계정에 저장: 휴대폰 푸쉬를 같은 언어로 보내기 위해 (migration_016 전이면 조용히 실패)
+  const { lang } = useLang()
+  useEffect(() => {
+    if (!db.currentUserId) return
+    supabase.from('profiles').update({ lang }).eq('id', db.currentUserId).then(({ error }) => { if (error) console.warn('언어 저장 실패', error.message) })
+  }, [db.currentUserId, lang])
 
   // 팀 대화 실시간: 새 메시지·삭제를 서버가 바로 밀어준다
   const myTeamId = db.members.find((m) => m.userId === db.currentUserId)?.teamId

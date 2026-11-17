@@ -25,15 +25,47 @@ async function db(path: string, init: RequestInit = {}) {
   return t ? JSON.parse(t) : null
 }
 
-async function sendTo(userIds: string[], p: Payload) {
+// ───────── 받는 사람 언어 (화면에서 고른 언어, profiles.lang) ─────────
+type Lang = 'ko' | 'en'
+/** 사람별 언어. migration_016 전이라 칸이 없으면 모두 한국어 */
+async function langsOf(ids: string[]): Promise<Record<string, Lang>> {
+  try {
+    const r = await db(`profiles?id=in.(${ids.join(',')})&select=id,lang`)
+    return Object.fromEntries((r || []).map((x: any) => [x.id, x.lang === 'en' ? 'en' : 'ko']))
+  } catch {
+    return {}
+  }
+}
+/** 한국어/영어 중 고르기 */
+const L = (lang: Lang, ko: string, en: string) => (lang === 'en' ? en : ko)
+
+/** 서버(DB 함수)가 한국어로 만든 알림 문장을 영어로 (앱의 src/lib/i18n.tsx localize 와 같은 규칙) */
+const VERB: Record<string, string> = { 추가: 'add', 수정: 'change', 삭제: 'delete' }
+function noticeText(text: string, lang: Lang): string {
+  if (lang === 'ko') return text
+  let m: RegExpMatchArray | null
+  if ((m = text.match(/^(.+)님이 팀 참여를 요청했(?:어요|습니다)\.?$/))) return `${m[1]} asked to join the team.`
+  if ((m = text.match(/^(.+)님이 일정 (추가|수정|삭제)을(?:\(를\))? 요청했(?:어요|습니다)\.?$/))) return `${m[1]} sent a request to ${VERB[m[2]]} an event.`
+  if ((m = text.match(/^(.+) 팀장이 요청을 (수락|거절)했어요$/))) return `${m[1]} (team lead) ${m[2] === '수락' ? 'approved' : 'declined'} your request.`
+  if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청에 동의했습니다\. \(([\s\S]*)\)$/))) return `Your team lead approved your request to ${VERB[m[1]]} an event. (${m[2]})`
+  if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청을 거절했습니다\. \(([\s\S]*?)\)(?: 사유: ([\s\S]*))?$/)))
+    return `Your team lead declined your request to ${VERB[m[1]]} an event. (${m[2]})` + (m[3] ? ` Reason: ${m[3]}` : '')
+  if (text.startsWith('관리자 권한을 넘겨받았어요')) return "You're now the admin. You can use Manage team."
+  return text
+}
+
+/** 보내기. p 를 함수로 주면 받는 사람 언어마다 따로 만든다 */
+async function sendTo(userIds: string[], p: Payload | ((lang: Lang) => Payload)) {
   const ids = [...new Set(userIds)].filter((x) => /^[0-9a-f-]{36}$/.test(x))
   if (!ids.length) return 0
-  const subs: Sub[] = await db(`push_subscriptions?select=id,endpoint,p256dh,auth&user_id=in.(${ids.join(',')})`)
+  const subs: (Sub & { user_id: string })[] = await db(`push_subscriptions?select=id,user_id,endpoint,p256dh,auth&user_id=in.(${ids.join(',')})`)
+  const langs = typeof p === 'function' ? await langsOf(ids) : {}
   let sent = 0
   await Promise.all(
     subs.map(async (s) => {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(p), { TTL: 3600 })
+        const payload = typeof p === 'function' ? p(langs[s.user_id] ?? 'ko') : p
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload), { TTL: 3600 })
         sent++
       } catch (e: any) {
         // 알림을 끄거나 앱을 지운 기기는 목록에서 정리
@@ -52,7 +84,7 @@ const nameOf = async (id: string) => {
 async function onNotice(id: string) {
   const r = await db(`notices?id=eq.${id}&select=user_id,text`)
   if (!r || !r[0]) return 0
-  return sendTo([r[0].user_id], { title: 'Weekendar', body: r[0].text, tag: 'notice-' + id, url: '/' })
+  return sendTo([r[0].user_id], (lang) => ({ title: 'Weekendar', body: noticeText(r[0].text, lang), tag: 'notice-' + id, url: '/' }))
 }
 
 async function onMessage(id: string) {
@@ -62,8 +94,13 @@ async function onMessage(id: string) {
   // 1:1 대화: 받는 사람에게만
   if (m.recipient_id) {
     const who = await nameOf(m.author_id)
-    const body = String(m.body || '').slice(0, 140) || '일정을 공유했어요'
-    return sendTo([m.recipient_id], { title: `${who}님의 1:1 메시지`, body, tag: 'dm-' + m.author_id, url: '/' })
+    const text = String(m.body || '').slice(0, 140)
+    return sendTo([m.recipient_id], (lang) => ({
+      title: L(lang, `${who}님의 1:1 메시지`, `Message from ${who}`),
+      body: text || L(lang, '일정을 공유했어요', 'Shared an event'),
+      tag: 'dm-' + m.author_id,
+      url: '/',
+    }))
   }
   let to: string[] = m.mentions || []
   if (m.mention_all) {
@@ -72,8 +109,13 @@ async function onMessage(id: string) {
   }
   to = to.filter((u) => u !== m.author_id)
   const who = await nameOf(m.author_id)
-  const body = String(m.body || '').slice(0, 140) || '일정을 공유했어요'
-  return sendTo(to, { title: `${who}님이 불렀어요`, body, tag: 'msg-' + id, url: '/' })
+  const text = String(m.body || '').slice(0, 140)
+  return sendTo(to, (lang) => ({
+    title: L(lang, `${who}님이 불렀어요`, `${who} mentioned you`),
+    body: text || L(lang, '일정을 공유했어요', 'Shared an event'),
+    tag: 'msg-' + id,
+    url: '/',
+  }))
 }
 
 // 미리 알림: 앱 화면(Reminders.tsx)과 같은 규칙으로 오늘 발생하는 일정을 계산
@@ -150,11 +192,18 @@ function occursOn(e: any, date: string) {
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
 
 /** 남은 시간 문구: 지금 시작해요 / 25분 뒤 시작 / 2시간 30분 뒤 시작 / 내일 09:00 시작 */
-function whenLabel(left: number, remind: number, start: string, tomorrow: boolean) {
+function whenLabel(left: number, remind: number, start: string, tomorrow: boolean, lang: Lang = 'ko') {
+  const h = Math.floor(left / 60), mm = left % 60
+  if (lang === 'en') {
+    if (remind === 0 || left <= 0) return 'Starting now'
+    if (tomorrow) return `Starts tomorrow at ${start}`
+    if (left < 60) return `Starts in ${left} min`
+    return `Starts in ${h} h${mm ? ` ${mm} min` : ''}`
+  }
   if (remind === 0 || left <= 0) return '지금 시작해요'
   if (tomorrow) return `내일 ${start} 시작`
   if (left < 60) return `${left}분 뒤 시작`
-  return `${Math.floor(left / 60)}시간${left % 60 ? ` ${left % 60}분` : ''} 뒤 시작`
+  return `${h}시간${mm ? ` ${mm}분` : ''} 뒤 시작`
 }
 
 async function onRemind() {
@@ -186,8 +235,12 @@ async function onRemind() {
   let sent = 0
   for (const { e, day, left, isTomorrow } of due) {
     if (!freshKeys.has(`${e.id}:${day}`)) continue
-    const body = `${e.start_time}–${e.end_time}${e.place ? ' · ' + e.place : ''} · ${whenLabel(left, e.remind_min, e.start_time, isTomorrow)}`
-    sent += await sendTo([e.owner_id], { title: e.title, body, tag: `remind-${e.id}-${day}`, url: '/' })
+    sent += await sendTo([e.owner_id], (lang) => ({
+      title: e.title,
+      body: `${e.start_time}–${e.end_time}${e.place ? ' · ' + e.place : ''} · ${whenLabel(left, e.remind_min, e.start_time, isTomorrow, lang)}`,
+      tag: `remind-${e.id}-${day}`,
+      url: '/',
+    }))
   }
   return sent
 }
@@ -197,7 +250,7 @@ async function onTest(authHeader: string) {
   const r = await fetch(`${SB}/auth/v1/user`, { headers: { apikey: ANON, Authorization: authHeader } })
   if (!r.ok) return -1
   const u = await r.json()
-  return sendTo([u.id], { title: 'Weekendar', body: '알림이 잘 도착했어요! 🎉', tag: 'test', url: '/' })
+  return sendTo([u.id], (lang) => ({ title: 'Weekendar', body: L(lang, '알림이 잘 도착했어요! 🎉', 'Notifications are working! 🎉'), tag: 'test', url: '/' }))
 }
 
 export default async function handler(req: any, res: any) {
