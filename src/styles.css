@@ -1044,3 +1044,6 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .toast.with-action { display: flex; align-items: center; gap: 0.9rem; padding-right: 0.6rem; }
 .toast-btn { color: #64b5ff; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
 .toast-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* 아이폰: 길게 누를 때 글자 선택·복사 메뉴가 뜨지 않게 (길게 눌러 끌기용) */
+.swipe-row, .swipe-row *, .tl-event, .tl-event * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
