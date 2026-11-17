@@ -1078,3 +1078,91 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 /* 사진과 아래 글씨가 겹치지 않게, 글씨는 배경 없이 파란색만 */
 .mo-person { gap: 0.4rem; padding-top: 5px; }
 .mo-tag { background: none; padding: 0; font-size: 0.66rem; }
+
+/* ───────── 대화: 답장 · 전달 · 이모지 반응 ───────── */
+.bub-tools { display: flex; flex-direction: column-reverse; gap: 0.25rem; flex: none; align-self: flex-end; padding-bottom: 0.1rem; }
+.rx-btn { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: var(--faint); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); transition: color 0.15s, box-shadow 0.15s, opacity 0.15s; }
+.rx-btn:hover, .rx-btn.on { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.more-btn { opacity: 0; }
+.bub-row:hover .more-btn, .more-btn:focus-visible { opacity: 1; }
+[data-mobile='true'] .more-btn { display: none; }
+
+.rx-row { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.1rem; }
+.mine .rx-row { justify-content: flex-end; }
+.rx-chip { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.74rem; font-weight: 600; padding: 0.12rem 0.5rem 0.12rem 0.38rem; border-radius: 99px; background: var(--surface); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
+.rx-chip .rx-e, .rx-who .rx-e { font-size: 0.95rem; line-height: 1.2; }
+.rx-chip.me { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); }
+
+.rx-tray { display: flex; align-items: center; gap: 0.1rem; padding: 0.3rem 0.4rem; margin-top: 0.15rem; width: max-content; max-width: 100%; background: var(--surface); border-radius: 99px; box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 0 0 1px var(--line-soft); animation: rxdown 0.2s cubic-bezier(.2,.8,.3,1.2); transform-origin: top; }
+.mine .rx-tray { align-self: flex-end; }
+.rx-tray button, .mm-emo button { font-size: 1.3rem; line-height: 1; padding: 0.3rem; border-radius: 0.7rem; transition: transform 0.12s, background 0.12s; }
+.rx-tray button:hover, .mm-emo button:hover { transform: scale(1.2); background: var(--surface-2); }
+.rx-tray button.me, .mm-emo button.me { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.rx-tray .rx-more, .mm-emo .rx-more { font-size: 1rem; color: var(--muted); width: 1.9rem; height: 1.9rem; display: grid; place-items: center; }
+@keyframes rxdown { from { opacity: 0; transform: translateY(-8px) scaleY(0.85); } to { opacity: 1; transform: none; } }
+
+/* 답장 인용 · 전달 표시 */
+.bub .quote { display: block; text-align: left; width: 100%; margin: 0.05rem 0 0.35rem; padding: 0.1rem 0 0.1rem 0.55rem; border-left: 3px solid color-mix(in srgb, currentColor 45%, transparent); font-size: 0.8rem; line-height: 1.35; color: inherit; opacity: 0.85; cursor: pointer; }
+.bub .quote:hover { opacity: 1; }
+.bub .quote b { display: block; font-size: 0.74rem; font-weight: 700; }
+.bub .quote span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.fwd-tag { display: block; font-size: 0.7rem; font-weight: 600; opacity: 0.75; margin-bottom: 0.15rem; }
+.bub-row.flash .bub { animation: flash 1.6s ease; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); } 100% { box-shadow: 0 0 0 3px transparent; } }
+
+/* 입력창 위: 답장 중 */
+.reply-bar { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0.1rem 0.1rem 0.2rem; }
+.reply-txt { flex: 1; min-width: 0; border-left: 3px solid var(--accent); padding-left: 0.55rem; font-size: 0.8rem; }
+.reply-txt b { display: block; color: var(--accent); font-size: 0.76rem; font-weight: 700; }
+.reply-txt span { display: block; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 메시지 메뉴 (PC) */
+.mm-scrim { position: fixed; inset: 0; z-index: 90; }
+.mm-scrim.dim { background: rgba(0,0,0,0.22); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.mm-menu { position: fixed; z-index: 91; width: 15.5rem; background: var(--surface); border-radius: 0.9rem; padding: 0.35rem; box-shadow: 0 16px 40px rgba(0,0,0,0.18), 0 0 0 1px var(--line-soft); animation: rrin 0.14s ease; }
+.mm-menu .mm-emo { display: flex; justify-content: space-between; padding: 0.1rem 0.1rem 0.35rem; margin-bottom: 0.25rem; border-bottom: 1px solid var(--line-soft); }
+.mm-menu > button { display: flex; align-items: center; gap: 0.65rem; width: 100%; padding: 0.5rem 0.6rem; border-radius: 0.55rem; font-size: 0.88rem; color: var(--text); text-align: left; }
+.mm-menu > button:hover { background: var(--surface-2); }
+.mm-menu > button svg { color: var(--muted); }
+.mm-menu > button.red, .mm-menu > button.red svg { color: var(--red); }
+
+/* 메시지 메뉴 (휴대폰: 아래 시트) */
+.mm-sheet { position: fixed; z-index: 91; left: 0.6rem; right: 0.6rem; bottom: calc(0.7rem + env(safe-area-inset-bottom, 0px)); animation: sheetup 0.22s cubic-bezier(.2,.8,.3,1); }
+.mm-sheet .mm-emo { display: flex; justify-content: space-around; align-items: center; background: var(--surface); border-radius: 99px; padding: 0.35rem 0.4rem; margin-bottom: 0.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.mm-sheet .mm-emo button { font-size: 1.7rem; }
+.mm-group { background: var(--surface); border-radius: 1rem; overflow: hidden; margin-bottom: 0.5rem; }
+.mm-group button { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.9rem; font-size: 1.02rem; color: var(--accent); border-top: 1px solid var(--line-soft); }
+.mm-group button:first-child { border-top: 0; }
+.mm-group button.red { color: var(--red); }
+.mm-cancel { display: block; width: 100%; padding: 0.9rem; background: var(--surface); border-radius: 1rem; font-size: 1.02rem; font-weight: 650; color: var(--accent); }
+@keyframes sheetup { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 이모지 전체 고르기 */
+.emo-pick, .fwd-pick { position: fixed; z-index: 91; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(22rem, calc(100vw - 1.5rem)); max-height: min(30rem, 80vh); display: flex; flex-direction: column; background: var(--surface); border-radius: 1.1rem; box-shadow: 0 20px 50px rgba(0,0,0,0.22); padding: 0.8rem; }
+.emo-pick.sheet { top: auto; bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-height: 70vh; animation: sheetup 0.22s ease; }
+.emo-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.1rem 0.5rem; }
+.emo-head b { font-size: 0.98rem; }
+.emo-input { width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.7rem; border: 0; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.86rem; margin-bottom: 0.5rem; }
+.emo-scroll { overflow-y: auto; min-height: 0; flex: 1; }
+.emo-scroll h5 { position: sticky; top: 0; background: var(--surface); font-size: 0.74rem; font-weight: 650; color: var(--muted); padding: 0.35rem 0.2rem; z-index: 1; }
+.emo-grid { display: grid; grid-template-columns: repeat(8, 1fr); }
+.emo-grid button { font-size: 1.45rem; line-height: 1; aspect-ratio: 1; border-radius: 0.55rem; display: grid; place-items: center; }
+.emo-grid button:hover { background: var(--surface-2); }
+
+/* 반응한 사람 */
+.rx-who { position: fixed; z-index: 91; min-width: 12rem; max-width: 18rem; background: var(--surface); border-radius: 0.9rem; padding: 0.4rem; box-shadow: 0 16px 40px rgba(0,0,0,0.18), 0 0 0 1px var(--line-soft); animation: rrin 0.14s ease; }
+.rx-who-row { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.35rem 0.45rem; font-size: 0.84rem; line-height: 1.4; }
+.rx-who-btn { display: block; width: 100%; margin-top: 0.2rem; padding: 0.5rem; border-radius: 0.6rem; background: var(--surface-2); font-size: 0.82rem; font-weight: 600; color: var(--accent); }
+
+/* 전달하기 */
+.fwd-preview { font-size: 0.8rem; color: var(--muted); background: var(--surface-2); border-radius: 0.6rem; padding: 0.5rem 0.65rem; margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fwd-list { overflow-y: auto; min-height: 0; flex: 1; }
+.fwd-row { display: flex; align-items: center; gap: 0.65rem; width: 100%; padding: 0.45rem 0.4rem; border-radius: 0.65rem; text-align: left; }
+.fwd-row:hover { background: var(--surface-2); }
+.fwd-row.on { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.fwd-row > svg { color: var(--accent); }
+.fwd-team { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); flex: none; }
+.fwd-name { flex: 1; font-size: 0.9rem; font-weight: 600; display: flex; flex-direction: column; }
+.fwd-name small { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+.fwd-send { margin-top: 0.6rem; padding: 0.65rem; border-radius: 0.7rem; background: var(--accent); color: #fff; font-weight: 650; font-size: 0.9rem; }
+.fwd-send:disabled { background: var(--line); color: var(--faint); }

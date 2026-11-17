@@ -121,6 +121,10 @@ export interface Message {
   deleted?: boolean
   /** 1:1 대화면 받는 사람 id (없으면 팀 대화) */
   toId?: string
+  /** 답장한 원본 메시지 id */
+  replyTo?: string
+  /** 다른 대화에서 전달한 메시지 */
+  forwarded?: boolean
 }
 
 export interface DB {
@@ -138,6 +142,8 @@ export interface DB {
   messageReads: Record<string, Record<string, number>>
   /** 1:1 대화 마지막 읽은 시각(ms): "내id>상대id" → 시각 */
   dmReads?: Record<string, number>
+  /** 이모지 반응: 메시지 id → (사람 id → 이모지) */
+  reactions?: Record<string, Record<string, string>>
   currentUserId: string | null
 }
 

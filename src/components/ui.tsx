@@ -130,6 +130,11 @@ const PATHS: Record<string, ReactNode> = {
   share: <path d="M12 15V4M8 8l4-4 4 4M6 11v8h12v-8" />,
   addBox: <path d="M5 5h14v14H5zM12 9v6M9 12h6" />,
   install: <path d="M12 4v10M8 10l4 4 4-4M5 19h14" />,
+  smile: <path d="M12 21a9 9 0 100-18 9 9 0 000 18zM8.5 14.5a4.2 4.2 0 007 0M9 9.5h.01M15 9.5h.01" />,
+  more: <path d="M6.5 12a1 1 0 11-2 0 1 1 0 012 0zM13 12a1 1 0 11-2 0 1 1 0 012 0zM19.5 12a1 1 0 11-2 0 1 1 0 012 0z" />,
+  reply: <path d="M9 7l-5 5 5 5M4 12h10a6 6 0 016 6v1" />,
+  forward: <path d="M15 7l5 5-5 5M20 12H10a6 6 0 00-6 6v1" />,
+  eye: <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 100-6 3 3 0 000 6z" />,
 }
 
 export function Icon({ name, size = 18 }: { name: keyof typeof PATHS | string; size?: number }) {

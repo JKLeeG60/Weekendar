@@ -146,8 +146,14 @@ function seed(): DB {
     msg('u_leader', '네 좋아요. 목요일 전까지만 주세요 👍', 12, { toId: 'u_admin' }),
   ]
   const chatReads: Record<string, number> = Object.fromEntries(users.map((u) => [u.id, ago(60)]))
+  // 답장·이모지 반응 예시
+  messages[3].replyTo = messages[2].id
+  const reactions: Record<string, Record<string, string>> = {
+    [messages[0].id]: { u_m4: '👍', u_leader: '👍' },
+    [messages[3].id]: { u_leader: '🙏' },
+  }
 
-  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, currentUserId: null }
+  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, reactions, currentUserId: null }
 }
 
 function load(): DB {
@@ -219,7 +225,7 @@ export interface Store {
   chatUnread: number
   chatMentions: number
   /** toId 가 있으면 그 사람에게만 보이는 1:1 메시지 */
-  sendMessage: (body: string, ref?: ChatRef, toId?: string) => void
+  sendMessage: (body: string, ref?: ChatRef, toId?: string, opts?: SendOpts) => void
   deleteMessage: (id: string) => void
   markChatRead: () => void
   // 1:1 대화
@@ -232,9 +238,16 @@ export interface Store {
   markDmRead: (peerId: string) => void
   /** 내가 보낸 메시지의 읽음 기록 (사람 id → 읽은 시각). 남의 메시지는 빈 값 */
   getReadReceipts: (messageId: string) => Promise<Record<string, number>>
+  /** 메시지 id → (사람 id → 이모지) */
+  reactions: Record<string, Record<string, string>>
+  /** 내 반응 달기 (emoji 가 null 이면 취소). 한 메시지에 1개만 */
+  react: (messageId: string, emoji: string | null) => void
   // 캘린더 구독 주소 (서버 모드만, 체험 모드는 null)
   getCalendarUrl: (reset?: boolean) => Promise<string | null>
 }
+
+/** 보낼 때 덧붙이는 정보: 답장 대상, 전달 여부 */
+export interface SendOpts { replyTo?: string; forwarded?: boolean }
 
 export const Ctx = createContext<Store | null>(null)
 export const useStore = () => {
@@ -538,16 +551,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notices: p.notices.map((n) => (n.userId === p.currentUserId ? { ...n, read: true } : n)),
         })),
 
-      sendMessage: (body, ref, toId) => {
+      sendMessage: (body, ref, toId, opts) => {
         const text = body.trim()
         if ((!text && !ref) || !myMember || !db.currentUserId) return
         const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
-        // 1:1 대화에서는 @호출을 쓰지 않는다
-        const { mentions, mentionAll } = toId ? { mentions: [], mentionAll: false } : parseMentions(text, people)
+        // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
+        const { mentions, mentionAll } = toId || opts?.forwarded ? { mentions: [], mentionAll: false } : parseMentions(text, people)
         const m: Message = {
           id: uid(), teamId: myMember.teamId, authorId: db.currentUserId, body: text,
           mentions: mentions.filter((id) => id !== db.currentUserId), mentionAll, ref, createdAt: Date.now(),
           ...(toId ? { toId } : {}),
+          ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
+          ...(opts?.forwarded ? { forwarded: true } : {}),
         }
         set((p) => toId
           ? { ...p, messages: [...p.messages, m], dmReads: { ...p.dmReads, [`${m.authorId}>${toId}`]: m.createdAt } }
@@ -561,6 +576,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ? { ...m, body: '', ref: undefined, mentions: [], mentionAll: false, deleted: true }
               : m,
           ),
+          // 지운 메시지의 반응도 함께 지운다
+          reactions: Object.fromEntries(Object.entries(p.reactions ?? {}).filter(([k]) => k !== id)),
         })),
       markChatRead: () => {
         const me = db.currentUserId
@@ -601,6 +618,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const m = db.messages.find((x) => x.id === messageId)
         if (!m || m.authorId !== db.currentUserId) return {}
         return { ...(db.messageReads[messageId] ?? {}) }
+      },
+      reactions: db.reactions ?? {},
+      react: (messageId, emoji) => {
+        const me = db.currentUserId
+        if (!me) return
+        set((p) => {
+          const cur = { ...(p.reactions?.[messageId] ?? {}) }
+          if (emoji) cur[me] = emoji
+          else delete cur[me]
+          return { ...p, reactions: { ...p.reactions, [messageId]: cur } }
+        })
       },
     }
   }, [db])

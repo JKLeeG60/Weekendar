@@ -1,4 +1,5 @@
 import React, { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
@@ -7,6 +8,26 @@ import { ALL, ALL_EN, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
 import { getLang, t } from '../lib/i18n'
 import type { ChatRef, Message } from '../lib/types'
 import { Avatar, Icon } from './ui'
+
+/** 자주 쓰는 반응 이모지 */
+const QUICK = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
+/** 답장·전달 미리보기용 한 줄 요약 */
+const snippet = (m: Message | undefined) =>
+  !m ? t('원본 메시지를 찾을 수 없어요')
+    : m.deleted ? t('삭제된 메시지예요')
+    : m.body ? m.body.split('\n')[0]
+    : m.ref ? t('일정을 공유했어요') + ' · ' + m.ref.title
+    : ''
+
+/** Esc 로 닫기 (대화창 전체가 닫히지 않게 먼저 가로챈다) */
+function useEsc(onClose: () => void) {
+  useEffect(() => {
+    const h = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
+  }, [onClose])
+}
 
 const dayKey = (ms: number) => {
   const d = new Date(ms)
@@ -143,11 +164,19 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
 
 /** 메시지 목록 + 입력창. peer 가 있으면 그 사람과의 1:1 대화 */
 function ChatBody({ peer }: { peer?: string }) {
-  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead } = useStore()
+  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react } = useStore()
   const messages = peer ? dmMessages(peer) : teamMessages
   const markRead = peer ? () => markDmRead(peer) : markChatRead
-  const { openModal, isMobile } = useUI()
+  const { openModal, isMobile, showToast } = useUI()
   const [receipt, setReceipt] = useState<{ m: Message; rect: DOMRect } | null>(null)
+  // 답장할 메시지, 메시지 메뉴, 이모지 줄·전체 고르기, 반응한 사람, 전달하기
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [menu, setMenu] = useState<{ m: Message; x: number; y: number; rect: DOMRect } | null>(null)
+  const [tray, setTray] = useState<string | null>(null)
+  const [picker, setPicker] = useState<string | null>(null)
+  const [whoRx, setWhoRx] = useState<{ id: string; emoji: string; rect: DOMRect } | null>(null)
+  const [forward, setForward] = useState<Message | null>(null)
+  const byId = useMemo(() => new Map(db.messages.map((x) => [x.id, x])), [db.messages])
   const { selected, setSelected } = useUI()
   const listRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -200,10 +229,47 @@ function ChatBody({ peer }: { peer?: string }) {
 
   function send() {
     if (!text.trim() && !ref) return
-    sendMessage(text, ref ?? undefined, peer)
+    sendMessage(text, ref ?? undefined, peer, replyTo ? { replyTo: replyTo.id } : undefined)
     setText('')
     setCaret(0)
     setRef(null)
+    setReplyTo(null)
+  }
+
+  /** 반응 달기: 같은 이모지를 다시 고르면 취소, 다른 이모지면 바꾼다 (1개만) */
+  function pickReaction(id: string, emoji: string) {
+    const mineNow = me ? reactions[id]?.[me.id] : undefined
+    react(id, mineNow === emoji ? null : emoji)
+    setTray(null)
+    setPicker(null)
+    setMenu(null)
+  }
+
+  /** 답장 인용을 누르면 원본 메시지로 이동해서 잠깐 반짝인다 */
+  function jump(id: string) {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-mid="${id}"]`)
+    if (!el) { showToast(t('원본 메시지를 찾을 수 없어요')); return }
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.classList.remove('flash')
+    void el.offsetWidth // 애니메이션을 처음부터 다시
+    el.classList.add('flash')
+    window.setTimeout(() => el.classList.remove('flash'), 1700)
+  }
+
+  function startReply(m: Message) {
+    setReplyTo(m)
+    setMenu(null)
+    window.setTimeout(() => taRef.current?.focus(), 0)
+  }
+
+  async function copy(m: Message) {
+    setMenu(null)
+    try {
+      await navigator.clipboard.writeText(m.body)
+      showToast(t('복사했어요'))
+    } catch {
+      showToast(t('복사하지 못했어요'))
+    }
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -256,9 +322,18 @@ function ChatBody({ peer }: { peer?: string }) {
                 names={names}
                 author={userOf(m.authorId).name}
                 isLeader={tableMembers.find((x) => x.userId === m.authorId)?.role === 'leader'}
+                quote={m.replyTo ? { author: byId.get(m.replyTo) ? userOf(byId.get(m.replyTo)!.authorId).name : '', text: snippet(byId.get(m.replyTo)) } : null}
+                rx={reactions[m.id] ?? {}}
+                meId={me?.id}
+                trayOpen={tray === m.id}
+                onTray={() => setTray((v) => (v === m.id ? null : m.id))}
+                onReact={(e) => pickReaction(m.id, e)}
+                onMore={() => { setTray(null); setPicker(m.id) }}
+                onChip={(emoji, rect) => setWhoRx({ id: m.id, emoji, rect })}
+                onQuote={() => m.replyTo && jump(m.replyTo)}
                 onDelete={() => deleteMessage(m.id)}
                 onRef={(r) => setSelected(r.date)}
-                onHold={(rect) => setReceipt({ m, rect })}
+                onMenu={(x, y, rect) => { setTray(null); setMenu({ m, x, y, rect }) }}
                 onWho={(x, y) => openModal({ type: 'member', userId: m.authorId, ...(isMobile ? {} : { x, y }) })}
               />
             </Fragment>
@@ -273,6 +348,48 @@ function ChatBody({ peer }: { peer?: string }) {
           load={getReadReceipts}
           people={tableMembers.filter((x) => x.userId !== receipt.m.authorId && (!peer || x.userId === peer)).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
           onClose={() => setReceipt(null)}
+        />
+      )}
+
+      {menu && (
+        <MsgMenu
+          m={menu.m}
+          at={menu}
+          mobile={isMobile}
+          mine={menu.m.authorId === me?.id}
+          myEmoji={me ? reactions[menu.m.id]?.[me.id] : undefined}
+          onReact={(e) => pickReaction(menu.m.id, e)}
+          onMore={() => { setPicker(menu.m.id); setMenu(null) }}
+          onReply={() => startReply(menu.m)}
+          onForward={() => { setForward(menu.m); setMenu(null) }}
+          onCopy={() => copy(menu.m)}
+          onReads={() => { setReceipt({ m: menu.m, rect: menu.rect }); setMenu(null) }}
+          onDelete={() => { deleteMessage(menu.m.id); setMenu(null); if (replyTo?.id === menu.m.id) setReplyTo(null) }}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {picker && <EmojiPicker mobile={isMobile} onPick={(e) => pickReaction(picker, e)} onClose={() => setPicker(null)} />}
+      {whoRx && (
+        <ReactionWho
+          rx={reactions[whoRx.id] ?? {}}
+          emoji={whoRx.emoji}
+          rect={whoRx.rect}
+          meId={me?.id}
+          nameOf={(id) => userOf(id).name}
+          onToggle={() => { pickReaction(whoRx.id, whoRx.emoji); setWhoRx(null) }}
+          onClose={() => setWhoRx(null)}
+        />
+      )}
+      {forward && (
+        <ForwardPicker
+          m={forward}
+          targets={tableMembers.filter((x) => x.userId !== me?.id).map((x) => ({ id: x.userId, name: userOf(x.userId).name, sub: x.role === 'leader' ? t('팀장') : x.title }))}
+          onSend={(toId) => {
+            sendMessage(forward.body, forward.ref, toId ?? undefined, { forwarded: true })
+            setForward(null)
+            showToast(toId ? t('{name}님에게 전달했어요', { name: userOf(toId).name }) : t('팀 대화로 전달했어요'))
+          }}
+          onClose={() => setForward(null)}
         />
       )}
 
@@ -310,6 +427,15 @@ function ChatBody({ peer }: { peer?: string }) {
               ))}
             </div>
           </>
+        )}
+        {replyTo && (
+          <div className="reply-bar">
+            <div className="reply-txt">
+              <b>{t('{name}님에게 답장', { name: userOf(replyTo.authorId).name })}</b>
+              <span>{snippet(replyTo)}</span>
+            </div>
+            <button className="icon-btn" onClick={() => setReplyTo(null)} aria-label={t('답장 취소')}><Icon name="x" size={14} /></button>
+          </div>
         )}
         {ref && (
           <div className="ref-draft">
@@ -360,17 +486,30 @@ function RefCard({ r, onClick }: { r: ChatRef; onClick?: () => void }) {
 
 function Bubble(props: {
   m: Message; mine: boolean; hit: boolean; grouped: boolean; names: string[]; author: string; isLeader: boolean
-  onDelete: () => void; onRef: (r: ChatRef) => void; onHold: (rect: DOMRect) => void
+  /** 답장한 원본 (보낸 사람, 한 줄 요약) */
+  quote: { author: string; text: string } | null
+  /** 이 메시지의 반응: 사람 id → 이모지 */
+  rx: Record<string, string>
+  meId?: string
+  trayOpen: boolean
+  onTray: () => void
+  onReact: (emoji: string) => void
+  onMore: () => void
+  onChip: (emoji: string, rect: DOMRect) => void
+  onQuote: () => void
+  onDelete: () => void; onRef: (r: ChatRef) => void
+  /** 메시지 메뉴 열기 (누른 위치, 말풍선 위치) */
+  onMenu: (x: number, y: number, rect: DOMRect) => void
   /** 보낸 사람 이름·사진을 누르면 (누른 위치) */
   onWho: (x: number, y: number) => void
 }) {
-  const { m, mine, hit, grouped, names, author, isLeader } = props
+  const { m, mine, hit, grouped, names, author, isLeader, quote, rx, meId } = props
   const [confirm, setConfirm] = useState(false)
   const [pressed, setPressed] = useState(false)
   const timer = useRef<number | null>(null)
   const start = useRef<{ x: number; y: number } | null>(null)
   const bubRef = useRef<HTMLDivElement>(null)
-  const canHold = mine && !m.deleted // 내가 보낸 메시지만 읽음 확인 가능
+  const live = !m.deleted // 지운 메시지에는 메뉴·반응이 없다
 
   const cancel = () => {
     if (timer.current) window.clearTimeout(timer.current)
@@ -378,17 +517,19 @@ function Bubble(props: {
     start.current = null
     setPressed(false)
   }
-  const open = () => {
+  const open = (x?: number, y?: number) => {
     cancel()
-    if (bubRef.current) props.onHold(bubRef.current.getBoundingClientRect())
+    const r = bubRef.current?.getBoundingClientRect()
+    if (r) props.onMenu(x ?? r.left + 12, y ?? r.bottom + 6, r)
   }
-  const hold = canHold
+  // 길게 누르기(휴대폰) · 오른쪽 클릭(PC) → 메시지 메뉴
+  const hold = live
     ? {
         onPointerDown: (e: React.PointerEvent) => {
           if (e.button !== 0) return
           start.current = { x: e.clientX, y: e.clientY }
           setPressed(true)
-          timer.current = window.setTimeout(open, 500)
+          timer.current = window.setTimeout(() => open(), 500)
         },
         onPointerMove: (e: React.PointerEvent) => {
           if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) cancel()
@@ -398,12 +539,22 @@ function Bubble(props: {
         onPointerCancel: cancel,
         onContextMenu: (e: React.MouseEvent) => {
           e.preventDefault()
-          open()
+          open(e.clientX, e.clientY)
         },
       }
     : {}
+
+  // 이모지별로 모으기 (먼저 달린 순서)
+  const groups: { emoji: string; ids: string[] }[] = []
+  for (const [uid, e] of Object.entries(rx)) {
+    const g = groups.find((x) => x.emoji === e)
+    if (g) g.ids.push(uid)
+    else groups.push({ emoji: e, ids: [uid] })
+  }
+  const myEmoji = meId ? rx[meId] : undefined
+
   return (
-    <div className={'bub-row' + (mine ? ' mine' : '') + (hit ? ' hit' : '') + (grouped ? ' grouped' : '')}>
+    <div className={'bub-row' + (mine ? ' mine' : '') + (hit ? ' hit' : '') + (grouped ? ' grouped' : '')} data-mid={m.id}>
       {!mine && (
         <span className="bub-av">
           {!grouped && (
@@ -420,17 +571,39 @@ function Bubble(props: {
         <div className="bub-line">
           <div
             ref={bubRef}
-            className={'bub' + (m.deleted ? ' deleted' : '') + (canHold ? ' holdable' : '') + (pressed ? ' pressed' : '')}
-            title={canHold ? t('길게 누르면 읽은 사람을 볼 수 있어요') : undefined}
+            className={'bub' + (m.deleted ? ' deleted' : '') + (live ? ' holdable' : '') + (pressed ? ' pressed' : '')}
+            title={live ? t('길게 누르거나 오른쪽 클릭하면 메뉴가 열려요') : undefined}
             {...hold}
           >
             {m.deleted ? t('삭제된 메시지예요') : (
               <>
+                {m.forwarded && <span className="fwd-tag">↗ {t('전달됨')}</span>}
+                {quote && (
+                  <button className="quote" onClick={props.onQuote} title={t('원본 메시지로 이동')}>
+                    {quote.author && <b>{quote.author}</b>}
+                    <span>{quote.text}</span>
+                  </button>
+                )}
                 {m.body && splitMentions(m.body, names).map((p, i) => (p.mention ? <span key={i} className="mn">{p.text}</span> : <Fragment key={i}>{p.text}</Fragment>))}
                 {m.ref && <RefCard r={m.ref} onClick={() => props.onRef(m.ref!)} />}
               </>
             )}
           </div>
+          {live && (
+            <span className="bub-tools">
+              <button className={'rx-btn' + (props.trayOpen ? ' on' : '')} onClick={props.onTray} aria-label={t('이모지 반응')} aria-expanded={props.trayOpen} title={t('이모지 반응')}>
+                <Icon name="smile" size={14} />
+              </button>
+              <button
+                className="rx-btn more-btn"
+                onClick={(e) => { const r = bubRef.current?.getBoundingClientRect(); if (r) props.onMenu(e.clientX, e.clientY, r) }}
+                aria-label={t('메시지 메뉴')}
+                title={t('메시지 메뉴')}
+              >
+                <Icon name="more" size={14} />
+              </button>
+            </span>
+          )}
           <span className="bub-meta">
             {mine && !m.deleted && (
               confirm ? (
@@ -442,8 +615,267 @@ function Bubble(props: {
             <time>{timeLabel(m.createdAt)}</time>
           </span>
         </div>
+        {groups.length > 0 && (
+          <div className="rx-row">
+            {groups.map((g) => (
+              <button
+                key={g.emoji}
+                className={'rx-chip' + (g.emoji === myEmoji ? ' me' : '')}
+                onClick={(e) => props.onChip(g.emoji, e.currentTarget.getBoundingClientRect())}
+                aria-label={t('{emoji} 반응 {n}명', { emoji: g.emoji, n: g.ids.length })}
+              >
+                <span className="rx-e">{g.emoji}</span>{g.ids.length}
+              </button>
+            ))}
+          </div>
+        )}
+        {props.trayOpen && (
+          <div className="rx-tray" role="menu" aria-label={t('이모지 반응')}>
+            {QUICK.map((e) => (
+              <button key={e} role="menuitem" className={e === myEmoji ? 'me' : ''} onClick={() => props.onReact(e)}>{e}</button>
+            ))}
+            <button className="rx-more" onClick={props.onMore} aria-label={t('다른 이모지 고르기')} title={t('다른 이모지 고르기')}>＋</button>
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+/** 화면 위치 맞추기: 누른 곳 근처, 화면 밖으로 나가지 않게 */
+function usePlace(at: { x: number; y: number }, dep?: unknown) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const w = el.offsetWidth, h = el.offsetHeight, pad = 10
+    const left = Math.min(Math.max(pad, at.x), window.innerWidth - w - pad)
+    let top = at.y
+    if (top + h > window.innerHeight - pad) top = Math.max(pad, at.y - h - 8)
+    setPos({ left, top })
+  }, [at.x, at.y, dep])
+  return { ref, style: pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' as const } }
+}
+
+/** 메시지 메뉴: PC는 누른 곳에 작은 메뉴, 휴대폰은 아래에서 올라오는 시트 */
+function MsgMenu(props: {
+  m: Message
+  at: { x: number; y: number }
+  mobile: boolean
+  mine: boolean
+  myEmoji?: string
+  onReact: (e: string) => void
+  onMore: () => void
+  onReply: () => void
+  onForward: () => void
+  onCopy: () => void
+  onReads: () => void
+  onDelete: () => void
+  onClose: () => void
+}) {
+  const { m, mobile, mine, onClose } = props
+  const [sure, setSure] = useState(false)
+  useEsc(onClose)
+  const place = usePlace(props.at, sure)
+  const items = (
+    <>
+      <button onClick={props.onReply}><Icon name="reply" size={16} />{t('답장')}</button>
+      <button onClick={props.onForward}><Icon name="forward" size={16} />{t('전달')}</button>
+      {m.body && <button onClick={props.onCopy}><Icon name="copy" size={16} />{t('복사')}</button>}
+      {mine && <button onClick={props.onReads}><Icon name="eye" size={16} />{t('읽은 사람')}</button>}
+      {mine && (
+        <button className="red" onClick={() => (sure ? props.onDelete() : setSure(true))}>
+          <Icon name="trash" size={16} />{sure ? t('삭제할까요?') : t('삭제')}
+        </button>
+      )}
+    </>
+  )
+  const quick = (
+    <div className="mm-emo">
+      {QUICK.map((e) => (
+        <button key={e} className={e === props.myEmoji ? 'me' : ''} onClick={() => props.onReact(e)}>{e}</button>
+      ))}
+      <button className="rx-more" onClick={props.onMore} aria-label={t('다른 이모지 고르기')}>＋</button>
+    </div>
+  )
+  return createPortal(
+    mobile ? (
+      <>
+        <div className="mm-scrim dim" onPointerDown={onClose} />
+        <div className="mm-sheet" role="dialog" aria-label={t('메시지 메뉴')}>
+          {quick}
+          <div className="mm-group">{items}</div>
+          <button className="mm-cancel" onClick={onClose}>{t('취소')}</button>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="mm-scrim" onPointerDown={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+        <div ref={place.ref} className="mm-menu" role="menu" aria-label={t('메시지 메뉴')} style={place.style}>
+          {quick}
+          {items}
+        </div>
+      </>
+    ),
+    document.body,
+  )
+}
+
+/** 휴대폰 기본 이모지 전체 (국기·피부색 변형 제외, 직접 입력으로 고를 수 있음) */
+const EMOJI_SECTIONS: { label: string; ranges: [number, number][] }[] = [
+  { label: '표정', ranges: [[0x1f600, 0x1f64f], [0x1f910, 0x1f92f], [0x1f970, 0x1f97f], [0x1fae0, 0x1faef], [0x1f9d0, 0x1f9d0]] },
+  { label: '손·사람', ranges: [[0x1f440, 0x1f450], [0x1f466, 0x1f487], [0x1f4aa, 0x1f4aa], [0x1f90c, 0x1f90f], [0x1f930, 0x1f93a], [0x1f9b0, 0x1f9b9], [0x1f9d1, 0x1f9df], [0x1faf0, 0x1faf8], [0x270a, 0x270b]] },
+  { label: '하트', ranges: [[0x1f493, 0x1f49f], [0x1f5a4, 0x1f5a4], [0x1f90d, 0x1f90e], [0x1f9e1, 0x1f9e1], [0x1fa75, 0x1fa77], [0x1f48b, 0x1f48c], [0x1f4a2, 0x1f4af]] },
+  { label: '동물·자연', ranges: [[0x1f400, 0x1f43f], [0x1f980, 0x1f9ae], [0x1f330, 0x1f344], [0x1fab0, 0x1fabf], [0x1f300, 0x1f32f]] },
+  { label: '음식', ranges: [[0x1f345, 0x1f37f], [0x1f950, 0x1f96f], [0x1f9c0, 0x1f9cb], [0x1fad0, 0x1fadb]] },
+  { label: '활동·물건', ranges: [[0x1f380, 0x1f3ff], [0x1f4b0, 0x1f4ff], [0x1f500, 0x1f5ff], [0x1f680, 0x1f6ff], [0x1f9e0, 0x1f9ff], [0x1fa70, 0x1faaf], [0x1f93b, 0x1f94f]] },
+  { label: '기호', ranges: [[0x2600, 0x27bf], [0x2b00, 0x2bff]] },
+]
+let emojiCache: { label: string; list: string[] }[] | null = null
+function emojiSections() {
+  if (emojiCache) return emojiCache
+  const seen = new Set<string>()
+  const ok = /^\p{Emoji_Presentation}$/u
+  emojiCache = EMOJI_SECTIONS.map((sec) => {
+    const list: string[] = sec.label === '하트' ? ['❤️'] : []
+    for (const [a, b] of sec.ranges) {
+      for (let c = a; c <= b; c++) {
+        const ch = String.fromCodePoint(c)
+        if (ok.test(ch) && !seen.has(ch)) { seen.add(ch); list.push(ch) }
+      }
+    }
+    return { label: sec.label, list }
+  })
+  return emojiCache
+}
+
+/** 입력한 글자에서 첫 이모지 하나를 꺼낸다 (국기·피부색 이모지도 그대로) */
+function firstEmoji(text: string): string | null {
+  // 글자 단위 나누기 (지원하지 않는 브라우저는 한 글자씩)
+  const Seg = (Intl as any).Segmenter
+  const parts: string[] = Seg
+    ? [...new Seg(undefined, { granularity: 'grapheme' }).segment(text)].map((x: { segment: string }) => x.segment)
+    : Array.from(text)
+  // 국기는 지역 문자 2개가 모여야 완성
+  return parts.find((p) => /\p{Extended_Pictographic}/u.test(p) || /^\p{Regional_Indicator}{2}$/u.test(p)) ?? null
+}
+
+/** 이모지 전체에서 고르기 */
+function EmojiPicker({ mobile, onPick, onClose }: { mobile: boolean; onPick: (e: string) => void; onClose: () => void }) {
+  useEsc(onClose)
+  const sections = useMemo(emojiSections, [])
+  const composing = useRef(false)
+  const tryInput = (v: string) => {
+    const e = firstEmoji(v)
+    if (e) onPick(e)
+  }
+  return createPortal(
+    <>
+      <div className="mm-scrim dim" onPointerDown={onClose} />
+      <div className={'emo-pick' + (mobile ? ' sheet' : '')} role="dialog" aria-label={t('이모지 고르기')}>
+        <div className="emo-head">
+          <b>{t('이모지 고르기')}</b>
+          <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+        </div>
+        <input
+          className="emo-input"
+          placeholder={t('휴대폰 이모지 키보드로 직접 입력')}
+          onCompositionStart={() => { composing.current = true }}
+          onCompositionEnd={(e) => { composing.current = false; tryInput(e.currentTarget.value) }}
+          onChange={(e) => { if (!composing.current) tryInput(e.target.value) }}
+          aria-label={t('이모지 직접 입력')}
+        />
+        <div className="emo-scroll">
+          {sections.map((sec) => (
+            <section key={sec.label}>
+              <h5>{t(sec.label)}</h5>
+              <div className="emo-grid">
+                {sec.list.map((e) => <button key={e} onClick={() => onPick(e)}>{e}</button>)}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
+/** 반응 칩을 누르면: 누가 어떤 이모지를 달았는지 + 나도 달기/취소 */
+function ReactionWho(props: {
+  rx: Record<string, string>
+  emoji: string
+  rect: DOMRect
+  meId?: string
+  nameOf: (id: string) => string
+  onToggle: () => void
+  onClose: () => void
+}) {
+  const { rx, emoji, rect, meId, nameOf, onToggle, onClose } = props
+  useEsc(onClose)
+  const place = usePlace({ x: rect.left, y: rect.bottom + 6 })
+  const groups = new Map<string, string[]>()
+  for (const [uid, e] of Object.entries(rx)) groups.set(e, [...(groups.get(e) ?? []), uid])
+  const ordered = [...groups.entries()].sort((a, b) => (a[0] === emoji ? -1 : b[0] === emoji ? 1 : 0))
+  const mineIs = meId ? rx[meId] === emoji : false
+  return createPortal(
+    <>
+      <div className="mm-scrim" onPointerDown={onClose} />
+      <div ref={place.ref} className="rx-who" role="dialog" aria-label={t('반응한 사람')} style={place.style}>
+        {ordered.map(([e, ids]) => (
+          <div key={e} className="rx-who-row">
+            <span className="rx-e">{e}</span>
+            <span>{ids.map((id) => (id === meId ? t('나') : nameOf(id))).join(', ')}</span>
+          </div>
+        ))}
+        <button className="rx-who-btn" onClick={onToggle}>{mineIs ? t('내 반응 취소') : t('나도 {emoji} 달기', { emoji })}</button>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
+/** 전달하기: 팀 대화 또는 1:1 상대 고르기 */
+function ForwardPicker(props: {
+  m: Message
+  targets: { id: string; name: string; sub: string }[]
+  onSend: (toId: string | null) => void
+  onClose: () => void
+}) {
+  const { m, targets, onSend, onClose } = props
+  useEsc(onClose)
+  const [pick, setPick] = useState<string | null | undefined>(undefined) // null = 팀 대화
+  const pickName = pick === null ? t('팀 대화') : targets.find((x) => x.id === pick)?.name
+  return createPortal(
+    <>
+      <div className="mm-scrim dim" onPointerDown={onClose} />
+      <div className="fwd-pick" role="dialog" aria-label={t('전달하기')}>
+        <div className="emo-head">
+          <b>{t('전달하기')}</b>
+          <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="fwd-preview">{snippet(m)}</div>
+        <div className="fwd-list">
+          <button className={'fwd-row' + (pick === null ? ' on' : '')} onClick={() => setPick(null)}>
+            <span className="fwd-team"><Icon name="users" size={16} /></span>
+            <span className="fwd-name">{t('팀 대화')}<small>{t('팀 모두에게')}</small></span>
+            {pick === null && <Icon name="check" size={16} />}
+          </button>
+          {targets.map((x) => (
+            <button key={x.id} className={'fwd-row' + (pick === x.id ? ' on' : '')} onClick={() => setPick(x.id)}>
+              <Avatar name={x.name} size={30} />
+              <span className="fwd-name">{x.name}<small>{x.sub}</small></span>
+              {pick === x.id && <Icon name="check" size={16} />}
+            </button>
+          ))}
+        </div>
+        <button className="fwd-send" disabled={pick === undefined} onClick={() => pick !== undefined && onSend(pick)}>
+          {pick === undefined ? t('보낼 곳을 고르세요') : pick === null ? t('팀 대화로 보내기') : t('{name}님에게 보내기', { name: pickName ?? '' })}
+        </button>
+      </div>
+    </>,
+    document.body,
   )
 }
 

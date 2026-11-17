@@ -46,6 +46,8 @@ const msgFrom = (r: any): Message => ({
   id: r.id, teamId: r.team_id, authorId: r.author_id, body: r.body ?? '', mentions: r.mentions ?? [],
   mentionAll: !!r.mention_all, ref: r.ref ?? undefined, createdAt: Date.parse(r.created_at), deleted: !!r.deleted_at,
   ...(r.recipient_id ? { toId: r.recipient_id } : {}),
+  ...(r.reply_to ? { replyTo: r.reply_to } : {}),
+  ...(r.forwarded ? { forwarded: true } : {}),
 })
 /** 같은 id는 새 값으로 바꾸고 시간순 정렬 */
 const mergeMsgs = (list: Message[], add: Message[]) => {
@@ -88,6 +90,12 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
     if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
     if (err) { console.error(err); return }
+    // 불러온 메시지의 이모지 반응 (migration_017 전이면 비어 있음)
+    const ids = (ms.data ?? []).map((x: any) => x.id)
+    const rx = ids.length ? await supabase.from('message_reactions').select('message_id, user_id, emoji').in('message_id', ids) : { data: [], error: null }
+    if (rx.error) console.warn('반응을 불러오지 못했어요', rx.error.message)
+    const reactions: Record<string, Record<string, string>> = {}
+    for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '' })),
@@ -100,6 +108,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       messages: (ms.data ?? []).map(msgFrom).reverse(),
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
       messageReads: {},
+      reactions,
       dmReads: Object.fromEntries((dr.data ?? []).map((x: any) => [`${x.user_id}>${x.peer_id}`, Date.parse(x.last_read_at)])),
     })
   }, [])
@@ -171,6 +180,19 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `team_id=eq.${myTeamId}` }, (payload: any) => {
         if (!payload.new?.id) return
         setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [msgFrom(payload.new)]) }))
+      })
+      // 이모지 반응: 서버 규칙상 내가 볼 수 있는 메시지의 반응만 온다
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (payload: any) => {
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new
+        if (!row?.message_id || !row?.user_id) return
+        setDb((p) => {
+          // 지울 때는 내가 가진 메시지의 반응만 고친다
+          if (payload.eventType === 'DELETE' && !p.reactions?.[row.message_id]) return p
+          const cur = { ...(p.reactions?.[row.message_id] ?? {}) }
+          if (payload.eventType === 'DELETE') delete cur[row.user_id]
+          else cur[row.user_id] = row.emoji
+          return { ...p, reactions: { ...p.reactions, [row.message_id]: cur } }
+        })
       })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -309,16 +331,18 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       restoreTodo: (t) =>
         run(() => supabase.from('todos').insert({ owner_id: me_id, title: t.text, date: t.date, done: t.done, priority: t.priority })) as unknown as void,
 
-      sendMessage: async (body, ref, toId) => {
+      sendMessage: async (body, ref, toId, opts) => {
         const text = body.trim()
         if ((!text && !ref) || !team) return
         const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
-        // 1:1 대화에서는 @호출을 쓰지 않는다
-        const { mentions, mentionAll } = toId ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
+        // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
+        const { mentions, mentionAll } = toId || opts?.forwarded ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
         const { data, error } = await supabase.from('messages').insert({
           team_id: team.id, author_id: me_id, body: text,
           mentions: mentions.filter((id) => id !== me_id), mention_all: mentionAll, ref: ref ?? null,
           ...(toId ? { recipient_id: toId } : {}),
+          ...(opts?.replyTo ? { reply_to: opts.replyTo } : {}),
+          ...(opts?.forwarded ? { forwarded: true } : {}),
         }).select().single()
         if (error) { fail(error); return }
         const m = msgFrom(data)
@@ -333,7 +357,11 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       deleteMessage: async (id) => {
         const { error } = await supabase.rpc('delete_message', { p_id: id })
         if (error) { fail(error); return }
-        setDb((p) => ({ ...p, messages: p.messages.map((m) => (m.id === id ? { ...m, body: '', ref: undefined, mentions: [], mentionAll: false, deleted: true } : m)) }))
+        setDb((p) => ({
+          ...p,
+          messages: p.messages.map((m) => (m.id === id ? { ...m, body: '', ref: undefined, mentions: [], mentionAll: false, deleted: true } : m)),
+          reactions: Object.fromEntries(Object.entries(p.reactions ?? {}).filter(([k]) => k !== id)),
+        }))
       },
       markChatRead: () => {
         const last = messages.length ? messages[messages.length - 1].createdAt : 0
@@ -368,6 +396,22 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase.from('message_reads').select('user_id, read_at').eq('message_id', messageId)
         if (error) { console.warn(error.message); return {} }
         return Object.fromEntries((data ?? []).map((x: any) => [x.user_id, Date.parse(x.read_at)]))
+      },
+
+      reactions: db.reactions ?? {},
+      react: async (messageId, emoji) => {
+        const before = db.reactions?.[messageId]?.[me_id]
+        const put = (e: string | null | undefined) => setDb((p) => {
+          const cur = { ...(p.reactions?.[messageId] ?? {}) }
+          if (e) cur[me_id] = e
+          else delete cur[me_id]
+          return { ...p, reactions: { ...p.reactions, [messageId]: cur } }
+        })
+        put(emoji) // 먼저 화면에 보여 주고
+        const { error } = emoji
+          ? await supabase.from('message_reactions').upsert({ message_id: messageId, user_id: me_id, emoji })
+          : await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', me_id)
+        if (error) { put(before); fail(error) } // 실패하면 되돌린다
       },
 
       markAllRead: () => {
