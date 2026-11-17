@@ -207,6 +207,10 @@ export interface Store {
   toggleTodo: (id: string) => void
   togglePriority: (id: string) => void
   removeTodo: (id: string) => void
+  /** 할 일을 다른 날로 옮기기 */
+  moveTodo: (id: string, date: string) => void
+  /** 지운 할 일 되살리기 (되돌리기) */
+  restoreTodo: (t: Omit<Todo, 'id' | 'ownerId'>) => void
   // 알림
   markAllRead: () => void
   // 팀 대화
@@ -525,6 +529,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       togglePriority: (id) =>
         set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, priority: !t.priority } : t)) })),
       removeTodo: (id) => set((p) => ({ ...p, todos: p.todos.filter((t) => t.id !== id) })),
+      moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, date } : t)) })),
+      restoreTodo: (t) => set((p) => ({ ...p, todos: [...p.todos, { ...t, id: uid(), ownerId: p.currentUserId! }] })),
 
       markAllRead: () =>
         set((p) => ({

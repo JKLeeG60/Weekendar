@@ -1,9 +1,10 @@
-import { Fragment } from 'react'
+import React, { Fragment, useRef, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { fmtHead, holidayLabel, holidayName, todayStr, weekDays } from '../lib/date'
 import { t } from '../lib/i18n'
+import { useEventActions } from './DayDrop'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 
@@ -36,6 +37,42 @@ export function TeamTable() {
   const { db, me, myMember, tableMembers, userOf } = useStore()
   const { selected, openModal } = useUI()
   const days = weekDays(selected)
+  const act = useEventActions()
+  // 내 일정 끌어서 다른 요일로: 끌고 있는 일정과 놓을 칸
+  const dragging = useRef<{ baseId: string; from: string } | null>(null)
+  const [overDay, setOverDay] = useState<string | null>(null)
+  const dragProps = (o: Occurrence, from: string | ((e: React.DragEvent) => string)) =>
+    o.ownerId === me?.id
+      ? {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => {
+            dragging.current = { baseId: o.baseId, from: typeof from === 'function' ? from(e) : from }
+            e.dataTransfer.setData('text/weekendar-event', o.baseId)
+            e.dataTransfer.effectAllowed = 'move'
+          },
+          onDragEnd: () => { dragging.current = null; setOverDay(null) },
+        }
+      : {}
+  const dropProps = (m: Member, d: string) =>
+    m.userId === me?.id
+      ? {
+          onDragOver: (e: React.DragEvent) => {
+            if (!dragging.current) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            if (overDay !== d) setOverDay(d)
+          },
+          onDragLeave: (e: React.DragEvent) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setOverDay(null) },
+          onDrop: (e: React.DragEvent) => {
+            const g = dragging.current
+            if (!g) return
+            e.preventDefault()
+            dragging.current = null
+            setOverDay(null)
+            act.moveEvent(g.baseId, g.from, d)
+          },
+        }
+      : {}
   const today = todayStr()
   const shared = db.events.filter((e) => e.shared)
 
@@ -118,7 +155,9 @@ export function TeamTable() {
                   return (
                     <td
                       key={d}
-                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}
+                      {...dropProps(m, d)}
+                      data-drop-label={mine && overDay === d ? t('{date}로 옮기기', { date: fmtHead(d) }) : undefined}
+                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (mine && overDay === d ? ' drop-on' : '')}
                       onClick={() => {
                         onCell(m, d)
                       }}
@@ -130,6 +169,11 @@ export function TeamTable() {
                         return (
                           <button
                             key={s.e.id}
+                            {...dragProps(o, (e) => {
+                              // 막대의 어느 날을 잡았는지
+                              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                              return days[di + Math.min(n - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * n)))]
+                            })}
                             className={'span-bar' + (s.cutL ? ' cut-l' : '') + (s.cutR ? ' cut-r' : '')}
                             data-cat={s.e.category}
                             style={{ top: `calc(0.35rem + ${s.lane} * var(--bar-step))`, width: `calc(${n} * 100% + ${n - 1}px - ${0.7 - (s.cutL ? 0.35 : 0) - (s.cutR ? 0.35 : 0)}rem)` }}
@@ -166,6 +210,7 @@ export function TeamTable() {
                           return (
                             <button
                               key={o.id + o.date}
+                              {...dragProps(o, d)}
                               className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '')}
                               data-cat={o.category}
                               title={`${o.start}–${o.end} ${o.title}${o.place ? ' · ' + o.place : ''}`}

@@ -1004,3 +1004,43 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .dm-row.new .dm-side { color: var(--accent); }
 .dm-label { padding: 0.8rem 0.9rem 0.3rem; font-size: 0.76rem; font-weight: 650; color: var(--muted); }
 .dm-lock { text-align: center; font-size: 0.72rem; color: var(--muted); padding: 0.3rem 0 0; flex: none; }
+
+/* ═════════ 끌어서 다른 날로 · 밀어서 삭제 ═════════ */
+/* 목록 한 줄: 뒤에 휴지통, 앞의 내용이 왼쪽으로 밀린다 */
+.swipe-row { position: relative; overflow: hidden; touch-action: pan-y; }
+.swipe-body { position: relative; z-index: 1; transition: transform 0.2s ease; background: var(--surface); }
+.swipe-row.sliding:not(.open) .swipe-body { transition: none; }
+.swipe-del { position: absolute; z-index: 0; right: 0; top: 0; bottom: 0; width: 72px; display: grid; place-items: center; background: var(--red); color: #fff; border-radius: 0 0.7rem 0.7rem 0; }
+.swipe-row:not(.sliding) .swipe-del { visibility: hidden; }
+.swipe-row.lifted .swipe-body { transform: scale(0.97); opacity: 0.55; }
+.todo-li { list-style: none; }
+.m-card .swipe-row { border-radius: 0.7rem; }
+.m-card .swipe-body { background: transparent; }
+.m-card .swipe-row.sliding .swipe-body { background: var(--surface); border-radius: 0.7rem; }
+
+/* 끄는 동안 위에 뜨는 날짜 띠 */
+.dd-strip { position: fixed; z-index: 70; top: calc(4.2rem + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.3rem; padding: 0.45rem; background: var(--surface); border-radius: 1rem; box-shadow: var(--shadow); border: 1px solid var(--line-soft); animation: pop 0.15s; }
+.dd-day { width: 3.1rem; padding: 0.35rem 0; border-radius: 0.7rem; display: flex; flex-direction: column; align-items: center; border: 1.5px solid var(--line-soft); }
+.dd-day small { font-size: 0.72rem; color: var(--muted); }
+.dd-day b { font-size: 1.1rem; font-weight: 700; }
+.dd-day.red b { color: var(--red); }
+.dd-day.cur { background: var(--surface-2); }
+.dd-day.today b { color: var(--red); }
+.dd-day.on { border: 2px dashed var(--accent); background: var(--mine-bg); }
+.dd-day.on b, .dd-day.on small { color: var(--accent); }
+.dd-arrow { width: 1.8rem; height: 3rem; display: grid; place-items: center; color: var(--muted); border-radius: 0.6rem; }
+.dd-arrow.on { background: var(--mine-bg); color: var(--accent); }
+.dd-ghost { position: fixed; z-index: 71; pointer-events: none; transform: translate(14px, 14px); background: rgba(28, 28, 30, 0.9); color: #fff; font-size: 0.8rem; padding: 0.35rem 0.7rem; border-radius: 0.6rem; white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+[data-mobile='true'] .dd-strip { top: calc(0.6rem + env(safe-area-inset-top, 0px)); gap: 0.2rem; padding: 0.35rem; }
+[data-mobile='true'] .dd-day { width: 2.6rem; }
+[data-mobile='true'] .dd-arrow { width: 1.4rem; }
+
+/* PC 팀 표: 놓을 칸 */
+.team-table td.cell.drop-on { outline: 2.5px dashed var(--accent); outline-offset: -4px; background: var(--mine-bg); position: relative; }
+.team-table td.cell.drop-on::after { content: attr(data-drop-label); position: absolute; left: 50%; bottom: 0.4rem; transform: translateX(-50%); background: rgba(28, 28, 30, 0.9); color: #fff; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 0.5rem; white-space: nowrap; pointer-events: none; }
+.team-table .chip[draggable='true'], .team-table .span-bar[draggable='true'] { cursor: grab; }
+
+/* 안내 + 되돌리기 */
+.toast.with-action { display: flex; align-items: center; gap: 0.9rem; padding-right: 0.6rem; }
+.toast-btn { color: #64b5ff; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
+.toast-btn:hover { background: rgba(255, 255, 255, 0.1); }

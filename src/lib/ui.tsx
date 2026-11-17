@@ -25,7 +25,10 @@ interface UI {
   openModal: (m: ModalState) => void
   closeModal: () => void
   toast: string | null
-  showToast: (t: string) => void
+  /** 안내에 붙은 버튼 (예: 되돌리기) */
+  toastAction: { label: string; run: () => void } | null
+  /** action 을 주면 버튼이 붙고 5초 동안 보인다 */
+  showToast: (t: string, action?: { label: string; run: () => void }) => void
   theme: 'light' | 'dark'
   themePref: ThemePref
   setThemePref: (v: ThemePref) => void
@@ -81,6 +84,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('date') ?? initialDate())
   const [modal, setModal] = useState<ModalState>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [toastAction, setToastAction] = useState<{ label: string; run: () => void } | null>(null)
+  const showToast = (t: string, action?: { label: string; run: () => void }) => {
+    setToastAction(action ?? null)
+    setToast(t)
+  }
   const [panelOpen, setPanelOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatTab, setChatTab] = useState<'team' | 'dm'>('team')
@@ -142,9 +150,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), 2600)
+    const t = setTimeout(() => { setToast(null); setToastAction(null) }, toastAction ? 5000 : 2600)
     return () => clearTimeout(t)
-  }, [toast])
+  }, [toast, toastAction])
 
   return (
     <Ctx.Provider
@@ -160,7 +168,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         openDM,
         closeModal: () => setModal(null),
         toast,
-        showToast: setToast,
+        toastAction,
+        showToast,
         theme,
         toggleTheme: () => setThemePref(theme === 'light' ? 'dark' : 'light'),
         themePref,

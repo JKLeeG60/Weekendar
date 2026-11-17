@@ -10,10 +10,13 @@ import { Rich, t } from '../lib/i18n'
 const tr = t
 import { MiniCalendar } from './MiniCalendar'
 import { Icon } from './ui'
+import { GestureRow, useEventActions } from './DayDrop'
+import { endDayDrag, moveDayDrag, startDayDrag } from '../lib/dayDrag'
 
 export function DayAgenda() {
   const { db, me, updateEvent, addEvent } = useStore()
   const { selected, setSelected, openModal, showToast } = useUI()
+  const act = useEventActions()
   const [cal, setCal] = useState(false)
   const all = occurrencesOn(db.events.filter((e) => e.ownerId === me?.id), selected)
   const allDay = all.filter((o) => isMultiDay(o))
@@ -61,6 +64,7 @@ export function DayAgenda() {
           date={selected}
           onAdd={(t) => openModal({ type: 'event', date: selected, start: t })}
           onOpen={(o) => openModal({ type: 'detail', occ: o })}
+          onMoveDay={(o, day) => act.moveEvent(o.baseId, selected, day)}
           onChange={(o, start, end) => {
             updateEvent(o.baseId, { start, end })
             showToast(t('{range}로 옮겼어요', { range: `${start}–${end}` }) + (o.repeat !== 'none' ? t(' (반복 일정 전체)') : ''))
@@ -87,8 +91,9 @@ export function PersonalPanel() {
 }
 
 export function Todos() {
-  const { db, me, addTodo, toggleTodo, togglePriority, removeTodo } = useStore()
+  const { db, me, addTodo, toggleTodo, togglePriority } = useStore()
   const { selected, openModal, isMobile } = useUI()
+  const act = useEventActions()
   const [text, setText] = useState('')
 
   const list = db.todos
@@ -124,15 +129,22 @@ export function Todos() {
         )}
         <ul className="todos">
           {list.map((t) => (
-            <li
-              key={t.id}
+            <li key={t.id} className="todo-li">
+            <GestureRow
               className={'todo-item' + (t.done ? ' done' : '')}
-              draggable={!t.done && !isMobile}
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/weekendar-todo', t.id)
-                e.dataTransfer.effectAllowed = 'copy'
+              onDelete={() => act.removeTodo(t)}
+              drag={!t.done ? { label: t.text, onDrop: (d) => act.moveTodo(t.id, d) } : undefined}
+              bodyProps={{
+                draggable: !t.done && !isMobile,
+                onDragStart: (e) => {
+                  e.dataTransfer.setData('text/weekendar-todo', t.id)
+                  e.dataTransfer.effectAllowed = 'copyMove'
+                  // 위쪽에 날짜 띠: 날짜에 놓으면 그날로 옮기기, 타임라인에 놓으면 일정으로
+                  startDayDrag({ label: t.text, native: true, anchor: document.querySelector('.timeline-scroll'), onDrop: (d) => act.moveTodo(t.id, d) })
+                },
+                onDragEnd: () => endDayDrag(false),
+                title: !t.done && !isMobile ? tr('타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요') : undefined,
               }}
-              title={!t.done && !isMobile ? tr('위 타임라인으로 끌어다 놓으면 일정이 돼요') : undefined}
             >
               <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTodo(t.id)} aria-label={t.text}>
                 {t.done && <Icon name="check" size={13} />}
@@ -152,9 +164,10 @@ export function Todos() {
               <button className={'icon-btn tiny flag' + (t.priority ? ' on' : '')} onClick={() => togglePriority(t.id)} aria-label={tr('중요 표시')}>
                 <Icon name="flag" size={14} />
               </button>
-              <button className="icon-btn tiny del" onClick={() => removeTodo(t.id)} aria-label={tr('삭제')}>
+              <button className="icon-btn tiny del" onClick={() => act.removeTodo(t)} aria-label={tr('삭제')}>
                 <Icon name="x" size={14} />
               </button>
+            </GestureRow>
             </li>
           ))}
         </ul>
@@ -194,8 +207,10 @@ function layout(occs: Occurrence[]) {
 type Drag = { id: string; mode: 'move' | 'resize'; y0: number; s0: number; e0: number; s: number; e: number; active: boolean }
 const SNAP = 15
 
-function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
+function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay }: {
   occs: Occurrence[]; date: string
+  /** 끌어서 위 날짜 띠에 놓으면 그날로 옮기기 */
+  onMoveDay: (o: Occurrence, day: string) => void
   onAdd: (t: string) => void
   onOpen: (o: Occurrence) => void
   onChange: (o: Occurrence, start: string, end: string) => void
@@ -253,6 +268,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
       holdTimer.current = window.setTimeout(() => {
         setDrag({ ...d, active: true })
         navigator.vibrate?.(10)
+        if (mode === 'move') startDayDrag({ label: o.title, x: e.clientX, y: e.clientY, anchor: ref.current, onDrop: (day) => onMoveDay(o, day) })
       }, 350)
       setDrag(d)
     } else {
@@ -272,6 +288,12 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
     }
     const dm = snap(pxToMin(dy))
     if (d.mode === 'move') {
+      // 처음 움직일 때 위쪽에 날짜 띠를 띄우고, 이후 손가락/마우스 위치를 알려 준다
+      if (!d.active && e.pointerType !== 'touch') {
+        const o = occs.find((x) => x.id === d.id)
+        if (o) startDayDrag({ label: o.title, x: e.clientX, y: e.clientY, anchor: ref.current, onDrop: (day) => onMoveDay(o, day) })
+      }
+      moveDayDrag(e.clientX, e.clientY)
       const len = d.e0 - d.s0
       const s = Math.min(Math.max(0, d.s0 + dm), 24 * 60 - len)
       setDrag({ ...d, active: true, s, e: s + len })
@@ -292,6 +314,8 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
     if (d.active) {
       suppressClick.current = true
       setTimeout(() => (suppressClick.current = false), 0)
+      // 날짜 띠 위에서 놓았으면 그날로 옮기고, 아니면 시간만 바꾼다
+      if (endDayDrag()) return
       if (d.s !== d.s0 || d.e !== d.e0) onChange(o, hhmm(d.s), hhmm(Math.min(d.e, 23 * 60 + 59)))
     }
   }
@@ -358,7 +382,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
               onPointerDown={(ev) => begin(ev, o, s, e, 'move')}
               onPointerMove={move}
               onPointerUp={() => end(o)}
-              onPointerCancel={() => { cancelHold(); setDrag(null) }}
+              onPointerCancel={() => { cancelHold(); setDrag(null); endDayDrag(false) }}
               onClick={(ev) => { ev.stopPropagation(); if (!suppressClick.current) onOpen(o) }}
               title={`${o.start}–${o.end} ${o.title} · ${t('끌어서 시간 이동, 아래 끝을 끌어서 길이 조절')}`}
             >

@@ -302,6 +302,12 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         setDb((p) => ({ ...p, todos: p.todos.filter((x) => x.id !== id) }))
         run(() => supabase.from('todos').delete().eq('id', id))
       },
+      moveTodo: (id, date) => {
+        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id ? { ...x, date } : x)) }))
+        run(() => supabase.from('todos').update({ date }).eq('id', id))
+      },
+      restoreTodo: (t) =>
+        run(() => supabase.from('todos').insert({ owner_id: me_id, title: t.text, date: t.date, done: t.done, priority: t.priority })) as unknown as void,
 
       sendMessage: async (body, ref, toId) => {
         const text = body.trim()

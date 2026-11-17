@@ -478,4 +478,14 @@ export const EN: Record<string, string | [string, string]> = {
   '{name}님과 아직 대화가 없어요. 첫 메시지를 남겨보세요.': 'No messages with {name} yet. Say hello.',
   '두 사람만 볼 수 있는 대화예요': 'Only the two of you can see this conversation',
   '{name}님에게 메시지': 'Message {name}',
+
+  // ── 끌어서 옮기기 · 밀어서 삭제 ──
+  '{date}로 옮겼어요': 'Moved to {date}',
+  '{date}로 옮기기': 'Move to {date}',
+  '옮길 날짜': 'Move to date',
+  '반복 일정 전체를 지울까요?': 'Delete every repeat of this event?',
+  '되돌리기': 'Undo',
+  '되돌렸어요': 'Restored',
+  '할 일을 삭제했어요.': 'To-do deleted.',
+  '타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요': 'Drop on the timeline to schedule it, or on a date above to move it',
 }

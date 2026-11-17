@@ -12,6 +12,7 @@ import { NoticeToasts } from './NoticeToasts'
 import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
+import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
 
 type Tab = 'team' | 'me' | 'todo' | 'chat'
 
@@ -63,7 +64,8 @@ export function MobileMain() {
         ))}
       </nav>
       <Modals />
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && <Toast />}
+      <DayDropStrip />
       <NoticeToasts />
       <Reminders />
     </div>
@@ -73,6 +75,7 @@ export function MobileMain() {
 function MobileTeam() {
   const { db, me, myMember, tableMembers, userOf } = useStore()
   const { selected, setSelected, openModal } = useUI()
+  const act = useEventActions()
   const days = weekDays(selected)
   const today = todayStr()
   const day = days.includes(selected) ? selected : days[0]
@@ -204,6 +207,11 @@ function MobileTeam() {
                           </li>
                         ) : (
                           <li key={en.ev!.id + en.ev!.date}>
+                            {/* 내 일정: 왼쪽으로 밀면 삭제, 길게 눌러 끌면 다른 날로 */}
+                            <GestureRow
+                              onDelete={mine ? () => act.removeEvent(en.ev!.baseId) : undefined}
+                              drag={mine ? { label: en.ev!.title, onDrop: (to) => act.moveEvent(en.ev!.baseId, day, to) } : undefined}
+                            >
                             <button className="m-item" data-cat={en.ev!.category} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
                               {isMultiDay(en.ev!)
                                 ? <span className="m-time allday-time">{t('종일')}</span>
@@ -216,6 +224,7 @@ function MobileTeam() {
                               </span>
                               <span className="cat-tag" data-cat={en.ev!.category}>{t(CATEGORY_LABEL[en.ev!.category])}</span>
                             </button>
+                            </GestureRow>
                           </li>
                         ),
                       )}

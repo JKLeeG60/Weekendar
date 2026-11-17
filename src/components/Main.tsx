@@ -12,6 +12,7 @@ import { ChatWindow } from './Chat'
 import { Reminders } from './Reminders'
 import { clearInvite, getInvite } from '../lib/invite'
 import { t } from '../lib/i18n'
+import { DayDropStrip, Toast } from './DayDrop'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile, showToast } = useUI()
@@ -52,7 +53,8 @@ export function Main() {
         <PersonalPanel />
       </div>
       <Modals />
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && <Toast />}
+      <DayDropStrip />
       <ChatWindow />
       <NoticeToasts />
       <Reminders />
