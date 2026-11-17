@@ -62,15 +62,15 @@ function barsOfWeek(spans: EventItem[], week: string[]): Bar[] {
   })
 }
 
-export function MonthModal({ userId: firstUser }: { userId: string }) {
-  const { db, me, userOf, tableMembers } = useStore()
+export function MonthModal({ userId: firstUser, date: firstDate }: { userId: string; date?: string }) {
+  const { db, me, myMember, userOf, tableMembers } = useStore()
   const { closeModal, openModal, setSelected, selected, isMobile } = useUI()
   const today = todayStr()
   const [ym, setYm] = useState(() => {
-    const d = parse(selected)
+    const d = parse(firstDate ?? selected)
     return { y: d.getFullYear(), m: d.getMonth() }
   })
-  const [pick, setPick] = useState(selected)
+  const [pick, setPick] = useState(firstDate ?? selected)
   // 위쪽 사진을 누르면 그 사람의 월간 일정으로 바꿔 본다
   const [userId, setUserId] = useState(firstUser)
   const mine = userId === me?.id
@@ -96,6 +96,20 @@ export function MonthModal({ userId: firstUser }: { userId: string }) {
   const cats = [...new Set(evs.filter((e) => days.some((d) => occurrencesOn([e], d).length)).map((e) => e.category))] as Category[]
 
   const openOcc = (o: Occurrence) => openModal({ type: 'detail', occ: o })
+
+  // 일정 추가: 내 달력은 바로 추가, 팀장 달력은 팀원이 요청, 다른 팀원 달력은 추가 없음
+  const leaderCal = tableMembers.find((x) => x.userId === userId)?.role === 'leader' && myMember?.role === 'member'
+  const canAdd = mine || leaderCal
+  const addLabel = mine ? t('일정 추가') : t('일정 요청')
+  const add = (d: string) => {
+    // 저장하거나 닫으면 지금 보던 월간 일정으로 돌아온다
+    const back = { type: 'month' as const, userId, date: d }
+    if (mine) openModal({ type: 'event', date: d, back })
+    else openModal({ type: 'request', mode: 'add', date: d, back })
+  }
+  // 위쪽 버튼으로 추가할 날짜: 고른 날 → 오늘 → 그 달 1일 (보고 있는 달 안에서)
+  const firstOfMonth = `${ym.y}-${String(ym.m + 1).padStart(2, '0')}-01`
+  const addDate = inMonth(pick) ? pick : inMonth(today) ? today : firstOfMonth
   const goWeek = (d: string) => {
     setSelected(d)
     closeModal()
@@ -107,6 +121,11 @@ export function MonthModal({ userId: firstUser }: { userId: string }) {
       <strong>{monthTitle(ym.y, ym.m)}</strong>
       <button className="icon-btn" onClick={() => move(1)} aria-label={t('다음 달')}><Icon name="chevR" /></button>
       <button className="btn small ghost" onClick={goToday}>{t('오늘')}</button>
+      {canAdd && (
+        <button className="btn small primary mo-add" onClick={() => add(addDate)} title={t('{date}에 {what}', { date: fmtMonthDay(addDate), what: addLabel })}>
+          <Icon name="plus" size={14} />{addLabel}
+        </button>
+      )}
       <span className="mo-note">
         {mine ? t('나만 보기 일정도 함께 보여요') : t('팀에 공유한 일정만 보여요')}
         {!isMobile && ' · ' + t('날짜를 누르면 그 주 팀 표로, 일정을 누르면 상세로 이동해요')}
@@ -198,6 +217,11 @@ export function MonthModal({ userId: firstUser }: { userId: string }) {
             const room = Math.max(1, 3 - lanes)
             return (
               <div key={d} className={'mo-cell' + (inMonth(d) ? '' : ' out') + (di === 0 || di === 6 ? ' wkend' : '')}>
+                {canAdd && (
+                  <button className="mo-plus" onClick={() => add(d)} aria-label={t('{date}에 {what}', { date: fmtMonthDay(d), what: addLabel })} title={t('{date}에 {what}', { date: fmtMonthDay(d), what: addLabel })}>
+                    <Icon name="plus" size={13} />
+                  </button>
+                )}
                 <button className={'mo-num' + (red ? ' red' : '') + (d === today ? ' today' : '')} onClick={() => goWeek(d)} title={t('그 주 팀 표로 이동')}>
                   {parse(d).getDate() === 1 || !inMonth(d) ? fmtShort(d) : parse(d).getDate()}
                 </button>

@@ -3,9 +3,10 @@ import type { Occurrence } from './types'
 import { initialDate } from './store'
 
 export type ModalState =
-  | { type: 'event'; date: string; start?: string; event?: Occurrence; title?: string; shared?: boolean }
+  /** back: 닫거나 저장하면 이 창으로 돌아간다 (예: 월간 일정에서 연 경우) */
+  | { type: 'event'; date: string; start?: string; event?: Occurrence; title?: string; shared?: boolean; back?: ModalState }
   | { type: 'detail'; occ: Occurrence }
-  | { type: 'request'; mode: 'add' | 'edit' | 'delete'; date: string; occ?: Occurrence }
+  | { type: 'request'; mode: 'add' | 'edit' | 'delete'; date: string; occ?: Occurrence; back?: ModalState }
   | { type: 'day'; userId: string; date: string }
   | { type: 'admin' }
   | { type: 'calendar' }
@@ -13,7 +14,8 @@ export type ModalState =
   | { type: 'leave' }
   /** 팀원 메뉴 (x, y: 데스크탑에서 메뉴를 띄울 위치) */
   | { type: 'member'; userId: string; x?: number; y?: number }
-  | { type: 'month'; userId: string }
+  /** date: 처음 보여줄 날짜 (없으면 지금 고른 날) */
+  | { type: 'month'; userId: string; date?: string }
   | { type: 'mail'; userId: string }
   | { type: 'install' }
   | { type: 'tutorial' }
@@ -167,7 +169,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         dmPeer,
         setDmPeer,
         openDM,
-        closeModal: () => setModal(null),
+        // 돌아갈 창이 있으면 그 창으로, 없으면 닫기
+        closeModal: () => setModal((m) => (m && 'back' in m && m.back ? m.back : null)),
         toast,
         toastAction,
         showToast,

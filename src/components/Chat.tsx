@@ -678,6 +678,15 @@ function MsgMenu(props: {
   const [sure, setSure] = useState(false)
   useEsc(onClose)
   const place = usePlace(props.at, sure)
+  // 길게 눌러 연 뒤 손가락을 떼는 순간, 그 자리 메뉴가 눌리지 않게:
+  // 메뉴 안에서 새로 누른 경우(또는 키보드)만 누른 것으로 친다
+  const pressed = useRef(false)
+  const guard = {
+    onPointerDownCapture: () => { pressed.current = true },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!pressed.current && e.detail !== 0) { e.preventDefault(); e.stopPropagation() }
+    },
+  }
   const items = (
     <>
       <button onClick={props.onReply}><Icon name="reply" size={16} />{t('답장')}</button>
@@ -703,7 +712,7 @@ function MsgMenu(props: {
     mobile ? (
       <>
         <div className="mm-scrim dim" onPointerDown={onClose} />
-        <div className="mm-sheet" role="dialog" aria-label={t('메시지 메뉴')}>
+        <div className="mm-sheet" role="dialog" aria-label={t('메시지 메뉴')} {...guard}>
           {quick}
           <div className="mm-group">{items}</div>
           <button className="mm-cancel" onClick={onClose}>{t('취소')}</button>
@@ -712,7 +721,7 @@ function MsgMenu(props: {
     ) : (
       <>
         <div className="mm-scrim" onPointerDown={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-        <div ref={place.ref} className="mm-menu" role="menu" aria-label={t('메시지 메뉴')} style={place.style}>
+        <div ref={place.ref} className="mm-menu" role="menu" aria-label={t('메시지 메뉴')} style={place.style} {...guard}>
           {quick}
           {items}
         </div>

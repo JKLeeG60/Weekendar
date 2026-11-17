@@ -41,7 +41,7 @@ export function Modals() {
     case 'leave': return <LeaveModal />
     case 'push': return <PushModal />
     case 'member': return <MemberMenu userId={modal.userId} x={modal.x} y={modal.y} />
-    case 'month': return <MonthModal userId={modal.userId} />
+    case 'month': return <MonthModal userId={modal.userId} date={modal.date} />
     case 'mail': return <MailModal userId={modal.userId} />
     case 'install': return <InstallModal />
     case 'tutorial': return <TutorialModal />

@@ -546,4 +546,7 @@ export const EN: Record<string, string | [string, string]> = {
   '시작하기': 'Get started',
   '다음': 'Next',
   '사용법 다시 보기': 'Replay the tour',
+
+  // ── 월간 일정: 일정 추가 ──
+  '{date}에 {what}': '{what} on {date}',
 }

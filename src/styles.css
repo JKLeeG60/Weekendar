@@ -1175,3 +1175,11 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .tut-dots { display: flex; justify-content: center; gap: 0.4rem; margin: 1.1rem 0 0.4rem; }
 .tut-dots i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--line); transition: width 0.2s, background 0.2s; }
 .tut-dots i.on { width: 1.4rem; border-radius: 0.3rem; background: var(--accent); }
+
+/* ───────── 월간 일정: 일정 추가 ───────── */
+.mo-add { display: inline-flex; align-items: center; gap: 0.25rem; }
+.mo-cell { position: relative; }
+/* 날짜 칸에 마우스를 올리면 오른쪽 위에 작은 + */
+.mo-plus { position: absolute; top: 0.2rem; right: 0.3rem; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+.mo-cell:hover .mo-plus, .mo-plus:focus-visible { opacity: 1; }
+.mo-plus:hover { transform: scale(1.12); background: var(--accent); color: #fff; }
