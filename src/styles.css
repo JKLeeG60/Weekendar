@@ -1054,3 +1054,27 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .dd-ghost.below { transform: translateX(-50%); }
 /* 날짜 위에 올라가면 복사본을 옅게 해서 놓을 날짜가 보이게 */
 .dd-clone.over { opacity: 0.45; }
+
+/* 월간 일정 제목 옆: 팀원 사진을 눌러 바꿔 보기 */
+.mo-title { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.mo-people { display: flex; align-items: center; gap: 0.35rem; padding-left: 0.75rem; border-left: 1.5px solid var(--line); overflow-x: auto; scrollbar-width: none; padding-block: 3px; }
+.mo-people::-webkit-scrollbar { display: none; }
+.mo-person { flex: none; border-radius: 50%; padding: 2px; opacity: 0.55; transition: opacity 0.12s, box-shadow 0.12s; }
+.mo-person:hover { opacity: 1; }
+.mo-person.on { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }
+.month-modal .modal-head { gap: 0.8rem; }
+.month-modal .modal-head h2 { min-width: 0; }
+.mo-sub { display: block; font-size: 0.88rem; font-weight: 600; color: var(--muted); margin: 0 0 0.5rem; }
+/* 창 자체에 생기는 파란 테두리(초점 표시)는 숨김 */
+.modal:focus, .modal:focus-visible { outline: none; }
+.mo-title-text { flex: none; white-space: nowrap; }
+
+/* 사진 아래 작은 표시 (주차 배지와 같은 모양) */
+.mo-person { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; border-radius: 0.8rem; padding: 3px 3px 2px; }
+.mo-person.on { box-shadow: none; }
+.mo-person.on .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.mo-tag { font-size: 0.6rem; font-weight: 700; line-height: 1; padding: 0.15rem 0.35rem; border-radius: 99px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); white-space: nowrap; min-height: 0.9rem; }
+.mo-tag:empty { visibility: hidden; }
+/* 사진과 아래 글씨가 겹치지 않게, 글씨는 배경 없이 파란색만 */
+.mo-person { gap: 0.4rem; padding-top: 5px; }
+.mo-tag { background: none; padding: 0; font-size: 0.66rem; }

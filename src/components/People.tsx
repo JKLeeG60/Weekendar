@@ -62,7 +62,7 @@ function barsOfWeek(spans: EventItem[], week: string[]): Bar[] {
   })
 }
 
-export function MonthModal({ userId }: { userId: string }) {
+export function MonthModal({ userId: firstUser }: { userId: string }) {
   const { db, me, userOf, tableMembers } = useStore()
   const { closeModal, openModal, setSelected, selected, isMobile } = useUI()
   const today = todayStr()
@@ -71,9 +71,11 @@ export function MonthModal({ userId }: { userId: string }) {
     return { y: d.getFullYear(), m: d.getMonth() }
   })
   const [pick, setPick] = useState(selected)
+  // 위쪽 사진을 누르면 그 사람의 월간 일정으로 바꿔 본다
+  const [userId, setUserId] = useState(firstUser)
   const mine = userId === me?.id
-  const u = userOf(userId)
-  const m = tableMembers.find((x) => x.userId === userId)
+  // 나 → 팀장 → 팀원 순서
+  const people = [...tableMembers.filter((x) => x.userId === me?.id), ...tableMembers.filter((x) => x.userId !== me?.id)]
 
   // 다른 사람은 팀에 공유한 일정만, 나는 전부
   const evs = useMemo(() => db.events.filter((e) => e.ownerId === userId && (mine || e.shared)), [db.events, userId, mine])
@@ -111,7 +113,31 @@ export function MonthModal({ userId }: { userId: string }) {
       </span>
     </div>
   )
-  const title = mine ? t('내 일정') : t('{name}님의 일정', { name: u.name })
+  const title = (
+    <span className="mo-title">
+      <span className="mo-title-text">{t('월간 일정')}</span>
+      <span className="mo-people" role="tablist" aria-label={t('누구의 일정')}>
+        {people.map((p) => {
+          const name = userOf(p.userId).name
+          return (
+            <button
+              key={p.userId}
+              role="tab"
+              aria-selected={p.userId === userId}
+              className={'mo-person' + (p.userId === userId ? ' on' : '')}
+              onClick={() => setUserId(p.userId)}
+              title={p.userId === me?.id ? `${name} (${t('나')})` : name}
+            >
+              <Avatar name={name} size={30} />
+              {/* 사진 아래 작은 표시: 나 / 팀장 / 직급 */}
+              <span className="mo-tag">{p.userId === me?.id ? t('나') : p.role === 'leader' ? t('팀장') : p.title || ''}</span>
+            </button>
+          )
+        })}
+      </span>
+    </span>
+  )
+
 
   /* 폰: 달력(점) + 고른 날의 목록 */
   if (isMobile) {
@@ -160,10 +186,6 @@ export function MonthModal({ userId }: { userId: string }) {
   /* 데스크탑: 칸마다 일정 */
   return (
     <Modal title={title} onClose={closeModal} width={1040} className="month-modal">
-      <div className="mo-sub">
-        <Avatar name={u.name} size={26} />
-        <span>{m?.role === 'leader' ? t('팀장') : m?.title}</span>
-      </div>
       {head}
       <div className="mo-grid">
         {dowHeads().map((d, i) => <span key={i} className={'mo-w' + (i === 0 ? ' sun' : '')}>{d}</span>)}
