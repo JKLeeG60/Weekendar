@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
 import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
-import { chatCounts, parseMentions } from './chat'
+import { chatCounts, dmPeer, dmThreads, parseMentions } from './chat'
 import { t as tr } from './i18n'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
@@ -45,6 +45,7 @@ const noticeFrom = (r: any): Notice => ({
 const msgFrom = (r: any): Message => ({
   id: r.id, teamId: r.team_id, authorId: r.author_id, body: r.body ?? '', mentions: r.mentions ?? [],
   mentionAll: !!r.mention_all, ref: r.ref ?? undefined, createdAt: Date.parse(r.created_at), deleted: !!r.deleted_at,
+  ...(r.recipient_id ? { toId: r.recipient_id } : {}),
 })
 /** 같은 id는 새 값으로 바꾸고 시간순 정렬 */
 const mergeMsgs = (list: Message[], add: Message[]) => {
@@ -70,7 +71,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const uid = uidRef.current
     if (!uid) return
-    const [p, t, m, e, r, n, td, ms, cr] = await Promise.all([
+    const [p, t, m, e, r, n, td, ms, cr, dr] = await Promise.all([
       supabase.from('profiles').select('*'),
       supabase.from('teams').select('*'),
       supabase.from('members').select('*'),
@@ -80,6 +81,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       supabase.from('todos').select('*'),
       supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('chat_reads').select('*').eq('user_id', uid),
+      // 1:1 대화 읽은 위치 (migration_015 전이면 비어 있음)
+      supabase.from('dm_reads').select('*').eq('user_id', uid),
     ])
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
@@ -97,6 +100,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       messages: (ms.data ?? []).map(msgFrom).reverse(),
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
       messageReads: {},
+      dmReads: Object.fromEntries((dr.data ?? []).map((x: any) => [`${x.user_id}>${x.peer_id}`, Date.parse(x.last_read_at)])),
     })
   }, [])
 
@@ -177,7 +181,13 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => (a.role === 'leader' ? -1 : b.role === 'leader' ? 1 : a.sort - b.sort))
     const unreadCount = db.notices.filter((n) => n.userId === db.currentUserId && !n.read).length
     const me_id = db.currentUserId!
-    const messages = db.messages.filter((m) => m.teamId === myMember?.teamId)
+    const inTeam = db.messages.filter((m) => m.teamId === myMember?.teamId)
+    const messages = inTeam.filter((m) => !m.toId)
+    // 1:1 대화 (서버 규칙상 내가 보냈거나 나에게 온 것만 내려온다)
+    const dms = inTeam.filter((m) => m.toId && (m.authorId === me_id || m.toId === me_id))
+    const threads = dmThreads(dms, me_id, db.dmReads ?? {})
+    const dmUnread = threads.reduce((a, x) => a + x.unread, 0)
+    const dmMessages = (peerId: string) => dms.filter((m) => dmPeer(m, me_id) === peerId)
     const lastRead = db.chatReads[me_id] ?? 0
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(messages, me_id, lastRead)
 
@@ -191,7 +201,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -286,17 +296,24 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         run(() => supabase.from('todos').delete().eq('id', id))
       },
 
-      sendMessage: async (body, ref) => {
+      sendMessage: async (body, ref, toId) => {
         const text = body.trim()
         if ((!text && !ref) || !team) return
         const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
-        const { mentions, mentionAll } = parseMentions(text, people)
+        // 1:1 대화에서는 @호출을 쓰지 않는다
+        const { mentions, mentionAll } = toId ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
         const { data, error } = await supabase.from('messages').insert({
           team_id: team.id, author_id: me_id, body: text,
           mentions: mentions.filter((id) => id !== me_id), mention_all: mentionAll, ref: ref ?? null,
+          ...(toId ? { recipient_id: toId } : {}),
         }).select().single()
         if (error) { fail(error); return }
         const m = msgFrom(data)
+        if (toId) {
+          setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), dmReads: { ...p.dmReads, [`${me_id}>${toId}`]: m.createdAt } }))
+          supabase.from('dm_reads').upsert({ user_id: me_id, peer_id: toId, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
+          return
+        }
         setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), chatReads: { ...p.chatReads, [me_id]: m.createdAt } }))
         supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
       },
@@ -315,13 +332,25 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         // 메시지별 읽은 시각 기록 (마이그레이션 6 전이면 조용히 실패)
         if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
       },
+      markDmRead: (peerId) => {
+        const list = dmMessages(peerId)
+        const last = list.length ? list[list.length - 1].createdAt : 0
+        const key = `${me_id}>${peerId}`
+        const read = db.dmReads?.[key] ?? 0
+        if (read >= last) return
+        const at = Math.max(last, Date.now())
+        const fresh = list.filter((m) => m.authorId !== me_id && !m.deleted && m.createdAt > read).map((m) => m.id)
+        setDb((p) => ({ ...p, dmReads: { ...p.dmReads, [key]: at } }))
+        supabase.from('dm_reads').upsert({ user_id: me_id, peer_id: peerId, last_read_at: new Date(at).toISOString() }).then(() => {})
+        if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
+      },
       getCalendarUrl: async (reset) => {
         const { data, error } = await supabase.rpc(reset ? 'reset_calendar_token' : 'get_calendar_token')
         if (error || !data) { console.warn(error?.message); return null }
         return `${window.location.origin}/cal/${data}.ics`
       },
       getReadReceipts: async (messageId) => {
-        const m = messages.find((x) => x.id === messageId)
+        const m = inTeam.find((x) => x.id === messageId)
         if (!m || m.authorId !== me_id) return {}
         const { data, error } = await supabase.from('message_reads').select('user_id, read_at').eq('message_id', messageId)
         if (error) { console.warn(error.message); return {} }

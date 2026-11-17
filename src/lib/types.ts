@@ -119,6 +119,8 @@ export interface Message {
   ref?: ChatRef
   createdAt: number
   deleted?: boolean
+  /** 1:1 대화면 받는 사람 id (없으면 팀 대화) */
+  toId?: string
 }
 
 export interface DB {
@@ -134,6 +136,8 @@ export interface DB {
   chatReads: Record<string, number>
   /** 메시지별 읽은 기록: 메시지 id → (사람 id → 읽은 시각 ms) */
   messageReads: Record<string, Record<string, number>>
+  /** 1:1 대화 마지막 읽은 시각(ms): "내id>상대id" → 시각 */
+  dmReads?: Record<string, number>
   currentUserId: string | null
 }
 

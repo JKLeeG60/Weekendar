@@ -12,6 +12,7 @@ import {
   type Category, type EventItem, type Occurrence, type Repeat, type Role,
 } from '../lib/types'
 import { Avatar, Icon, Modal, Switch } from './ui'
+import { InstallModal, MailModal, MemberMenu, MonthModal } from './People'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
@@ -38,6 +39,10 @@ export function Modals() {
     case 'calendar': return <CalendarModal />
     case 'leave': return <LeaveModal />
     case 'push': return <PushModal />
+    case 'member': return <MemberMenu userId={modal.userId} x={modal.x} y={modal.y} />
+    case 'month': return <MonthModal userId={modal.userId} />
+    case 'mail': return <MailModal userId={modal.userId} />
+    case 'install': return <InstallModal />
   }
 }
 

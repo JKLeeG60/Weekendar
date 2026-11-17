@@ -56,9 +56,15 @@ async function onNotice(id: string) {
 }
 
 async function onMessage(id: string) {
-  const r = await db(`messages?id=eq.${id}&select=team_id,author_id,body,mentions,mention_all,deleted_at`)
+  const r = await db(`messages?id=eq.${id}&select=team_id,author_id,body,mentions,mention_all,deleted_at,recipient_id`)
   const m = r && r[0]
   if (!m || m.deleted_at) return 0
+  // 1:1 대화: 받는 사람에게만
+  if (m.recipient_id) {
+    const who = await nameOf(m.author_id)
+    const body = String(m.body || '').slice(0, 140) || '일정을 공유했어요'
+    return sendTo([m.recipient_id], { title: `${who}님의 1:1 메시지`, body, tag: 'dm-' + m.author_id, url: '/' })
+  }
   let to: string[] = m.mentions || []
   if (m.mention_all) {
     const mem = await db(`members?team_id=eq.${m.team_id}&role=neq.pending&select=user_id`)

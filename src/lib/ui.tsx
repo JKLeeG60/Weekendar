@@ -11,6 +11,11 @@ export type ModalState =
   | { type: 'calendar' }
   | { type: 'push' }
   | { type: 'leave' }
+  /** 팀원 메뉴 (x, y: 데스크탑에서 메뉴를 띄울 위치) */
+  | { type: 'member'; userId: string; x?: number; y?: number }
+  | { type: 'month'; userId: string }
+  | { type: 'mail'; userId: string }
+  | { type: 'install' }
   | null
 
 interface UI {
@@ -30,6 +35,14 @@ interface UI {
   /** 팀 대화창이 열려 있는지 (모바일은 대화 탭) */
   chatOpen: boolean
   setChatOpen: (v: boolean) => void
+  /** 대화창 탭: 팀 대화 / 1:1 대화 */
+  chatTab: 'team' | 'dm'
+  setChatTab: (v: 'team' | 'dm') => void
+  /** 1:1 대화 중인 상대 (null 이면 1:1 목록) */
+  dmPeer: string | null
+  setDmPeer: (id: string | null) => void
+  /** 이 사람과의 1:1 대화창 열기 */
+  openDM: (userId: string) => void
   /** 실제로 좁은 화면인지 */
   narrow: boolean
   /** 데스크탑에서 폰 화면 미리보기 중인지 */
@@ -70,6 +83,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
+  const [chatTab, setChatTab] = useState<'team' | 'dm'>('team')
+  const [dmPeer, setDmPeer] = useState<string | null>(null)
+  const openDM = (userId: string) => {
+    setModal(null)
+    setChatTab('dm')
+    setDmPeer(userId)
+    setChatOpen(true)
+  }
   const [narrow, setNarrow] = useState(() => isNarrow())
   const [preview, setPreview] = useState(() => new URLSearchParams(location.search).get('preview') === 'phone')
   const isMobile = narrow || preview
@@ -132,6 +153,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
         setSelected,
         modal,
         openModal: setModal,
+        chatTab,
+        setChatTab,
+        dmPeer,
+        setDmPeer,
+        openDM,
         closeModal: () => setModal(null),
         toast,
         showToast: setToast,

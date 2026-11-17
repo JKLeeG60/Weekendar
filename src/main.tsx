@@ -8,6 +8,8 @@ import { CloudStoreProvider } from './lib/cloud'
 import { cloudEnabled } from './lib/supabase'
 import { UIProvider } from './lib/ui'
 import { LangKey, LangProvider } from './lib/i18n'
+// 홈 화면 설치 신호를 일찍 잡아 두기 위해 먼저 불러온다
+import './lib/install'
 import { captureInvite } from './lib/invite'
 import { registerSW } from './lib/push'
 

@@ -15,8 +15,10 @@ const dayKey = (ms: number) => {
 
 /** 상단 툴바의 말풍선: 안 읽은 수, 나를 호출하면 @가 붙는다 */
 export function ChatButton() {
-  const { chatUnread, chatMentions } = useStore()
+  const { chatUnread: teamUnread, chatMentions, dmUnread } = useStore()
   const { chatOpen, setChatOpen } = useUI()
+  // 팀 대화 + 1:1 대화 안 읽은 수
+  const chatUnread = teamUnread + dmUnread
   const label = chatMentions > 0 ? t('나를 호출한 메시지 포함 안 읽은 대화 {n}개', { n: chatUnread }) : t('안 읽은 대화 {n}개', { n: chatUnread })
   return (
     <button
@@ -55,9 +57,96 @@ export function ChatWindow() {
   )
 }
 
-/** 대화 목록 + 입력창 (데스크탑 창과 모바일 탭에서 함께 사용) */
+/** 대화창: [팀 대화 | 1:1 대화] 탭 (데스크탑 창과 모바일 탭에서 함께 사용) */
 export function ChatPanel({ onClose }: { onClose?: () => void }) {
-  const { messages, me, team, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts } = useStore()
+  const { team, tableMembers, userOf, chatUnread, dmUnread } = useStore()
+  const { chatTab, setChatTab, dmPeer, setDmPeer } = useUI()
+  const peer = chatTab === 'dm' ? dmPeer : null
+  const peerMember = tableMembers.find((m) => m.userId === peer)
+  return (
+    <section className="chat">
+      <header className="chat-head">
+        {peer ? (
+          <>
+            <button className="icon-btn dm-back" onClick={() => setDmPeer(null)} aria-label={t('1:1 대화 목록')}>
+              <Icon name="chevL" size={18} />
+            </button>
+            <Avatar name={userOf(peer).name} size={28} />
+            <div className="dm-who">
+              <strong>{userOf(peer).name}</strong>
+              <small>{peerMember?.role === 'leader' ? t('팀장') + ' · ' : peerMember?.title ? peerMember.title + ' · ' : ''}{t('1:1 대화')}</small>
+            </div>
+          </>
+        ) : (
+          <>
+            <strong>{t('{team} 대화', { team: team?.name ?? '' })}</strong>
+            <small>{t('{n}명', { n: tableMembers.length })}</small>
+          </>
+        )}
+        {onClose && (
+          <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
+            <Icon name="x" size={16} />
+          </button>
+        )}
+      </header>
+      <div className="chat-seg" role="tablist" aria-label={t('대화 종류')}>
+        <button role="tab" aria-selected={chatTab === 'team'} className={chatTab === 'team' ? 'on' : ''} onClick={() => setChatTab('team')}>
+          {t('팀 대화')}{chatUnread > 0 && <em>{chatUnread > 99 ? '99+' : chatUnread}</em>}
+        </button>
+        <button role="tab" aria-selected={chatTab === 'dm'} className={chatTab === 'dm' ? 'on' : ''} onClick={() => setChatTab('dm')}>
+          {t('1:1 대화')}{dmUnread > 0 && <em>{dmUnread > 99 ? '99+' : dmUnread}</em>}
+        </button>
+      </div>
+      {chatTab === 'team' ? <ChatBody key="team" /> : peer ? <ChatBody key={peer} peer={peer} /> : <DmList onPick={setDmPeer} />}
+    </section>
+  )
+}
+
+/** 1:1 대화 목록: 대화한 사람(최근 먼저) + 아직 대화하지 않은 팀원 */
+function DmList({ onPick }: { onPick: (id: string) => void }) {
+  const { dmThreads, tableMembers, userOf, me } = useStore()
+  const talked = new Set(dmThreads.map((x) => x.peerId))
+  const others = tableMembers.filter((m) => m.userId !== me?.id && !talked.has(m.userId))
+  const sub = (id: string) => {
+    const m = tableMembers.find((x) => x.userId === id)
+    return m?.role === 'leader' ? t('팀장') : m?.title ?? ''
+  }
+  return (
+    <div className="dm-list">
+      {dmThreads.map((th) => (
+        <button key={th.peerId} className="dm-row" onClick={() => onPick(th.peerId)}>
+          <Avatar name={userOf(th.peerId).name} size={38} />
+          <span className="dm-txt">
+            <b>{userOf(th.peerId).name} <small>{sub(th.peerId)}</small></b>
+            <span>{th.last.deleted ? t('삭제된 메시지예요') : th.last.body || (th.last.ref ? t('일정을 공유했어요') : '')}</span>
+          </span>
+          <span className="dm-side">
+            <time>{timeLabel(th.last.createdAt)}</time>
+            {th.unread > 0 && <em>{th.unread}</em>}
+          </span>
+        </button>
+      ))}
+      {others.length > 0 && <div className="dm-label">{dmThreads.length ? t('새 대화 시작') : t('대화할 팀원을 고르세요')}</div>}
+      {others.map((m) => (
+        <button key={m.userId} className="dm-row new" onClick={() => onPick(m.userId)}>
+          <Avatar name={userOf(m.userId).name} size={38} />
+          <span className="dm-txt">
+            <b>{userOf(m.userId).name} <small>{sub(m.userId)}</small></b>
+          </span>
+          <span className="dm-side"><Icon name="chat" size={16} /></span>
+        </button>
+      ))}
+      {dmThreads.length === 0 && others.length === 0 && <p className="chat-empty">{t('대화할 팀원이 아직 없어요.')}</p>}
+    </div>
+  )
+}
+
+/** 메시지 목록 + 입력창. peer 가 있으면 그 사람과의 1:1 대화 */
+function ChatBody({ peer }: { peer?: string }) {
+  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead } = useStore()
+  const messages = peer ? dmMessages(peer) : teamMessages
+  const markRead = peer ? () => markDmRead(peer) : markChatRead
+  const { openModal, isMobile } = useUI()
   const [receipt, setReceipt] = useState<{ m: Message; rect: DOMRect } | null>(null)
   const { selected, setSelected } = useUI()
   const listRef = useRef<HTMLDivElement>(null)
@@ -82,14 +171,15 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
 
   // 보이는 동안은 읽음 처리, 새 메시지가 오면 맨 아래로
   useEffect(() => {
-    markChatRead()
+    markRead()
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length])
 
   // @ 입력 중이면 팀원 목록
-  const q = /@(\S*)$/.exec(text.slice(0, caret))
+  // 1:1 대화에서는 @호출 목록을 띄우지 않는다
+  const q = peer ? null : /@(\S*)$/.exec(text.slice(0, caret))
   const people = tableMembers
     .filter((m) => m.userId !== me?.id)
     .map((m) => ({ id: m.userId, name: userOf(m.userId).name, sub: m.role === 'leader' ? t('팀장') : m.title }))
@@ -110,7 +200,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
 
   function send() {
     if (!text.trim() && !ref) return
-    sendMessage(text, ref ?? undefined)
+    sendMessage(text, ref ?? undefined, peer)
     setText('')
     setCaret(0)
     setRef(null)
@@ -144,19 +234,13 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
   }, [selected, tableMembers, db.events, me?.id, userOf])
 
   return (
-    <section className="chat">
-      <header className="chat-head">
-        <strong>{t('{team} 대화', { team: team?.name ?? '' })}</strong>
-        <small>{t('{n}명', { n: tableMembers.length })}</small>
-        {onClose && (
-          <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
-            <Icon name="x" size={16} />
-          </button>
-        )}
-      </header>
-
+    <>
       <div className="chat-list" ref={listRef}>
-        {messages.length === 0 && <p className="chat-empty">{t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}</p>}
+        {messages.length === 0 && (
+          <p className="chat-empty">
+            {peer ? t('{name}님과 아직 대화가 없어요. 첫 메시지를 남겨보세요.', { name: userOf(peer).name }) : t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}
+          </p>
+        )}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
           const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt)
@@ -175,6 +259,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
                 onDelete={() => deleteMessage(m.id)}
                 onRef={(r) => setSelected(r.date)}
                 onHold={(rect) => setReceipt({ m, rect })}
+                onWho={(x, y) => openModal({ type: 'member', userId: m.authorId, ...(isMobile ? {} : { x, y }) })}
               />
             </Fragment>
           )
@@ -186,11 +271,12 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           m={receipt.m}
           rect={receipt.rect}
           load={getReadReceipts}
-          people={tableMembers.filter((x) => x.userId !== receipt.m.authorId).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
+          people={tableMembers.filter((x) => x.userId !== receipt.m.authorId && (!peer || x.userId === peer)).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
           onClose={() => setReceipt(null)}
         />
       )}
 
+      {peer && <div className="dm-lock">🔒 {t('두 사람만 볼 수 있는 대화예요')}</div>}
       <footer className="chat-foot">
         {options.length > 0 && (
           <div className="mention-pick" role="listbox" aria-label={t('호출할 사람')}>
@@ -240,7 +326,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
             rows={1}
             value={text}
             maxLength={1000}
-            placeholder={t('메시지 입력 (@로 호출)')}
+            placeholder={peer ? t('{name}님에게 메시지', { name: userOf(peer).name }) : t('메시지 입력 (@로 호출)')}
             onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setPickIdx(0) }}
             onSelect={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart)}
             onKeyDown={onKey}
@@ -253,7 +339,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           </button>
         </div>
       </footer>
-    </section>
+    </>
   )
 }
 
@@ -275,6 +361,8 @@ function RefCard({ r, onClick }: { r: ChatRef; onClick?: () => void }) {
 function Bubble(props: {
   m: Message; mine: boolean; hit: boolean; grouped: boolean; names: string[]; author: string; isLeader: boolean
   onDelete: () => void; onRef: (r: ChatRef) => void; onHold: (rect: DOMRect) => void
+  /** 보낸 사람 이름·사진을 누르면 (누른 위치) */
+  onWho: (x: number, y: number) => void
 }) {
   const { m, mine, hit, grouped, names, author, isLeader } = props
   const [confirm, setConfirm] = useState(false)
@@ -316,9 +404,19 @@ function Bubble(props: {
     : {}
   return (
     <div className={'bub-row' + (mine ? ' mine' : '') + (hit ? ' hit' : '') + (grouped ? ' grouped' : '')}>
-      {!mine && <span className="bub-av">{!grouped && <Avatar name={author} size={30} />}</span>}
+      {!mine && (
+        <span className="bub-av">
+          {!grouped && (
+            <button className="who-btn" onClick={(e) => props.onWho(e.clientX, e.clientY)} aria-label={t('{name}님 메뉴', { name: author })}>
+              <Avatar name={author} size={30} />
+            </button>
+          )}
+        </span>
+      )}
       <div className="bub-col">
-        {!mine && !grouped && <span className="bub-name">{author}{isLeader ? ' · ' + t('팀장') : ''}</span>}
+        {!mine && !grouped && (
+          <button className="bub-name who-btn" onClick={(e) => props.onWho(e.clientX, e.clientY)}>{author}{isLeader ? ' · ' + t('팀장') : ''}</button>
+        )}
         <div className="bub-line">
           <div
             ref={bubRef}

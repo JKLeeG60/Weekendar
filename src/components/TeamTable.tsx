@@ -88,7 +88,12 @@ export function TeamTable() {
             return (
               <tr key={m.userId} className={mine ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%`, ['--lanes' as string]: lanes }}>
                 <th className="who" scope="row">
-                  <div className="who-wrap">
+                  {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
+                  <button
+                    className="who-wrap who-btn"
+                    onClick={(e) => openModal({ type: 'member', userId: m.userId, x: e.clientX, y: e.clientY })}
+                    title={t('{name}님 메뉴', { name: u.name })}
+                  >
                     <Avatar name={u.name} size={32} />
                     <div>
                       <div className="who-name">
@@ -97,7 +102,7 @@ export function TeamTable() {
                       </div>
                       <div className="who-title">{m.role === 'leader' ? '' : m.title || t('직급 미지정')}</div>
                     </div>
-                  </div>
+                  </button>
                 </th>
                 {days.map((d, di) => {
                   const evs = dayEventsOf(m.userId, d)

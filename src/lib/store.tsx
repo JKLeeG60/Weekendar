@@ -5,7 +5,7 @@
  * 실제 서비스에서는 DB 의 RLS 가 강제한다.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { chatCounts, parseMentions } from './chat'
+import { chatCounts, dmPeer, dmThreads, parseMentions } from './chat'
 import type {
   Category,
   ChangeRequest,
@@ -141,6 +141,9 @@ function seed(): DB {
     msg('u_leader', '목요일 고객사 미팅 시간 조금 당겨도 될까요?', 25),
     msg('u_admin', '저는 오전 다 괜찮아요', 22),
     msg('u_leader', '@최유리 인플루언서 미팅 끝나고 결과 공유 부탁해요', 18, { mentions: ['u_m3'] }),
+    // 1:1 대화 예시 (박서준 ↔ 김하늘)
+    msg('u_admin', '팀장님, 다음 주 예산 검토 자료 미리 드릴까요?', 95, { toId: 'u_leader' }),
+    msg('u_leader', '네 좋아요. 목요일 전까지만 주세요 👍', 12, { toId: 'u_admin' }),
   ]
   const chatReads: Record<string, number> = Object.fromEntries(users.map((u) => [u.id, ago(60)]))
 
@@ -154,7 +157,7 @@ function load(): DB {
     if (raw) {
       const db = JSON.parse(raw) as DB
       // 예전에 저장된 체험 데이터에는 대화가 없을 수 있다
-      return { ...db, messages: db.messages ?? [], chatReads: db.chatReads ?? {}, messageReads: db.messageReads ?? {} }
+      return { ...db, messages: db.messages ?? [], chatReads: db.chatReads ?? {}, messageReads: db.messageReads ?? {}, dmReads: db.dmReads ?? {} }
     }
   } catch {
     /* 저장소를 못 읽으면 새로 시작 */
@@ -211,9 +214,18 @@ export interface Store {
   messages: Message[]
   chatUnread: number
   chatMentions: number
-  sendMessage: (body: string, ref?: ChatRef) => void
+  /** toId 가 있으면 그 사람에게만 보이는 1:1 메시지 */
+  sendMessage: (body: string, ref?: ChatRef, toId?: string) => void
   deleteMessage: (id: string) => void
   markChatRead: () => void
+  // 1:1 대화
+  /** 상대별 1:1 대화 (최근 대화 먼저) */
+  dmThreads: { peerId: string; last: Message; unread: number }[]
+  /** 1:1 대화 안 읽은 수 합계 */
+  dmUnread: number
+  /** 이 사람과의 1:1 대화 (오래된 것부터) */
+  dmMessages: (peerId: string) => Message[]
+  markDmRead: (peerId: string) => void
   /** 내가 보낸 메시지의 읽음 기록 (사람 id → 읽은 시각). 남의 메시지는 빈 값 */
   getReadReceipts: (messageId: string) => Promise<Record<string, number>>
   // 캘린더 구독 주소 (서버 모드만, 체험 모드는 null)
@@ -276,9 +288,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const unreadCount =
       db.notices.filter((n) => n.userId === db.currentUserId && !n.read).length
 
-    const messages = db.messages
+    const inTeam = db.messages
       .filter((m) => m.teamId === myMember?.teamId && myMember?.role !== 'pending')
       .sort((a, b) => a.createdAt - b.createdAt)
+    const messages = inTeam.filter((m) => !m.toId)
+    // 1:1 대화: 내가 보냈거나 나에게 온 것만
+    const meId = db.currentUserId
+    const dms = inTeam.filter((m) => m.toId && (m.authorId === meId || m.toId === meId))
+    const threads = dmThreads(dms, meId, db.dmReads ?? {})
+    const dmUnread = threads.reduce((a, x) => a + x.unread, 0)
+    const dmMessages = (peerId: string) => dms.filter((m) => dmPeer(m, meId) === peerId)
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(
       messages, db.currentUserId, db.chatReads[db.currentUserId ?? ''] ?? 0,
     )
@@ -291,7 +310,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       mode: 'demo', loading: false, loginGoogle: () => {},
-      messages, chatUnread, chatMentions,
+      messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages,
       db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
@@ -513,16 +532,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notices: p.notices.map((n) => (n.userId === p.currentUserId ? { ...n, read: true } : n)),
         })),
 
-      sendMessage: (body, ref) => {
+      sendMessage: (body, ref, toId) => {
         const text = body.trim()
         if ((!text && !ref) || !myMember || !db.currentUserId) return
         const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
-        const { mentions, mentionAll } = parseMentions(text, people)
+        // 1:1 대화에서는 @호출을 쓰지 않는다
+        const { mentions, mentionAll } = toId ? { mentions: [], mentionAll: false } : parseMentions(text, people)
         const m: Message = {
           id: uid(), teamId: myMember.teamId, authorId: db.currentUserId, body: text,
           mentions: mentions.filter((id) => id !== db.currentUserId), mentionAll, ref, createdAt: Date.now(),
+          ...(toId ? { toId } : {}),
         }
-        set((p) => ({ ...p, messages: [...p.messages, m], chatReads: { ...p.chatReads, [m.authorId]: m.createdAt } }))
+        set((p) => toId
+          ? { ...p, messages: [...p.messages, m], dmReads: { ...p.dmReads, [`${m.authorId}>${toId}`]: m.createdAt } }
+          : { ...p, messages: [...p.messages, m], chatReads: { ...p.chatReads, [m.authorId]: m.createdAt } })
       },
       deleteMessage: (id) =>
         set((p) => ({
@@ -547,6 +570,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (!reads[m.id]?.[me]) reads[m.id] = { ...reads[m.id], [me]: now }
           })
           return { ...p, messageReads: reads, chatReads: { ...p.chatReads, [me]: Math.max(last, now) } }
+        })
+      },
+      markDmRead: (peerId) => {
+        const me = db.currentUserId
+        if (!me) return
+        const list = dmMessages(peerId)
+        const last = list.length ? list[list.length - 1].createdAt : 0
+        const key = `${me}>${peerId}`
+        const lastRead = db.dmReads?.[key] ?? 0
+        if (lastRead >= last) return
+        const now = Date.now()
+        const fresh = list.filter((m) => m.authorId !== me && !m.deleted && m.createdAt > lastRead)
+        set((p) => {
+          const reads = { ...p.messageReads }
+          fresh.forEach((m) => {
+            if (!reads[m.id]?.[me]) reads[m.id] = { ...reads[m.id], [me]: now }
+          })
+          return { ...p, messageReads: reads, dmReads: { ...p.dmReads, [key]: Math.max(last, now) } }
         })
       },
       getCalendarUrl: async () => null,

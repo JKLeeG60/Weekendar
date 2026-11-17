@@ -8,6 +8,8 @@ export function Modal({
   footer,
   width = 480,
   big,
+  at,
+  className,
 }: {
   title: string
   onClose: () => void
@@ -16,6 +18,9 @@ export function Modal({
   width?: number
   /** 제목을 크게 (일정 상세처럼 제목이 곧 내용일 때) */
   big?: boolean
+  /** 이 위치(누른 자리) 옆에 작은 창으로 띄우기 (데스크탑 팀원 메뉴) */
+  at?: { x: number; y: number }
+  className?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -26,13 +31,19 @@ export function Modal({
     // React 의 autoFocus 는 창이 열리기 전에 실행되어 무시되므로, 연 뒤에 그 입력칸에 다시 초점을 준다
     const want = d.querySelector<HTMLElement>('[data-autofocus]')
     if (!d.open) d.showModal()
+    // 누른 자리 옆에 띄우되 화면 밖으로 나가지 않게
+    if (at) {
+      const r = d.getBoundingClientRect()
+      d.style.left = Math.max(8, Math.min(at.x + 8, innerWidth - r.width - 8)) + 'px'
+      d.style.top = Math.max(8, Math.min(at.y + 8, innerHeight - r.height - 8)) + 'px'
+    }
     want?.focus()
     return () => d.close()
   }, [])
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={'modal' + (at ? ' at' : '') + (className ? ' ' + className : '')}
       style={{ width: `${width / 16}rem` }}
       aria-labelledby={titleId}
       // Esc 키·안드로이드 뒤로가기: 브라우저가 직접 닫지 않게 막고, 앱 상태(onClose)로 닫는다
@@ -115,6 +126,10 @@ const PATHS: Record<string, ReactNode> = {
   chat: <path d="M4 5h16v11H9l-5 4z" />,
   send: <path d="M12 19V5M5 12l7-7 7 7" />,
   logout: <path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" />,
+  mail: <path d="M4 6h16v12H4zM4 7l8 6 8-6" />,
+  share: <path d="M12 15V4M8 8l4-4 4 4M6 11v8h12v-8" />,
+  addBox: <path d="M5 5h14v14H5zM12 9v6M9 12h6" />,
+  install: <path d="M12 4v10M8 10l4 4 4-4M5 19h14" />,
 }
 
 export function Icon({ name, size = 18 }: { name: keyof typeof PATHS | string; size?: number }) {

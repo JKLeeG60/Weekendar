@@ -6,13 +6,15 @@ import { t, useLang, type LangPref } from '../lib/i18n'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
+import { startInstall, useInstallable } from './People'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
   const { team, me, myMember, isAdmin, unreadCount, logout, login, db, mode } = useStore()
-  const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
+  const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, showToast, narrow, preview, setPreview } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   const { pref, setPref } = useLang()
+  const installable = useInstallable()
   const mon = mondayOf(selected)
 
   return (
@@ -95,6 +97,12 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'calendar' }) }}>
                   {t('캘린더 앱에서 보기')}
                 </button>
+                {installable && (
+                  <button className="menu-item install-item" onClick={() => { setPop(null); startInstall(() => openModal({ type: 'install' }), showToast) }}>
+                    <span><Icon name="addBox" size={16} /> {t('홈 화면에 추가')}</span>
+                    <small>{t('앱처럼 쓰기')}</small>
+                  </button>
+                )}
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'push' }) }}>
                   {t('휴대폰 알림')}
                 </button>

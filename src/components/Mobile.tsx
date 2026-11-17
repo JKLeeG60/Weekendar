@@ -20,12 +20,18 @@ const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo
 
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
-  const { toast, setChatOpen } = useUI()
-  const { db, me, chatUnread, chatMentions } = useStore()
+  const { toast, setChatOpen, chatOpen } = useUI()
+  const { db, me, chatUnread: teamUnread, chatMentions, dmUnread } = useStore()
+  // 팀 대화 + 1:1 대화 안 읽은 수
+  const chatUnread = teamUnread + dmUnread
   // 대화 탭을 보고 있으면 '대화창 열림'으로 본다 (호출 팝업을 띄우지 않음)
   useEffect(() => {
     setChatOpen(tab === 'chat')
   }, [tab, setChatOpen])
+  // 팀원 메뉴에서 "1:1 대화"를 누르면 대화 탭으로
+  useEffect(() => {
+    if (chatOpen) setTab('chat')
+  }, [chatOpen])
   const { selected } = useUI()
   const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && t.date <= selected).length
 
@@ -162,15 +168,18 @@ function MobileTeam() {
               return (
                 <section key={m.userId} className={'m-card' + (mine ? ' mine' : '')}>
                   <header>
-                    <Avatar name={u.name} size={34} />
-                    <div className="m-who">
-                      <strong>
-                        {u.name}
-                        {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
-                        {mine && <span className="me-badge">{t('나')}</span>}
-                      </strong>
-                      {m.role !== 'leader' && <small>{m.title || t('직급 미지정')}</small>}
-                    </div>
+                    {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
+                    <button className="m-who-btn who-btn" onClick={() => openModal({ type: 'member', userId: m.userId })}>
+                      <Avatar name={u.name} size={34} />
+                      <div className="m-who">
+                        <strong>
+                          {u.name}
+                          {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
+                          {mine && <span className="me-badge">{t('나')}</span>}
+                        </strong>
+                        {m.role !== 'leader' && <small>{m.title || t('직급 미지정')}</small>}
+                      </div>
+                    </button>
                     {clickable(m) && (
                       <button className="m-add" onClick={() => onAdd(m)} aria-label={mine ? t('일정 추가') : t('팀장에게 일정 요청')}>
                         <Icon name="plus" size={14} /> {mine ? t('추가') : t('요청')}

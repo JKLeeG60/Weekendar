@@ -32,6 +32,26 @@ export const mentionsMe = (m: Message, me?: string | null) =>
   !!me && m.authorId !== me && !m.deleted && (m.mentionAll || m.mentions.includes(me))
 
 /** 안 읽은 대화 수와 그중 나를 호출한 수 */
+/** 1:1 대화에서 나와 대화하는 상대 id (팀 대화면 null) */
+export function dmPeer(m: Message, me: string | null | undefined): string | null {
+  if (!m.toId) return null
+  return m.authorId === me ? m.toId : m.authorId
+}
+
+/** 1:1 대화 목록: 상대별 마지막 메시지와 안 읽은 수 (최근 대화 먼저) */
+export function dmThreads(messages: Message[], me: string | null | undefined, reads: Record<string, number>) {
+  const map = new Map<string, { peerId: string; last: Message; unread: number }>()
+  for (const m of messages) {
+    const peer = dmPeer(m, me)
+    if (!peer || (m.authorId !== me && m.toId !== me)) continue
+    const th = map.get(peer) ?? { peerId: peer, last: m, unread: 0 }
+    if (m.createdAt >= th.last.createdAt) th.last = m
+    if (m.authorId !== me && !m.deleted && m.createdAt > (reads[`${me}>${peer}`] ?? 0)) th.unread++
+    map.set(peer, th)
+  }
+  return [...map.values()].sort((a, b) => b.last.createdAt - a.last.createdAt)
+}
+
 export function chatCounts(messages: Message[], me: string | null | undefined, lastRead: number) {
   const unread = messages.filter((m) => m.authorId !== me && !m.deleted && m.createdAt > lastRead)
   return { unread: unread.length, mentions: unread.filter((m) => mentionsMe(m, me)).length }
