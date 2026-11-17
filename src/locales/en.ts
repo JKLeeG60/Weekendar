@@ -527,4 +527,23 @@ export const EN: Record<string, string | [string, string]> = {
 
   // ── 첫 화면 ──
   '우리 팀의 한 주를, 한눈에': "Your team's week, at a glance",
+
+  // ── 처음 사용 안내 ──
+  '초대 링크로 팀원을 불러요': 'Invite your team with a link',
+  '프로필 옆 <b>팀 관리</b>에서 초대 링크를 복사해 카톡이나 메일로 보내세요.<br>팀원이 들어오면 <b>승인</b>해 주세요.': 'Copy the invite link in <b>Team settings</b> and send it by chat or email.<br>When someone joins, <b>approve</b> them.',
+  '직급과 팀장을 정해요': 'Set job titles and a team leader',
+  '<b>팀 관리</b>에서 팀원의 직급을 입력하고 팀장을 지정할 수 있어요.<br>팀장의 일정은 팀원이 바로 바꿀 수 없고, 요청하면 팀장이 수락해야 반영돼요.': 'In <b>Team settings</b> you can enter job titles and pick a team leader.<br>Members can\'t change the leader\'s events directly; the leader has to accept a request first.',
+  '일정마다 팀 공유를 정해요': 'Choose what to share with the team',
+  '일정을 만들 때 <b>팀 공유</b> 스위치로 팀 표에 보일지 고를 수 있어요.<br>기본은 켜짐이고, 끄면 나만 볼 수 있어요.': 'When you add an event, the <b>Share with team</b> switch decides whether it shows in the team table.<br>It is on by default; turn it off to keep it private.',
+  '대화와 알림도 써 보세요': 'Try chat and notifications',
+  '위쪽 말풍선 아이콘으로 팀 대화를 할 수 있고, <b>@이름</b>으로 부를 수 있어요.<br>휴대폰 <b>홈 화면에 추가</b>하고 알림을 켜면 앱처럼 쓸 수 있어요.': 'Use the chat bubble at the top for team chat, and call someone with <b>@name</b>.<br><b>Add to Home Screen</b> and turn on notifications to use it like an app.',
+  '팀 표에서 팀원 일정을 봐요': 'See your teammates in the team table',
+  '가로는 요일, 세로는 팀원이에요.<br>여러 날 이어진 막대는 출장 같은 <b>여러 날 부재</b>예요.': 'Days run across and teammates run down.<br>A bar spanning several days is a <b>multi-day absence</b>, like a business trip.',
+  '팀장 일정은 요청으로 바꿔요': "Change the leader's events by request",
+  '팀장의 일정은 직접 바꿀 수 없어요.<br><b>변경 요청</b>을 보내면 팀장이 수락한 뒤 반영돼요. 기다리는 요청은 표에 표시돼요.': "You can't edit the leader's events directly.<br>Send a <b>change request</b> and it applies once the leader accepts. Pending requests are marked in the table.",
+  '건너뛰기': 'Skip',
+  '이전': 'Back',
+  '시작하기': 'Get started',
+  '다음': 'Next',
+  '사용법 다시 보기': 'Replay the tour',
 }

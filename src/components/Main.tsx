@@ -13,10 +13,12 @@ import { Reminders } from './Reminders'
 import { clearInvite, getInvite } from '../lib/invite'
 import { t } from '../lib/i18n'
 import { DayDropStrip, Toast } from './DayDrop'
+import { useAutoTutorial } from './Tutorial'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile, showToast } = useUI()
   const { myMember, team } = useStore()
+  useAutoTutorial() // 처음 가입한 사람에게만 사용 안내를 한 번 보여준다
 
   // 이미 팀이 있는데 초대 링크로 들어온 경우: 안내하고 코드는 버린다
   useEffect(() => {

@@ -110,6 +110,11 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'push' }) }}>
                   {t('휴대폰 알림')}
                 </button>
+                {myMember && (myMember.role === 'leader' || myMember.role === 'member') && (
+                  <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'tutorial' }) }}>
+                    {t('사용법 다시 보기')}
+                  </button>
+                )}
                 {!narrow && (
                   <button className="menu-item" onClick={() => { setPop(null); setPreview(!preview) }}>
                     {preview ? t('데스크탑 화면으로 돌아가기') : t('폰 화면 미리보기')}

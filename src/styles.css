@@ -1166,3 +1166,12 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .fwd-name small { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
 .fwd-send { margin-top: 0.6rem; padding: 0.65rem; border-radius: 0.7rem; background: var(--accent); color: #fff; font-weight: 650; font-size: 0.9rem; }
 .fwd-send:disabled { background: var(--line); color: var(--faint); }
+
+/* ─────────── 처음 사용 안내 ─────────── */
+.tutorial .modal-body { text-align: center; padding-bottom: 0.4rem; }
+.tut-art { height: 9rem; border-radius: 1rem; margin: 0.2rem 0 1.1rem; display: grid; place-items: center; font-size: 3.6rem; background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, #af52de 12%, transparent)); }
+.tut-text { color: var(--muted); font-size: 0.95rem; line-height: 1.65; margin: 0; }
+.tut-text b { color: var(--text); font-weight: 650; }
+.tut-dots { display: flex; justify-content: center; gap: 0.4rem; margin: 1.1rem 0 0.4rem; }
+.tut-dots i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--line); transition: width 0.2s, background 0.2s; }
+.tut-dots i.on { width: 1.4rem; border-radius: 0.3rem; background: var(--accent); }

@@ -16,6 +16,7 @@ export type ModalState =
   | { type: 'month'; userId: string }
   | { type: 'mail'; userId: string }
   | { type: 'install' }
+  | { type: 'tutorial' }
   | null
 
 interface UI {

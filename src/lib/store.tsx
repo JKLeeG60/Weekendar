@@ -189,6 +189,8 @@ export interface Store {
   // 인증/온보딩
   login: (userId: string) => void
   logout: () => void
+  /** 처음 사용 안내를 봤다고 기록 */
+  finishTutorial: () => void
   createTeam: (name: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
@@ -332,6 +334,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
       logout: () => set((p) => ({ ...p, currentUserId: null })),
+      finishTutorial: () =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, tutorialSeen: true } : u)) })),
 
       createTeam: (name) =>
         set((p) => {

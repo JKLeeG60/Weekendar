@@ -98,7 +98,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '' })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
@@ -240,6 +240,14 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       },
       login: () => {},
       logout: async () => { await supabase.auth.signOut(); uidRef.current = null; setDb(EMPTY) },
+      // 처음 사용 안내를 봤다고 기록 (실패해도 앱 사용에는 영향 없음)
+      finishTutorial: () => {
+        if (me?.tutorialSeen !== false) return
+        setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, tutorialSeen: true } : u)) }))
+        supabase.from('profiles').update({ tutorial_seen: true }).eq('id', me.id).then(({ error }) => {
+          if (error) console.warn('안내 확인 표시를 저장하지 못했어요', error.message)
+        })
+      },
 
       createTeam: async (name) => { await run(() => supabase.rpc('create_team', { p_name: name })) },
       joinTeam: async (code) => {

@@ -13,6 +13,7 @@ import {
 } from '../lib/types'
 import { Avatar, Icon, Modal, Switch } from './ui'
 import { InstallModal, MailModal, MemberMenu, MonthModal } from './People'
+import { TutorialModal } from './Tutorial'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
@@ -43,6 +44,7 @@ export function Modals() {
     case 'month': return <MonthModal userId={modal.userId} />
     case 'mail': return <MailModal userId={modal.userId} />
     case 'install': return <InstallModal />
+    case 'tutorial': return <TutorialModal />
   }
 }
 
