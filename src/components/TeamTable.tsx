@@ -127,9 +127,10 @@ export function TeamTable() {
                 <th className="who" scope="row">
                   {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
                   <button
-                    className="who-wrap who-btn"
-                    onClick={(e) => openModal({ type: 'member', userId: m.userId, x: e.clientX, y: e.clientY })}
-                    title={t('{name}님 메뉴', { name: u.name })}
+                    className={'who-wrap' + (mine ? '' : ' who-btn')}
+                    onClick={(e) => { if (!mine) openModal({ type: 'member', userId: m.userId, x: e.clientX, y: e.clientY }) }}
+                    title={mine ? undefined : t('{name}님 메뉴', { name: u.name })}
+                    style={mine ? { cursor: 'default' } : undefined}
                   >
                     <Avatar name={u.name} size={32} />
                     <div>

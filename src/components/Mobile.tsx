@@ -172,7 +172,7 @@ function MobileTeam() {
                 <section key={m.userId} className={'m-card' + (mine ? ' mine' : '')}>
                   <header>
                     {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
-                    <button className="m-who-btn who-btn" onClick={() => openModal({ type: 'member', userId: m.userId })}>
+                    <button className={'m-who-btn' + (mine ? '' : ' who-btn')} onClick={() => { if (!mine) openModal({ type: 'member', userId: m.userId }) }}>
                       <Avatar name={u.name} size={34} />
                       <div className="m-who">
                         <strong>

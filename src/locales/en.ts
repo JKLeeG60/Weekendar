@@ -434,6 +434,7 @@ export const EN: Record<string, string | [string, string]> = {
   // ── 팀원 메뉴 · 월간 일정 ──
   '{name}님 메뉴': 'Options for {name}',
   '내 월간 일정 보기': 'View my month',
+  '내 월간 일정': 'My month',
   '월간 일정 보기': 'View month',
   '1:1 대화': 'Direct message',
   '메일 보내기': 'Send email',

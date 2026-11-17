@@ -36,6 +36,10 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
       <div className="tools">
         <div className="toolgroup">
         <ChatButton />
+        {/* 내 월간 일정 */}
+        <button className="icon-btn" onClick={() => me && openModal({ type: 'month', userId: me.id })} aria-label={t('내 월간 일정')} title={t('내 월간 일정')}>
+          <Icon name="cal" />
+        </button>
         <div className="rel">
           <button className="icon-btn" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-label={t('알림')} title={t('알림')}>
             <Icon name="bell" />
