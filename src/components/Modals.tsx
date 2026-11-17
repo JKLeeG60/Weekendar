@@ -3,7 +3,7 @@ import { disablePush, enablePush, isIOS, isStandalone, pushState, pushSupported,
 import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
-import { useUI } from '../lib/ui'
+import { useUI, type ModalState } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend } from '../lib/date'
 import { localize, Rich, t } from '../lib/i18n'
@@ -29,18 +29,17 @@ function askNotifyPermission() {
 }
 
 export function Modals() {
-  const { peek } = useUI()
+  const { modal, layer } = useUI()
   return (
     <>
-      <ModalSwitch />
-      {/* 월간 일정 위에 겹쳐 보이는 일정 상세 */}
-      {peek && <EventDetail occ={peek} peek />}
+      <ModalSwitch modal={modal} />
+      {/* 아래 창(예: 월간 일정) 위에 겹쳐 여는 창 */}
+      {layer && <div className="layer"><ModalSwitch modal={layer} /></div>}
     </>
   )
 }
 
-function ModalSwitch() {
-  const { modal } = useUI()
+function ModalSwitch({ modal }: { modal: ModalState }) {
   if (!modal) return null
   switch (modal.type) {
     case 'event': return <EventModal date={modal.date} start={modal.start} occ={modal.event} titleHint={modal.title} sharedHint={modal.shared} />
@@ -183,14 +182,9 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
 }
 
 /* ───────── 일정 상세 ───────── */
-function EventDetail({ occ, peek }: { occ: Occurrence; peek?: boolean }) {
+function EventDetail({ occ }: { occ: Occurrence }) {
   const { me, myMember, userOf, db, deleteEvent } = useStore()
-  const ui = useUI()
-  const { showToast, modal, setPeek } = ui
-  // 월간 일정 위에 띄운 경우: 닫으면 이 창만 닫히고, 수정·요청 창을 닫으면 월간 일정으로 돌아온다
-  const closeModal = peek ? () => setPeek(null) : ui.closeModal
-  const back = peek && modal?.type === 'month' ? { ...modal, date: occ.date } : undefined
-  const openModal: typeof ui.openModal = (m) => { setPeek(null); ui.openModal(m && back ? { ...m, back } as typeof m : m) }
+  const { closeModal, openModal, showToast } = useUI()
   const owner = db.members.find((m) => m.userId === occ.ownerId)
   const mine = occ.ownerId === me?.id
   const leaderEvent = owner?.role === 'leader'
@@ -200,7 +194,6 @@ function EventDetail({ occ, peek }: { occ: Occurrence; peek?: boolean }) {
     <Modal
       title={occ.title}
       big
-      className={peek ? 'peek' : undefined}
       onClose={closeModal}
       footer={
         mine ? (

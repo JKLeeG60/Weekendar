@@ -27,9 +27,9 @@ interface UI {
   modal: ModalState
   openModal: (m: ModalState) => void
   closeModal: () => void
-  /** 지금 열린 창 위에 겹쳐 보여 주는 일정 상세 (월간 일정을 닫지 않고 일정을 볼 때) */
-  peek: Occurrence | null
-  setPeek: (o: Occurrence | null) => void
+  /** 지금 열린 창 위에 겹쳐 여는 창 (예: 월간 일정을 닫지 않고 일정 상세·수정을 보기). 이 층의 창은 closeModal 로 닫으면 아래 창이 그대로 남는다 */
+  layer: ModalState
+  openLayer: (m: ModalState) => void
   toast: string | null
   /** 안내에 붙은 버튼 (예: 되돌리기) */
   toastAction: { label: string; run: () => void } | null
@@ -89,7 +89,7 @@ function isNarrow(): boolean {
 export function UIProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('date') ?? initialDate())
   const [modal, setModal] = useState<ModalState>(null)
-  const [peek, setPeek] = useState<Occurrence | null>(null)
+  const [layer, setLayer] = useState<ModalState>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [toastAction, setToastAction] = useState<{ label: string; run: () => void } | null>(null)
   const showToast = (t: string, action?: { label: string; run: () => void }) => {
@@ -167,16 +167,17 @@ export function UIProvider({ children }: { children: ReactNode }) {
         selected,
         setSelected,
         modal,
-        openModal: setModal,
-        peek,
-        setPeek,
+        // 겹친 창이 있으면 그 창 안에서 여는 것은 겹친 창을 바꾼다
+        openModal: (m) => (layer ? setLayer(m) : setModal(m)),
+        layer,
+        openLayer: setLayer,
         chatTab,
         setChatTab,
         dmPeer,
         setDmPeer,
         openDM,
         // 돌아갈 창이 있으면 그 창으로, 없으면 닫기
-        closeModal: () => setModal((m) => (m && 'back' in m && m.back ? m.back : null)),
+        closeModal: () => (layer ? setLayer(null) : setModal((m) => (m && 'back' in m && m.back ? m.back : null))),
         toast,
         toastAction,
         showToast,

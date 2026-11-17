@@ -64,7 +64,7 @@ function barsOfWeek(spans: EventItem[], week: string[]): Bar[] {
 
 export function MonthModal({ userId: firstUser, date: firstDate }: { userId: string; date?: string }) {
   const { db, me, myMember, userOf, tableMembers } = useStore()
-  const { closeModal, openModal, setPeek, setSelected, selected, isMobile } = useUI()
+  const { closeModal, openLayer, setSelected, selected, isMobile } = useUI()
   const today = todayStr()
   const [ym, setYm] = useState(() => {
     const d = parse(firstDate ?? selected)
@@ -96,17 +96,16 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
   const cats = [...new Set(evs.filter((e) => days.some((d) => occurrencesOn([e], d).length)).map((e) => e.category))] as Category[]
 
   // 일정을 누르면 월간 일정은 그대로 두고 그 위에 상세를 보여 준다
-  const openOcc = (o: Occurrence) => setPeek(o)
+  const openOcc = (o: Occurrence) => openLayer({ type: 'detail', occ: o })
 
   // 일정 추가: 내 달력은 바로 추가, 팀장 달력은 팀원이 요청, 다른 팀원 달력은 추가 없음
   const leaderCal = tableMembers.find((x) => x.userId === userId)?.role === 'leader' && myMember?.role === 'member'
   const canAdd = mine || leaderCal
   const addLabel = mine ? t('일정 추가') : t('일정 요청')
   const add = (d: string) => {
-    // 저장하거나 닫으면 지금 보던 월간 일정으로 돌아온다
-    const back = { type: 'month' as const, userId, date: d }
-    if (mine) openModal({ type: 'event', date: d, back })
-    else openModal({ type: 'request', mode: 'add', date: d, back })
+    // 월간 일정은 뒤에 그대로 두고 그 위에 추가 창을 연다 (저장하거나 닫으면 월간 일정만 남는다)
+    if (mine) openLayer({ type: 'event', date: d })
+    else openLayer({ type: 'request', mode: 'add', date: d })
   }
   const goWeek = (d: string) => {
     setSelected(d)

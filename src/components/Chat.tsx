@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import React, { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
@@ -70,9 +70,49 @@ export function ChatWindow() {
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [chatOpen, modal, setChatOpen])
+  // 위쪽(제목 줄)을 끌어서 창을 옮긴다. null 이면 기본 자리(오른쪽)
+  const [pos, setPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const winRef = useRef<HTMLDivElement>(null)
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+  const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = winRef.current
+    if (!el || e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (!target.closest('.chat-head') || target.closest('button')) return
+    const r = el.getBoundingClientRect()
+    const dx = e.clientX - r.left
+    const dy = e.clientY - r.top
+    setPos({ x: r.left, y: r.top, w: r.width, h: r.height })
+    setDragging(true)
+    e.preventDefault()
+    const move = (ev: PointerEvent) =>
+      setPos({ w: r.width, h: r.height, x: clamp(ev.clientX - dx, 8, innerWidth - r.width - 8), y: clamp(ev.clientY - dy, 8, innerHeight - r.height - 8) })
+    const up = () => {
+      setDragging(false)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  // 브라우저 창이 작아지면 옮긴 창이 화면 밖으로 나가지 않게 다시 맞춘다
+  useEffect(() => {
+    if (!pos) return
+    const fit = () => setPos((p) => p && { ...p, x: clamp(p.x, 8, Math.max(8, innerWidth - p.w - 8)), y: clamp(p.y, 8, Math.max(8, innerHeight - p.h - 8)) })
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [pos])
   if (!chatOpen) return null
   return (
-    <div className="chat-window" role="dialog" aria-label={t('팀 대화')}>
+    <div
+      ref={winRef}
+      className={'chat-window' + (dragging ? ' dragging' : '')}
+      role="dialog"
+      aria-label={t('팀 대화')}
+      onPointerDown={startDrag}
+      style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto', width: pos.w, height: pos.h } : undefined}
+    >
       <ChatPanel onClose={() => setChatOpen(false)} />
     </div>
   )
