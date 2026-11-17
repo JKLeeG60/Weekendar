@@ -1026,7 +1026,8 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .dd-day.red b { color: var(--red); }
 .dd-day.cur { background: var(--surface-2); }
 .dd-day.today b { color: var(--red); }
-.dd-day.on { border: 2px dashed var(--accent); background: var(--mine-bg); }
+.dd-day { transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s, border-color 0.15s, box-shadow 0.2s; }
+.dd-day.on { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); transform: scale(1.08); box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent); }
 .dd-day.on b, .dd-day.on small { color: var(--accent); }
 .dd-arrow { width: 1.8rem; height: 3rem; display: grid; place-items: center; color: var(--muted); border-radius: 0.6rem; }
 .dd-arrow.on { background: var(--mine-bg); color: var(--accent); }
@@ -1053,7 +1054,8 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .dd-clone .swipe-body { transform: none !important; }
 .dd-ghost.below { transform: translateX(-50%); }
 /* 날짜 위에 올라가면 복사본을 옅게 해서 놓을 날짜가 보이게 */
-.dd-clone.over { opacity: 0.45; }
+.dd-clone { transition: opacity 0.14s ease; }
+.dd-clone.over { opacity: 0; }
 
 /* 월간 일정 제목 옆: 팀원 사진을 눌러 바꿔 보기 */
 .mo-title { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
@@ -1195,7 +1197,11 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .chat-window.dragging, .chat-window.dragging .chat-head { cursor: grabbing; }
 .chat-window.dragging { user-select: none; }
 
-/* 폰 팀 주간 탭: 일정을 끌 때 위의 주간 달력이 놓을 칸이 된다 */
-.m-day.dd-over { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); transform: scale(1.06); }
-.m-day.dd-over small, .m-day.dd-over strong { color: var(--accent); }
+/* 폰 팀 주간 탭: 일정을 끌 때 위의 주간 달력이 놓을 칸이 된다 (둥근 알약 + 숫자 동그라미가 통통 커짐) */
+.m-days .m-day { transition: background 0.18s ease; }
+.m-days .m-day strong { transition: background 0.15s, color 0.15s, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s; }
+.m-days .m-day.dd-over { background: color-mix(in srgb, var(--accent) 11%, transparent); border-radius: 1.3rem; }
+.m-days .m-day.dd-over small { color: var(--accent); }
+.m-days .m-day.dd-over strong { background: var(--accent); color: #fff; transform: scale(1.16); box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 42%, transparent); }
+.m-wk-arrow { transition: background 0.18s, color 0.18s; }
 .m-wk-arrow.dd-over { background: var(--accent-soft); color: var(--accent); }
