@@ -35,9 +35,48 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Weekendar</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 48 48%27%3E%3Crect width=%2748%27 height=%2748%27 rx=%2711%27 fill=%27%23007aff%27/%3E%3Crect x=%279%27 y=%2714%27 width=%2730%27 height=%2724%27 rx=%274%27 fill=%27white%27/%3E%3Crect x=%279%27 y=%2714%27 width=%2730%27 height=%277%27 rx=%273%27 fill=%27%23ff3b30%27/%3E%3C/svg%3E" />
+    <style>
+      /* 첫 화면(불러오는 중): 앱 프로그램이 오기 전부터 보이도록 여기에 둔다. App.tsx 의 Splash 도 같은 모양을 쓴다 */
+      .splash { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #f5f5f7; transition: opacity 0.35s ease, visibility 0.35s; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+      [data-theme='dark'] .splash { background: #000; }
+      .splash.out { opacity: 0; visibility: hidden; pointer-events: none; }
+      .splash-box { display: flex; flex-direction: column; align-items: center; transform: translateY(-4vh); }
+      .splash-ic { width: 88px; height: 88px; border-radius: 21px; box-shadow: 0 10px 30px rgba(0, 122, 255, 0.25); }
+      .splash-name { margin-top: 16px; font-size: 21px; font-weight: 650; letter-spacing: -0.02em; color: #1d1d1f; }
+      [data-theme='dark'] .splash-name { color: #f5f5f7; }
+      .splash-tag { margin-top: 5px; font-size: 13px; color: #86868b; }
+      /* 아이폰식 빙글빙글: 막대 12개가 차례로 밝아진다 */
+      .splash-spin { position: relative; width: 24px; height: 24px; margin-top: 30px; }
+      .splash-spin i { position: absolute; left: 10.5px; top: 0; width: 3px; height: 7px; border-radius: 2px; background: #86868b; transform-origin: 1.5px 12px; opacity: 0.15; animation: splash-fade 1s linear infinite; }
+      @keyframes splash-fade { from { opacity: 1; } to { opacity: 0.15; } }
+      @media (prefers-reduced-motion: reduce) { .splash-spin i { animation-duration: 2s; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="splash" role="status" aria-label="Weekendar">
+        <div class="splash-box">
+          <img class="splash-ic" src="/icons/icon-192.png" alt="" width="88" height="88" />
+          <div class="splash-name">Weekendar</div>
+          <div class="splash-tag" id="splash-tag">우리 팀의 한 주를, 한눈에</div>
+          <div class="splash-spin"><i style="transform:rotate(0deg);animation-delay:-1.000s"></i><i style="transform:rotate(30deg);animation-delay:-0.917s"></i><i style="transform:rotate(60deg);animation-delay:-0.833s"></i><i style="transform:rotate(90deg);animation-delay:-0.750s"></i><i style="transform:rotate(120deg);animation-delay:-0.667s"></i><i style="transform:rotate(150deg);animation-delay:-0.583s"></i><i style="transform:rotate(180deg);animation-delay:-0.500s"></i><i style="transform:rotate(210deg);animation-delay:-0.417s"></i><i style="transform:rotate(240deg);animation-delay:-0.333s"></i><i style="transform:rotate(270deg);animation-delay:-0.250s"></i><i style="transform:rotate(300deg);animation-delay:-0.167s"></i><i style="transform:rotate(330deg);animation-delay:-0.083s"></i></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // 소개 문구 언어: ?lang= → 저장된 설정 → 기기 언어 (src/lib/i18n.tsx 와 같은 규칙)
+      ;(function () {
+        var q = new URLSearchParams(location.search).get('lang'), v = null
+        try { v = localStorage.getItem('weekendar-lang') } catch (e) {}
+        var pref = q === 'ko' || q === 'en' ? q : v === 'ko' || v === 'en' ? v : 'auto'
+        if (pref === 'auto') {
+          var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']
+          pref = 'en'
+          for (var i = 0; i < list.length; i++) { var c = list[i].toLowerCase().slice(0, 2); if (c === 'ko' || c === 'en') { pref = c; break } }
+        }
+        if (pref === 'en') document.getElementById('splash-tag').textContent = "Your team's week, at a glance"
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -524,4 +524,7 @@ export const EN: Record<string, string | [string, string]> = {
   '보낼 곳을 고르세요': 'Choose where to send',
   '팀 대화로 보내기': 'Send to team chat',
   '{name}님에게 보내기': 'Send to {name}',
+
+  // ── 첫 화면 ──
+  '우리 팀의 한 주를, 한눈에': "Your team's week, at a glance",
 }
