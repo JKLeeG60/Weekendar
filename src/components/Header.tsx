@@ -120,14 +120,17 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                     {preview ? t('데스크탑 화면으로 돌아가기') : t('폰 화면 미리보기')}
                   </button>
                 )}
-                {myMember && myMember.role !== 'pending' && (
-                  <button className="menu-item danger" onClick={() => { setPop(null); openModal({ type: 'leave' }) }}>
-                    {t('팀 나가기')}
-                  </button>
-                )}
                 <button className="menu-item" onClick={() => { setPop(null); logout() }}>
-                  <Icon name="logout" size={15} /> {t('로그아웃')}
+                  <span><Icon name="logout" size={15} /> {t('로그아웃')}</span>
                 </button>
+                {myMember && myMember.role !== 'pending' && (
+                  <>
+                    <div className="menu-sep" />
+                    <button className="menu-item danger" onClick={() => { setPop(null); openModal({ type: 'leave' }) }}>
+                      {t('팀 나가기')}
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
