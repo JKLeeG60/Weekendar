@@ -13,6 +13,7 @@ import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
+import { useDayDrag } from '../lib/dayDrag'
 
 type Tab = 'team' | 'me' | 'todo' | 'chat'
 
@@ -79,7 +80,11 @@ function MobileTeam() {
   const days = weekDays(selected)
   const today = todayStr()
   const day = days.includes(selected) ? selected : days[0]
-  const mon = mondayOf(selected)
+  // 일정을 끌어 다른 주로 넘기는 중이면 위의 주간 달력이 그 주를 보여 준다 (아래 목록은 그대로)
+  const dd = useDayDrag()
+  const preview = dd.active && !!dd.week
+  const mon = preview ? dd.week! : mondayOf(selected)
+  const cardDays = preview ? weekDays(dd.week!) : days
   const a = parse(mon)
   const b = parse(addDays(mon, 4))
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -117,18 +122,19 @@ function MobileTeam() {
           <span className="grow" />
           <button className="m-today" onClick={() => setSelected(todayStr())}>{t('오늘')}</button>
         </div>
-        {days.length === 0 ? (
+        {cardDays.length === 0 ? (
           <div className="empty">{t('이번 주는 표시할 평일이 없어요.')}</div>
         ) : (
           <div className="m-week-row">
-            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label={t('이전 주')}><Icon name="chevL" size={18} /></button>
+            <button className={'m-wk-arrow' + (dd.active && dd.over === 'prev' ? ' dd-over' : '')} data-drop-day="prev" onClick={() => setSelected(addDays(selected, -7))} aria-label={t('이전 주')}><Icon name="chevL" size={18} /></button>
             <div className="m-days" role="tablist" aria-label={t('요일')}>
-              {days.map((d) => (
+              {cardDays.map((d) => (
                 <button
                   key={d}
                   role="tab"
                   aria-selected={d === day}
-                  className={'m-day' + (d === day ? ' on' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}
+                  data-drop-day={d}
+                  className={'m-day' + (d === day ? ' on' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (dd.active && dd.over === d ? ' dd-over' : '')}
                   onClick={() => setSelected(d)}
                 >
                   <small>{dowLabel(d)}</small>
@@ -136,7 +142,7 @@ function MobileTeam() {
                 </button>
               ))}
             </div>
-            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label={t('다음 주')}><Icon name="chevR" size={18} /></button>
+            <button className={'m-wk-arrow' + (dd.active && dd.over === 'next' ? ' dd-over' : '')} data-drop-day="next" onClick={() => setSelected(addDays(selected, 7))} aria-label={t('다음 주')}><Icon name="chevR" size={18} /></button>
           </div>
         )}
       </section>

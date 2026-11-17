@@ -5,6 +5,7 @@
  * - 놓기: endDayDrag() → 날짜 위에서 놓았으면 onDrop(날짜)
  */
 import { useSyncExternalStore } from 'react'
+import { addDays } from './date'
 
 export interface DayDragState {
   active: boolean
@@ -21,9 +22,13 @@ export interface DayDragState {
   onDrop: ((day: string) => void) | null
   /** 손가락을 따라다니는 반투명 복사본 (끌고 있는 줄의 모양 그대로) */
   ghost: { html: string; w: number; h: number; dx: number; dy: number } | null
+  /** 폰 팀 주간 탭처럼 위에 주간 달력이 이미 있으면 true: 날짜 띠 대신 그 달력에 놓는다 */
+  inline: boolean
+  /** inline 일 때 달력이 보여 줄 주의 월요일 (null 이면 원래 보던 주) */
+  week: string | null
 }
 
-const IDLE: DayDragState = { active: false, label: '', x: 0, y: 0, over: null, native: false, anchor: null, onDrop: null, ghost: null }
+const IDLE: DayDragState = { active: false, label: '', x: 0, y: 0, over: null, native: false, anchor: null, onDrop: null, ghost: null, inline: false, week: null }
 let state = IDLE
 const subs = new Set<() => void>()
 const set = (patch: Partial<DayDragState>) => {
@@ -50,6 +55,7 @@ export function startDayDrag(o: { label: string; onDrop: (day: string) => void; 
   const ghost = o.source && sr ? { html: o.source.outerHTML, w: sr.width, h: sr.height, dx: x - sr.left, dy: y - sr.top } : null
   set({
     active: true, label: o.label, x, y, over: null, native: !!o.native, onDrop: o.onDrop, ghost,
+    inline: !!document.querySelector('.m-week'), week: null,
     anchor: r ? { left: r.left, top: r.top, width: r.width } : null,
   })
 }
@@ -63,6 +69,11 @@ export function dayAt(x: number, y: number): string | null {
 export function moveDayDrag(x: number, y: number) {
   if (!state.active) return
   set({ x, y, over: dayAt(x, y) })
+}
+
+/** inline 일 때 달력이 보여 주는 주를 n일(±7) 옮긴다. base = 원래 보던 주의 월요일 */
+export function shiftDragWeek(n: number, base: string) {
+  if (state.active) set({ week: addDays(state.week ?? base, n) })
 }
 
 export function setDayDragOver(day: string | null) {

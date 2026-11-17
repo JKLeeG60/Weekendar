@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type HTMLAttributes, type 
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { addDays, dowLabel, fmtHead, holidayName, mondayOf, parse, todayStr } from '../lib/date'
-import { endDayDrag, moveDayDrag, setDayDragOver, startDayDrag, useDayDrag } from '../lib/dayDrag'
+import { endDayDrag, moveDayDrag, setDayDragOver, shiftDragWeek, startDayDrag, useDayDrag } from '../lib/dayDrag'
 import type { Todo } from '../lib/types'
 import { t } from '../lib/i18n'
 import { Icon } from './ui'
@@ -86,10 +86,11 @@ export function DayDropStrip() {
     flip.current = null
     if (d.over === 'prev' || d.over === 'next') {
       const n = d.over === 'prev' ? -7 : 7
-      flip.current = window.setTimeout(() => setWeek((w) => addDays(w, n)), 550)
+      // 위에 주간 달력이 있으면 그 달력의 주를, 아니면 날짜 띠의 주를 넘긴다
+      flip.current = window.setTimeout(() => (d.inline ? shiftDragWeek(n, mondayOf(selected)) : setWeek((w) => addDays(w, n))), 550)
     }
     return () => { if (flip.current) window.clearTimeout(flip.current) }
-  }, [d.over, week])
+  }, [d.over, week, d.inline, d.week, selected])
 
   if (!d.active) return null
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i))
@@ -106,7 +107,8 @@ export function DayDropStrip() {
   })
   return (
     <>
-      <div className="dd-strip" style={style} role="listbox" aria-label={t('옮길 날짜')}>
+      {/* 폰 팀 주간 탭은 위의 주간 달력이 날짜 띠 역할을 하므로 띠를 숨긴다 */}
+      {!d.inline && <div className="dd-strip" style={style} role="listbox" aria-label={t('옮길 날짜')}>
         <span className={'dd-arrow' + (d.over === 'prev' ? ' on' : '')} data-drop-day="prev" {...native('prev')}><Icon name="chevL" size={16} /></span>
         {days.map((day) => (
           <span
@@ -120,7 +122,7 @@ export function DayDropStrip() {
           </span>
         ))}
         <span className={'dd-arrow' + (d.over === 'next' ? ' on' : '')} data-drop-day="next" {...native('next')}><Icon name="chevR" size={16} /></span>
-      </div>
+      </div>}
       {/* 손가락을 따라다니는 반투명 복사본 */}
       {d.ghost && (
         <div className={'dd-clone' + (d.over ? ' over' : '')} style={{ left: d.x - d.ghost.dx, top: d.y - d.ghost.dy, width: d.ghost.w }} dangerouslySetInnerHTML={{ __html: d.ghost.html }} />
