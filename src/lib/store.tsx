@@ -22,6 +22,7 @@ import type {
   User,
 } from './types'
 import { addDays, isWeekend, mondayOf, todayStr } from './date'
+import { t as tr } from './i18n'
 
 const KEY = 'weekendar-v1'
 export const uid = () => Math.random().toString(36).slice(2, 10)
@@ -261,7 +262,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const store = useMemo<Store>(() => {
     const userOf = (id: string) =>
-      db.users.find((u) => u.id === id) ?? { id, name: '알 수 없음', email: '' }
+      db.users.find((u) => u.id === id) ?? { id, name: tr('알 수 없음'), email: '' }
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
     const myMember = db.members.find((m) => m.userId === db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)
@@ -313,10 +314,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       joinTeam: (code) => {
         const t = db.teams.find((x) => x.inviteCode.toLowerCase() === code.trim().toLowerCase())
-        if (!t) return '초대 코드를 찾을 수 없어요. 코드를 다시 확인해주세요.'
-        if (!db.currentUserId) return '로그인이 필요해요.'
+        if (!t) return tr('초대 코드를 찾을 수 없어요. 코드를 다시 확인해주세요.')
+        if (!db.currentUserId) return tr('로그인이 필요해요.')
         if (db.members.some((m) => m.userId === db.currentUserId))
-          return '이미 팀에 소속되어 있어요.'
+          return tr('이미 팀에 소속되어 있어요.')
         const admins = db.members.filter((m) => m.teamId === t.id && m.isAdmin)
         set((p) => ({
           ...p,

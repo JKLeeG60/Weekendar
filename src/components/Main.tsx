@@ -11,6 +11,7 @@ import { NoticeToasts } from './NoticeToasts'
 import { ChatWindow } from './Chat'
 import { Reminders } from './Reminders'
 import { clearInvite, getInvite } from '../lib/invite'
+import { t } from '../lib/i18n'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile, showToast } = useUI()
@@ -21,7 +22,7 @@ export function Main() {
     const code = getInvite()
     if (!code || !team) return
     clearInvite()
-    if (code !== team.inviteCode) showToast('이미 팀에 속해 있어서 초대 링크를 사용할 수 없어요. (1인 1팀)')
+    if (code !== team.inviteCode) showToast(t('이미 팀에 속해 있어서 초대 링크를 사용할 수 없어요. (1인 1팀)'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team?.id])
 

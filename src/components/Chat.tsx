@@ -3,7 +3,8 @@ import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
 import { fmtHead, fmtLong, weekDays } from '../lib/date'
-import { ALL, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
+import { ALL, ALL_EN, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
+import { getLang, t } from '../lib/i18n'
 import type { ChatRef, Message } from '../lib/types'
 import { Avatar, Icon } from './ui'
 
@@ -16,13 +17,13 @@ const dayKey = (ms: number) => {
 export function ChatButton() {
   const { chatUnread, chatMentions } = useStore()
   const { chatOpen, setChatOpen } = useUI()
-  const label = chatMentions > 0 ? `나를 호출한 메시지 포함 안 읽은 대화 ${chatUnread}개` : `안 읽은 대화 ${chatUnread}개`
+  const label = chatMentions > 0 ? t('나를 호출한 메시지 포함 안 읽은 대화 {n}개', { n: chatUnread }) : t('안 읽은 대화 {n}개', { n: chatUnread })
   return (
     <button
       className={'icon-btn tb-chat' + (chatOpen ? ' open' : '')}
       onClick={() => setChatOpen(!chatOpen)}
-      aria-label={'팀 대화' + (chatUnread ? ` (${label})` : '')}
-      title="팀 대화"
+      aria-label={t('팀 대화') + (chatUnread ? ` (${label})` : '')}
+      title={t('팀 대화')}
     >
       <Icon name="chat" />
       {chatUnread > 0 && (
@@ -48,7 +49,7 @@ export function ChatWindow() {
   }, [chatOpen, modal, setChatOpen])
   if (!chatOpen) return null
   return (
-    <div className="chat-window" role="dialog" aria-label="팀 대화">
+    <div className="chat-window" role="dialog" aria-label={t('팀 대화')}>
       <ChatPanel onClose={() => setChatOpen(false)} />
     </div>
   )
@@ -91,8 +92,10 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
   const q = /@(\S*)$/.exec(text.slice(0, caret))
   const people = tableMembers
     .filter((m) => m.userId !== me?.id)
-    .map((m) => ({ id: m.userId, name: userOf(m.userId).name, sub: m.role === 'leader' ? '팀장' : m.title }))
-  const options = q ? [...people, { id: 'all', name: ALL, sub: '팀 모두에게' }].filter((o) => o.name.startsWith(q[1])) : []
+    .map((m) => ({ id: m.userId, name: userOf(m.userId).name, sub: m.role === 'leader' ? t('팀장') : m.title }))
+  // 팀 모두 부르기: 한국어 화면은 @전체, 영어 화면은 @all
+  const allName = getLang() === 'en' ? ALL_EN : ALL
+  const options = q ? [...people, { id: 'all', name: allName, sub: t('팀 모두에게') }].filter((o) => o.name.toLowerCase().startsWith(q[1].toLowerCase())) : []
 
   function pick(name: string) {
     if (!q) return
@@ -143,17 +146,17 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
   return (
     <section className="chat">
       <header className="chat-head">
-        <strong>{team?.name} 대화</strong>
-        <small>{tableMembers.length}명</small>
+        <strong>{t('{team} 대화', { team: team?.name ?? '' })}</strong>
+        <small>{t('{n}명', { n: tableMembers.length })}</small>
         {onClose && (
-          <button className="icon-btn chat-close" onClick={onClose} aria-label="대화창 닫기" title="닫기 (Esc)">
+          <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
             <Icon name="x" size={16} />
           </button>
         )}
       </header>
 
       <div className="chat-list" ref={listRef}>
-        {messages.length === 0 && <p className="chat-empty">아직 대화가 없어요. 첫 메시지를 남겨보세요.</p>}
+        {messages.length === 0 && <p className="chat-empty">{t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}</p>}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
           const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt)
@@ -190,7 +193,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
 
       <footer className="chat-foot">
         {options.length > 0 && (
-          <div className="mention-pick" role="listbox" aria-label="호출할 사람">
+          <div className="mention-pick" role="listbox" aria-label={t('호출할 사람')}>
             {options.map((o, i) => (
               <button
                 key={o.id}
@@ -200,7 +203,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
                 onMouseDown={(e) => { e.preventDefault(); pick(o.name) }}
               >
                 {o.id === 'all' ? <span className="pick-all">@</span> : <Avatar name={o.name} size={24} />}
-                <span>{o.id === 'all' ? '@전체' : o.name}</span>
+                <span>{o.id === 'all' ? '@' + allName : o.name}</span>
                 <small>{o.sub}</small>
               </button>
             ))}
@@ -210,8 +213,8 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           <>
             <div className="popover-scrim" onMouseDown={() => setAttachOpen(false)} />
             <div className="attach-pick">
-              <div className="attach-title">이번 주 일정 첨부</div>
-              {attachables.length === 0 && <p className="chat-empty">이번 주 팀 표에 일정이 없어요.</p>}
+              <div className="attach-title">{t('이번 주 일정 첨부')}</div>
+              {attachables.length === 0 && <p className="chat-empty">{t('이번 주 팀 표에 일정이 없어요.')}</p>}
               {attachables.map((a) => (
                 <button key={a.key} onClick={() => { setRef(a); setAttachOpen(false); taRef.current?.focus() }}>
                   <b>{fmtHead(a.date)} {a.start}</b>
@@ -225,11 +228,11 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
         {ref && (
           <div className="ref-draft">
             <RefCard r={ref} />
-            <button className="icon-btn" onClick={() => setRef(null)} aria-label="첨부 취소"><Icon name="x" size={14} /></button>
+            <button className="icon-btn" onClick={() => setRef(null)} aria-label={t('첨부 취소')}><Icon name="x" size={14} /></button>
           </div>
         )}
         <div className="chat-input">
-          <button className="icon-btn" onClick={() => setAttachOpen((v) => !v)} aria-label="일정 첨부" title="일정 첨부">
+          <button className="icon-btn" onClick={() => setAttachOpen((v) => !v)} aria-label={t('일정 첨부')} title={t('일정 첨부')}>
             <Icon name="cal" size={18} />
           </button>
           <textarea
@@ -237,15 +240,15 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
             rows={1}
             value={text}
             maxLength={1000}
-            placeholder="메시지 입력 (@로 호출)"
+            placeholder={t('메시지 입력 (@로 호출)')}
             onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setPickIdx(0) }}
             onSelect={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart)}
             onKeyDown={onKey}
             onCompositionStart={() => { composing.current = true }}
             onCompositionEnd={(e) => { composing.current = false; setCaret((e.target as HTMLTextAreaElement).selectionStart) }}
-            aria-label="메시지 입력"
+            aria-label={t('메시지 입력')}
           />
-          <button className="send-btn" onClick={send} disabled={!text.trim() && !ref} aria-label="보내기">
+          <button className="send-btn" onClick={send} disabled={!text.trim() && !ref} aria-label={t('보내기')}>
             <Icon name="send" size={16} />
           </button>
         </div>
@@ -263,7 +266,7 @@ function RefCard({ r, onClick }: { r: ChatRef; onClick?: () => void }) {
     </>
   )
   return onClick ? (
-    <button className="ref-card" onClick={onClick} title="이 주의 팀 표로 이동">{body}</button>
+    <button className="ref-card" onClick={onClick} title={t('이 주의 팀 표로 이동')}>{body}</button>
   ) : (
     <div className="ref-card">{body}</div>
   )
@@ -315,15 +318,15 @@ function Bubble(props: {
     <div className={'bub-row' + (mine ? ' mine' : '') + (hit ? ' hit' : '') + (grouped ? ' grouped' : '')}>
       {!mine && <span className="bub-av">{!grouped && <Avatar name={author} size={30} />}</span>}
       <div className="bub-col">
-        {!mine && !grouped && <span className="bub-name">{author}{isLeader ? ' · 팀장' : ''}</span>}
+        {!mine && !grouped && <span className="bub-name">{author}{isLeader ? ' · ' + t('팀장') : ''}</span>}
         <div className="bub-line">
           <div
             ref={bubRef}
             className={'bub' + (m.deleted ? ' deleted' : '') + (canHold ? ' holdable' : '') + (pressed ? ' pressed' : '')}
-            title={canHold ? '길게 누르면 읽은 사람을 볼 수 있어요' : undefined}
+            title={canHold ? t('길게 누르면 읽은 사람을 볼 수 있어요') : undefined}
             {...hold}
           >
-            {m.deleted ? '삭제된 메시지예요' : (
+            {m.deleted ? t('삭제된 메시지예요') : (
               <>
                 {m.body && splitMentions(m.body, names).map((p, i) => (p.mention ? <span key={i} className="mn">{p.text}</span> : <Fragment key={i}>{p.text}</Fragment>))}
                 {m.ref && <RefCard r={m.ref} onClick={() => props.onRef(m.ref!)} />}
@@ -333,9 +336,9 @@ function Bubble(props: {
           <span className="bub-meta">
             {mine && !m.deleted && (
               confirm ? (
-                <button className="bub-del sure" onClick={props.onDelete}>삭제할까요?</button>
+                <button className="bub-del sure" onClick={props.onDelete}>{t('삭제할까요?')}</button>
               ) : (
-                <button className="bub-del" onClick={() => { setConfirm(true); setTimeout(() => setConfirm(false), 3000) }} aria-label="메시지 삭제">삭제</button>
+                <button className="bub-del" onClick={() => { setConfirm(true); setTimeout(() => setConfirm(false), 3000) }} aria-label={t('메시지 삭제')}>{t('삭제')}</button>
               )
             )}
             <time>{timeLabel(m.createdAt)}</time>
@@ -388,16 +391,16 @@ function ReadReceipts(props: {
   return (
     <>
       <div className="rr-scrim" onPointerDown={onClose} />
-      <div ref={boxRef} className="rr" role="dialog" aria-label="읽은 사람" style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}>
-        <h4>읽음 <b>{reads ? read.length : '–'}/{people.length}</b></h4>
+      <div ref={boxRef} className="rr" role="dialog" aria-label={t('읽은 사람')} style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}>
+        <h4>{t('읽음')} <b>{reads ? read.length : '–'}/{people.length}</b></h4>
         {reads === null ? (
-          <p className="rr-loading">불러오는 중…</p>
+          <p className="rr-loading">{t('불러오는 중…')}</p>
         ) : (
           <>
             {read.map((p) => (
               <div key={p.id} className="rr-row">
                 <Avatar name={p.name} size={26} />
-                <span>{p.name}{p.leader ? ' · 팀장' : ''}</span>
+                <span>{p.name}{p.leader ? ' · ' + t('팀장') : ''}</span>
                 <small>{timeLabel(reads[p.id])}</small>
               </div>
             ))}
@@ -405,13 +408,13 @@ function ReadReceipts(props: {
             {unread.map((p) => (
               <div key={p.id} className="rr-row no">
                 <Avatar name={p.name} size={26} />
-                <span>{p.name}{p.leader ? ' · 팀장' : ''}</span>
-                <small>아직 안 읽음</small>
+                <span>{p.name}{p.leader ? ' · ' + t('팀장') : ''}</span>
+                <small>{t('아직 안 읽음')}</small>
               </div>
             ))}
           </>
         )}
-        <div className="rr-lock">읽은 시각은 보낸 사람에게만 보여요</div>
+        <div className="rr-lock">{t('읽은 시각은 보낸 사람에게만 보여요')}</div>
       </div>
     </>
   )

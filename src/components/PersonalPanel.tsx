@@ -5,6 +5,9 @@ import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
 import type { Occurrence } from '../lib/types'
+import { Rich, t } from '../lib/i18n'
+/** 할 일 목록 안에서는 변수 이름 t(할 일)와 겹치므로 tr 로 부른다 */
+const tr = t
 import { MiniCalendar } from './MiniCalendar'
 import { Icon } from './ui'
 
@@ -21,11 +24,11 @@ export function DayAgenda() {
       <section className="panel-half">
         <div className="panel-head">
           <div className="datenav">
-            <button className="icon-btn" onClick={() => setSelected(addDays(selected, -1))} aria-label="전날"><Icon name="chevL" /></button>
+            <button className="icon-btn" onClick={() => setSelected(addDays(selected, -1))} aria-label={t('전날')}><Icon name="chevL" /></button>
             <div className="datebtn-wrap">
               <button className="datebtn" onClick={() => setCal((v) => !v)} aria-haspopup="dialog" aria-expanded={cal}>
                 {fmtHead(selected)}
-                {isToday && <span className="today-tag">오늘</span>}
+                {isToday && <span className="today-tag">{t('오늘')}</span>}
               </button>
               {cal && (
                 <MiniCalendar
@@ -35,15 +38,15 @@ export function DayAgenda() {
                 />
               )}
             </div>
-            <button className="icon-btn" onClick={() => setSelected(addDays(selected, 1))} aria-label="다음날"><Icon name="chevR" /></button>
+            <button className="icon-btn" onClick={() => setSelected(addDays(selected, 1))} aria-label={t('다음날')}><Icon name="chevR" /></button>
           </div>
-          <button className="icon-btn accent" onClick={() => openModal({ type: 'event', date: selected })} aria-label="일정 추가" title="일정 추가 (N)">
+          <button className="icon-btn accent" onClick={() => openModal({ type: 'event', date: selected })} aria-label={t('일정 추가')} title={t('일정 추가 (N)')}>
             <Icon name="plus" />
           </button>
         </div>
         {allDay.length > 0 && (
           <div className="allday">
-            <span className="allday-label">종일</span>
+            <span className="allday-label">{t('종일')}</span>
             <div className="allday-list">
               {allDay.map((o) => (
                 <button key={o.id} className="allday-item" data-cat={o.category} onClick={() => openModal({ type: 'detail', occ: o })}>
@@ -60,14 +63,14 @@ export function DayAgenda() {
           onOpen={(o) => openModal({ type: 'detail', occ: o })}
           onChange={(o, start, end) => {
             updateEvent(o.baseId, { start, end })
-            showToast(`${start}–${end}로 옮겼어요${o.repeat !== 'none' ? ' (반복 일정 전체)' : ''}`)
+            showToast(t('{range}로 옮겼어요', { range: `${start}–${end}` }) + (o.repeat !== 'none' ? t(' (반복 일정 전체)') : ''))
           }}
           onDropTodo={(todoId, start, end) => {
             const t = db.todos.find((x) => x.id === todoId)
             if (!t) return
             // 할 일은 비공개라, 할 일에서 만든 일정도 기본은 '나만 보기'
             addEvent({ title: t.text, date: selected, start, end, place: '', category: 'work', repeat: 'none', shared: false })
-            popup({ id: 'tb_' + Date.now(), title: '할 일을 일정으로 잡았어요', text: `${start}–${end} ${t.text} · 나만 보기`, tag: '일정 추가', icon: 'cal' })
+            popup({ id: 'tb_' + Date.now(), title: tr('할 일을 일정으로 잡았어요'), text: `${start}–${end} ${t.text} · ${tr('나만 보기')}`, tag: tr('일정 추가'), icon: 'cal' })
           }}
         />
       </section>
@@ -96,8 +99,8 @@ export function Todos() {
   return (
     <section className="panel-half todo">
       <div className="panel-head">
-        <h3 className="section-label big">할 일</h3>
-        <span className="count">{left}개 남음</span>
+        <h3 className="section-label big">{t('할 일')}</h3>
+        <span className="count">{t('{n}개 남음', { n: left })}</span>
       </div>
       <div className="panel-scroll">
         <form
@@ -110,13 +113,13 @@ export function Todos() {
           }}
         >
           <Icon name="plus" size={16} />
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="새로운 할 일" aria-label="새로운 할 일" />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('새로운 할 일')} aria-label={t('새로운 할 일')} />
         </form>
         {list.length === 0 && (
           <div className="empty-guide">
             <span className="eg-icon"><Icon name="check" size={18} /></span>
-            <strong>오늘 할 일이 없어요</strong>
-            <small>위 칸에 할 일을 적어 보세요.<br />적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.</small>
+            <strong>{t('오늘 할 일이 없어요')}</strong>
+            <small><Rich text={t('위 칸에 할 일을 적어 보세요.<br>적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.')} /></small>
           </div>
         )}
         <ul className="todos">
@@ -129,27 +132,27 @@ export function Todos() {
                 e.dataTransfer.setData('text/weekendar-todo', t.id)
                 e.dataTransfer.effectAllowed = 'copy'
               }}
-              title={!t.done && !isMobile ? '위 타임라인으로 끌어다 놓으면 일정이 돼요' : undefined}
+              title={!t.done && !isMobile ? tr('위 타임라인으로 끌어다 놓으면 일정이 돼요') : undefined}
             >
               <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTodo(t.id)} aria-label={t.text}>
                 {t.done && <Icon name="check" size={13} />}
               </button>
               <span className="todo-text">{t.text}</span>
-              {t.date < selected && !t.done && <span className="carry">이월</span>}
+              {t.date < selected && !t.done && <span className="carry">{tr('이월')}</span>}
               {!t.done && (
                 <button
                   className="icon-btn tiny to-event"
                   onClick={() => openModal({ type: 'event', date: selected, title: t.text, shared: false })}
-                  aria-label="일정으로 잡기"
-                  title="일정으로 잡기"
+                  aria-label={tr('일정으로 잡기')}
+                  title={tr('일정으로 잡기')}
                 >
                   <Icon name="cal" size={14} />
                 </button>
               )}
-              <button className={'icon-btn tiny flag' + (t.priority ? ' on' : '')} onClick={() => togglePriority(t.id)} aria-label="중요 표시">
+              <button className={'icon-btn tiny flag' + (t.priority ? ' on' : '')} onClick={() => togglePriority(t.id)} aria-label={tr('중요 표시')}>
                 <Icon name="flag" size={14} />
               </button>
-              <button className="icon-btn tiny del" onClick={() => removeTodo(t.id)} aria-label="삭제">
+              <button className="icon-btn tiny del" onClick={() => removeTodo(t.id)} aria-label={tr('삭제')}>
                 <Icon name="x" size={14} />
               </button>
             </li>
@@ -332,7 +335,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
         )}
         {dropAt !== null && (
           <div className="drop-ghost" style={{ top: `${topOf(dropAt)}rem`, height: `${HOUR_H}rem` }}>
-            <span>{hhmm(dropAt)}–{hhmm(Math.min(dropAt + 60, 23 * 60 + 59))} 여기에 일정으로</span>
+            <span>{hhmm(dropAt)}–{hhmm(Math.min(dropAt + 60, 23 * 60 + 59))} {t('여기에 일정으로')}</span>
           </div>
         )}
         {items.map(({ o, s, e, col, cols }) => {
@@ -357,7 +360,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
               onPointerUp={() => end(o)}
               onPointerCancel={() => { cancelHold(); setDrag(null) }}
               onClick={(ev) => { ev.stopPropagation(); if (!suppressClick.current) onOpen(o) }}
-              title={`${o.start}–${o.end} ${o.title} · 끌어서 시간 이동, 아래 끝을 끌어서 길이 조절`}
+              title={`${o.start}–${o.end} ${o.title} · ${t('끌어서 시간 이동, 아래 끝을 끌어서 길이 조절')}`}
             >
               <span className="tl-title">
                 {o.title}
@@ -365,7 +368,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo }: {
                 {o.remind !== undefined && o.remind !== null && <Icon name="bell" size={12} />}
               </span>
               <span className="tl-sub">
-                {live ? `${hhmm(ss)}–${hhmm(Math.min(ee, 23 * 60 + 59))}` : `${o.start}–${o.end}`}{o.place ? ` · ${o.place}` : ''}{o.repeat !== 'none' ? ' · 반복' : ''}
+                {live ? `${hhmm(ss)}–${hhmm(Math.min(ee, 23 * 60 + 59))}` : `${o.start}–${o.end}`}{o.place ? ` · ${o.place}` : ''}{o.repeat !== 'none' ? ' · ' + t('반복') : ''}
               </span>
               <span
                 className="tl-resize"

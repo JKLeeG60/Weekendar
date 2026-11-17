@@ -1,16 +1,19 @@
+import { fmtTime } from './date'
 import type { Message } from './types'
 
 export const ALL = '전체'
+/** 영어 화면에서 쓰는 @all (한국어 @전체 와 똑같이 팀 모두를 부른다) */
+export const ALL_EN = 'all'
 
 /** 본문에서 @이름 / @전체 를 찾아 호출 대상을 만든다 */
 export function parseMentions(body: string, people: { id: string; name: string }[]) {
   const mentions = people.filter((p) => body.includes('@' + p.name)).map((p) => p.id)
-  return { mentions, mentionAll: body.includes('@' + ALL) }
+  return { mentions, mentionAll: body.includes('@' + ALL) || new RegExp('@' + ALL_EN + '\\b', 'i').test(body) }
 }
 
 /** 본문을 일반 글자와 @호출 조각으로 나눈다 (화면 강조용) */
 export function splitMentions(body: string, names: string[]): { text: string; mention: boolean }[] {
-  const list = [...names, ALL].filter(Boolean).sort((a, b) => b.length - a.length)
+  const list = [...names, ALL, ALL_EN].filter(Boolean).sort((a, b) => b.length - a.length)
   if (list.length === 0) return [{ text: body, mention: false }]
   const esc = list.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   const re = new RegExp('@(' + esc.join('|') + ')', 'g')
@@ -36,6 +39,5 @@ export function chatCounts(messages: Message[], me: string | null | undefined, l
 
 export function timeLabel(ms: number) {
   const d = new Date(ms)
-  const h = d.getHours()
-  return `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${String(d.getMinutes()).padStart(2, '0')}`
+  return fmtTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
 }

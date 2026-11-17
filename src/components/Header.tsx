@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { addDays, isoWeek, mondayOf, weekRangeLabel } from '../lib/date'
+import { addDays, isoWeek, mondayOf, weekPill, weekRangeLabel } from '../lib/date'
+import { t, useLang, type LangPref } from '../lib/i18n'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
@@ -11,6 +12,7 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
   const { team, me, myMember, isAdmin, unreadCount, logout, login, db, mode } = useStore()
   const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, narrow, preview, setPreview } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
+  const { pref, setPref } = useLang()
   const mon = mondayOf(selected)
 
   return (
@@ -19,37 +21,37 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
       <div className="titles">
         {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <div className="title-row">
-          <h1>{mobileTitle ?? `${team?.name} 주간예정사항`}</h1>
+          <h1>{mobileTitle ?? t('{team} 주간예정사항', { team: team?.name ?? '' })}</h1>
         </div>
         {/* 주 이동: 화살표가 바꾸는 대상(날짜) 양옆에 둔다. 모바일에서는 숨김(주간 카드에 따로 있음) */}
         <div className="week-nav">
-          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주" title="이전 주 (←)"><Icon name="chevL" /></button>
+          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label={t('이전 주')} title={t('이전 주 (←)')}><Icon name="chevL" /></button>
           <span className="week-range">{weekRangeLabel(mon)}</span>
-          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주" title="다음 주 (→) · 이번 주로 돌아가기: T"><Icon name="chevR" /></button>
-          <span className="week-pill">{isoWeek(mon)}주차</span>
+          <button className="icon-btn week-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label={t('다음 주')} title={t('다음 주 (→) · 이번 주로 돌아가기: T')}><Icon name="chevR" /></button>
+          <span className="week-pill">{weekPill(isoWeek(mon))}</span>
         </div>
       </div>
       <div className="tools">
         <div className="toolgroup">
         <ChatButton />
         <div className="rel">
-          <button className="icon-btn" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-label="알림" title="알림">
+          <button className="icon-btn" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-label={t('알림')} title={t('알림')}>
             <Icon name="bell" />
             {unreadCount > 0 && <span className="dot-badge">{unreadCount}</span>}
           </button>
           {pop === 'bell' && <Notifications onClose={() => setPop(null)} />}
         </div>
         {isAdmin && (
-          <button className="icon-btn" onClick={() => openModal({ type: 'admin' })} aria-label="팀 관리" title="팀 관리">
+          <button className="icon-btn" onClick={() => openModal({ type: 'admin' })} aria-label={t('팀 관리')} title={t('팀 관리')}>
             <Icon name="users" />
           </button>
         )}
-        <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label="내 일정 패널 접기/펴기" title={panelOpen ? '내 일정·할 일 패널 숨기기' : '내 일정·할 일 패널 보이기'}>
+        <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label={t('내 일정 패널 접기/펴기')} title={panelOpen ? t('내 일정·할 일 패널 숨기기') : t('내 일정·할 일 패널 보이기')}>
           <Icon name="panel" />
         </button>
         </div>
         <div className="rel">
-          <button className="avatar-btn" onClick={() => setPop(pop === 'menu' ? null : 'menu')} aria-label="계정 메뉴">
+          <button className="avatar-btn" onClick={() => setPop(pop === 'menu' ? null : 'menu')} aria-label={t('계정 메뉴')}>
             <Avatar name={me?.name ?? '?'} size={32} />
           </button>
           {pop === 'menu' && (
@@ -60,7 +62,7 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                   <strong>{me?.name}</strong>
                   <span>{me?.email}</span>
                 </div>
-                {mode === 'demo' && <div className="menu-label">데모 계정 전환</div>}
+                {mode === 'demo' && <div className="menu-label">{t('데모 계정 전환')}</div>}
                 {mode === 'demo' && ['u_admin', 'u_leader', 'u_m2', 'u_m3', 'u_m4', 'u_m5'].map((id) => {
                   const u = db.users.find((x) => x.id === id)
                   if (!u) return null
@@ -73,32 +75,41 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                 })}
                 <div className="menu-sep" />
                 <div className="menu-theme">
-                  <span>화면</span>
-                  <div className="theme-seg" role="radiogroup" aria-label="화면 모드">
+                  <span>{t('화면')}</span>
+                  <div className="theme-seg" role="radiogroup" aria-label={t('화면 모드')}>
                     {([['system', '자동'], ['light', '라이트'], ['dark', '다크']] as const).map(([v, l]) => (
-                      <button key={v} role="radio" aria-checked={themePref === v} className={themePref === v ? 'on' : ''} onClick={() => setThemePref(v)}>{l}</button>
+                      <button key={v} role="radio" aria-checked={themePref === v} className={themePref === v ? 'on' : ''} onClick={() => setThemePref(v)}>{t(l)}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* 언어: 자동(기기 언어) / 한국어 / English — 언어 이름은 늘 그 언어로 */}
+                <div className="menu-theme">
+                  <span>{t('언어')}</span>
+                  <div className="theme-seg" role="radiogroup" aria-label={t('언어')}>
+                    {([['auto', t('자동')], ['ko', '한국어'], ['en', 'English']] as [LangPref, string][]).map(([v, l]) => (
+                      <button key={v} role="radio" aria-checked={pref === v} className={pref === v ? 'on' : ''} onClick={() => setPref(v)}>{l}</button>
                     ))}
                   </div>
                 </div>
                 <div className="menu-sep" />
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'calendar' }) }}>
-                  캘린더 앱에서 보기
+                  {t('캘린더 앱에서 보기')}
                 </button>
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'push' }) }}>
-                  휴대폰 알림
+                  {t('휴대폰 알림')}
                 </button>
                 {!narrow && (
                   <button className="menu-item" onClick={() => { setPop(null); setPreview(!preview) }}>
-                    {preview ? '데스크탑 화면으로 돌아가기' : '폰 화면 미리보기'}
+                    {preview ? t('데스크탑 화면으로 돌아가기') : t('폰 화면 미리보기')}
                   </button>
                 )}
                 {myMember && myMember.role !== 'pending' && (
                   <button className="menu-item danger" onClick={() => { setPop(null); openModal({ type: 'leave' }) }}>
-                    팀 나가기
+                    {t('팀 나가기')}
                   </button>
                 )}
                 <button className="menu-item" onClick={() => { setPop(null); logout() }}>
-                  <Icon name="logout" size={15} /> 로그아웃
+                  <Icon name="logout" size={15} /> {t('로그아웃')}
                 </button>
               </div>
             </>

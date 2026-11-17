@@ -1,5 +1,6 @@
 import type { EventItem, Occurrence } from './types'
-import { dow, holidayName, parse } from './date'
+import { dow, dowLabel, holidayName, parse } from './date'
+import { getLang } from './i18n'
 
 /** 여러 날(종일) 일정인가 */
 export const isMultiDay = (e: Pick<EventItem, 'date' | 'endDate'>) => !!e.endDate && e.endDate > e.date
@@ -31,8 +32,10 @@ export function occurrencesOn(events: EventItem[], date: string): Occurrence[] {
     .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title))
 }
 
-/** 여러 날 일정 기간 표시: 11/9(월)–11/11(수) */
+/** 여러 날 일정 기간 표시: 11/9(월)–11/11(수) (영어: Mon 11/9–Wed 11/11) */
 export function spanLabel(e: Pick<EventItem, 'date' | 'endDate'>) {
-  const f = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}(${'일월화수목금토'[dow(d)]})`
+  const f = (d: string) => getLang() === 'en'
+    ? `${dowLabel(d)} ${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`
+    : `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}(${'일월화수목금토'[dow(d)]})`
   return isMultiDay(e) ? `${f(e.date)}–${f(e.endDate!)}` : f(e.date)
 }

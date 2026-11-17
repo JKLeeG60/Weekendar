@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, dowLabel, holidayName, isoWeek, mondayOf, parse, todayStr, weekDays } from '../lib/date'
+import { addDays, dowLabel, holidayLabel, holidayName, isoWeek, mondayOf, parse, todayStr, weekDays, weekPill } from '../lib/date'
+import { getLang, t } from '../lib/i18n'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Header } from './Header'
 import { DayAgenda, Todos } from './PersonalPanel'
@@ -31,14 +32,14 @@ export function MobileMain() {
   return (
     <div className="m-app">
       {/* 팀 탭은 기존 제목(○○팀 주간예정사항), 나머지 탭은 탭 이름 */}
-      <Header mobileTitle={tab === 'team' ? undefined : TAB_TITLE[tab]} />
+      <Header mobileTitle={tab === 'team' ? undefined : t(TAB_TITLE[tab])} />
       <div className="m-body">
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}
         {tab === 'todo' && <Todos />}
         {tab === 'chat' && <ChatPanel />}
       </div>
-      <nav className="m-tabs" aria-label="화면 전환">
+      <nav className="m-tabs" aria-label={t('화면 전환')}>
         {([
           ['team', '팀 주간표', 'cal'],
           ['me', '내 일정', 'person'],
@@ -51,7 +52,7 @@ export function MobileMain() {
               {k === 'todo' && left > 0 && <b>{left}</b>}
               {k === 'chat' && chatUnread > 0 && <b className={chatMentions > 0 ? 'at' : ''}>{chatMentions > 0 ? '@' : ''}{chatUnread > 99 ? '99+' : chatUnread}</b>}
             </span>
-            {label}
+            {t(label)}
           </button>
         ))}
       </nav>
@@ -72,7 +73,10 @@ function MobileTeam() {
   const mon = mondayOf(selected)
   const a = parse(mon)
   const b = parse(addDays(mon, 4))
-  const label = `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? '' : b.getMonth() + 1 + '월 '}${b.getDate()}일`
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const label = getLang() === 'en'
+    ? `${MON[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON[b.getMonth()] + ' '}${b.getDate()}`
+    : `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? '' : b.getMonth() + 1 + '월 '}${b.getDate()}일`
 
   const shared = db.events.filter((e) => e.shared)
   const myPending: ChangeRequest[] = db.requests.filter(
@@ -100,16 +104,16 @@ function MobileTeam() {
       <section className="m-week">
         <div className="m-week-head">
           <strong>{label}</strong>
-          <span className="week-pill">{isoWeek(mon)}주차</span>
+          <span className="week-pill">{weekPill(isoWeek(mon))}</span>
           <span className="grow" />
-          <button className="m-today" onClick={() => setSelected(todayStr())}>오늘</button>
+          <button className="m-today" onClick={() => setSelected(todayStr())}>{t('오늘')}</button>
         </div>
         {days.length === 0 ? (
-          <div className="empty">이번 주는 표시할 평일이 없어요.</div>
+          <div className="empty">{t('이번 주는 표시할 평일이 없어요.')}</div>
         ) : (
           <div className="m-week-row">
-            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label="이전 주"><Icon name="chevL" size={18} /></button>
-            <div className="m-days" role="tablist" aria-label="요일">
+            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, -7))} aria-label={t('이전 주')}><Icon name="chevL" size={18} /></button>
+            <div className="m-days" role="tablist" aria-label={t('요일')}>
               {days.map((d) => (
                 <button
                   key={d}
@@ -123,7 +127,7 @@ function MobileTeam() {
                 </button>
               ))}
             </div>
-            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label="다음 주"><Icon name="chevR" size={18} /></button>
+            <button className="m-wk-arrow" onClick={() => setSelected(addDays(selected, 7))} aria-label={t('다음 주')}><Icon name="chevR" size={18} /></button>
           </div>
         )}
       </section>
@@ -131,15 +135,15 @@ function MobileTeam() {
       {days.length > 0 && (
         <>
           <div className="m-scroll">
-            {holidayName(day) && <div className="m-holiday">{holidayName(day)} · 휴일</div>}
+            {holidayName(day) && <div className="m-holiday">{holidayLabel(day)} · {t('휴일')}</div>}
             <section className="m-absent">
-              <h3>부재자</h3>
+              <h3>{t('부재자')}</h3>
               <div className="m-pills">
-                {absent.length === 0 && <span className="none">없음</span>}
+                {absent.length === 0 && <span className="none">{t('없음')}</span>}
                 {absent.map(({ m, o }) => (
                   <span key={m.userId} className="pill" data-cat={o.category}>
                     {userOf(m.userId).name}
-                    <em>{CATEGORY_LABEL[o.category]}</em>
+                    <em>{t(CATEGORY_LABEL[o.category])}</em>
                   </span>
                 ))}
               </div>
@@ -162,38 +166,38 @@ function MobileTeam() {
                     <div className="m-who">
                       <strong>
                         {u.name}
-                        {m.role === 'leader' && <span className="badge">팀장</span>}
-                        {mine && <span className="me-badge">나</span>}
+                        {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
+                        {mine && <span className="me-badge">{t('나')}</span>}
                       </strong>
-                      {m.role !== 'leader' && <small>{m.title || '직급 미지정'}</small>}
+                      {m.role !== 'leader' && <small>{m.title || t('직급 미지정')}</small>}
                     </div>
                     {clickable(m) && (
-                      <button className="m-add" onClick={() => onAdd(m)} aria-label={mine ? '일정 추가' : '팀장에게 일정 요청'}>
-                        <Icon name="plus" size={14} /> {mine ? '추가' : '요청'}
+                      <button className="m-add" onClick={() => onAdd(m)} aria-label={mine ? t('일정 추가') : t('팀장에게 일정 요청')}>
+                        <Icon name="plus" size={14} /> {mine ? t('추가') : t('요청')}
                       </button>
                     )}
                   </header>
                   {entries.length === 0 ? (
-                    <p className="m-none">일정 없음</p>
+                    <p className="m-none">{t('일정 없음')}</p>
                   ) : (
                     <ul>
                       {entries.map((en) =>
                         en.req ? (
                           <li key={en.req.id} className="m-item ghost" data-cat={en.req.payload.category ?? 'meeting'}>
                             {en.req.payload.endDate && en.req.payload.endDate > en.req.payload.date
-                              ? <span className="m-time allday-time">종일</span>
+                              ? <span className="m-time allday-time">{t('종일')}</span>
                               : <span className="m-time">{en.req.payload.start}<small>{en.req.payload.end}</small></span>}
                             <span className="m-main">
                               <b>{en.req.payload.title}</b>
                               {en.req.payload.place && <small>{en.req.payload.place}</small>}
                             </span>
-                            <span className="wait-tag">대기</span>
+                            <span className="wait-tag">{t('대기')}</span>
                           </li>
                         ) : (
                           <li key={en.ev!.id + en.ev!.date}>
                             <button className="m-item" data-cat={en.ev!.category} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
                               {isMultiDay(en.ev!)
-                                ? <span className="m-time allday-time">종일</span>
+                                ? <span className="m-time allday-time">{t('종일')}</span>
                                 : <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>}
                               <span className="m-main">
                                 <b>{en.ev!.title}</b>
@@ -201,7 +205,7 @@ function MobileTeam() {
                                   ? <small>{spanLabel(en.ev!)}{en.ev!.place ? ` · ${en.ev!.place}` : ''}</small>
                                   : en.ev!.place && <small>{en.ev!.place}</small>}
                               </span>
-                              <span className="cat-tag" data-cat={en.ev!.category}>{CATEGORY_LABEL[en.ev!.category]}</span>
+                              <span className="cat-tag" data-cat={en.ev!.category}>{t(CATEGORY_LABEL[en.ev!.category])}</span>
                             </button>
                           </li>
                         ),

@@ -3,6 +3,7 @@ import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { clearInvite, getInvite } from '../lib/invite'
 import { GoogleMark, Icon } from './ui'
+import { localize, Rich, t } from '../lib/i18n'
 
 export function Logo({ size = 44 }: { size?: number }) {
   return (
@@ -27,35 +28,35 @@ export function Login() {
   const { login, db, mode, loginGoogle } = useStore()
   const { narrow, preview, setPreview } = useUI()
   const demo = [
-    { id: 'u_admin', label: '관리자 · 김하늘' },
-    { id: 'u_leader', label: '팀장 · 박서준' },
-    { id: 'u_m3', label: '팀원 · 최유리' },
-    { id: 'u_new', label: '신규 사용자 (팀 없음)' },
+    { id: 'u_admin', label: `${t('관리자')} · 김하늘` },
+    { id: 'u_leader', label: `${t('팀장')} · 박서준` },
+    { id: 'u_m3', label: `${t('팀원')} · 최유리` },
+    { id: 'u_new', label: t('신규 사용자 (팀 없음)') },
   ]
   return (
     <div className="center-screen">
       <div className="auth-card">
         <Logo size={64} />
         <h1 className="brand">Weekendar</h1>
-        <p className="tagline">우리 팀의 한 주를, 한눈에.</p>
+        <p className="tagline">{t('우리 팀의 한 주를, 한눈에.')}</p>
         {getInvite() && (
           <div className="invite-banner">
             <Icon name="users" size={16} />
-            <span>초대 링크로 들어왔어요. 로그인하면 <b>{getInvite()}</b> 팀에 바로 참여 요청할 수 있어요.</span>
+            <span><Rich text={t('초대 링크로 들어왔어요. 로그인하면 <b>{code}</b> 팀에 바로 참여 요청할 수 있어요.', { code: getInvite() ?? '' })} /></span>
           </div>
         )}
         <button className="btn google" onClick={() => (mode === 'cloud' ? loginGoogle() : login('u_new'))}>
           <GoogleMark />
-          Google로 계속하기
+          {t('Google로 계속하기')}
         </button>
         {mode === 'cloud' && !narrow && (
           <button className="link-btn preview-link" onClick={() => setPreview(!preview)}>
-            {preview ? '데스크탑 화면으로 보기' : '폰 화면으로 미리보기'}
+            {preview ? t('데스크탑 화면으로 보기') : t('폰 화면으로 미리보기')}
           </button>
         )}
-        {mode === 'cloud' && <p className="fine">Google 계정으로 로그인하면 팀을 만들거나<br />초대 코드로 참여할 수 있어요.</p>}
+        {mode === 'cloud' && <p className="fine"><Rich text={t('Google 계정으로 로그인하면 팀을 만들거나<br>초대 코드로 참여할 수 있어요.')} /></p>}
         {mode === 'demo' && <div className="demo-box">
-          <div className="demo-title">데모 계정으로 둘러보기</div>
+          <div className="demo-title">{t('데모 계정으로 둘러보기')}</div>
           <div className="demo-list">
             {demo.map((d) => (
               <button key={d.id} className="chip-btn" onClick={() => login(d.id)} disabled={!db.users.some((u) => u.id === d.id)}>
@@ -65,10 +66,10 @@ export function Login() {
           </div>
           {!narrow && (
             <button className="link-btn preview-link" onClick={() => setPreview(!preview)}>
-              {preview ? '데스크탑 화면으로 보기' : '폰 화면으로 미리보기'}
+              {preview ? t('데스크탑 화면으로 보기') : t('폰 화면으로 미리보기')}
             </button>
           )}
-          <p className="fine">현재는 브라우저에 저장되는 체험용 데이터입니다.</p>
+          <p className="fine">{t('현재는 브라우저에 저장되는 체험용 데이터입니다.')}</p>
         </div>}
       </div>
     </div>
@@ -87,20 +88,20 @@ export function TeamChoice() {
     <div className="center-screen">
       <div className="auth-card wide">
         <Logo size={48} />
-        <h1 className="brand sm">{me?.name}님, 환영합니다</h1>
-        <p className="tagline">팀을 만들거나 기존 팀에 참여해 시작하세요.</p>
+        <h1 className="brand sm">{t('{name}님, 환영합니다', { name: me?.name ?? '' })}</h1>
+        <p className="tagline">{t('팀을 만들거나 기존 팀에 참여해 시작하세요.')}</p>
 
         {mode === 'choose' && (
           <div className="choice-row">
             <button className="choice" onClick={() => setMode('create')}>
               <span className="choice-ico"><Icon name="plus" size={26} /></span>
-              <strong>팀 만들기</strong>
-              <span>관리자가 되어 구성원을 초대하고 팀을 운영합니다.</span>
+              <strong>{t('팀 만들기')}</strong>
+              <span>{t('관리자가 되어 구성원을 초대하고 팀을 운영합니다.')}</span>
             </button>
             <button className="choice" onClick={() => setMode('join')}>
               <span className="choice-ico alt"><Icon name="users" size={26} /></span>
-              <strong>팀 참여하기</strong>
-              <span>관리자에게 받은 초대 코드로 팀에 들어갑니다. 팀장·팀원 역할은 관리자가 지정합니다.</span>
+              <strong>{t('팀 참여하기')}</strong>
+              <span>{t('관리자에게 받은 초대 코드로 팀에 들어갑니다. 팀장·팀원 역할은 관리자가 지정합니다.')}</span>
             </button>
           </div>
         )}
@@ -114,13 +115,13 @@ export function TeamChoice() {
             }}
           >
             <label className="field">
-              <span>팀 이름</span>
-              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 마케팅팀" />
+              <span>{t('팀 이름')}</span>
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('예: 마케팅팀')} />
             </label>
-            <p className="hint">표 제목이 “{name.trim() || '000팀'} 주간예정사항”으로 표시됩니다.</p>
+            <p className="hint">{t('표 제목이 “{title}”으로 표시됩니다.', { title: t('{team} 주간예정사항', { team: name.trim() || t('000팀') }) })}</p>
             <div className="row-end">
-              <button type="button" className="btn ghost" onClick={() => setMode('choose')}>뒤로</button>
-              <button className="btn primary" disabled={!name.trim()}>팀 만들기</button>
+              <button type="button" className="btn ghost" onClick={() => setMode('choose')}>{t('뒤로')}</button>
+              <button className="btn primary" disabled={!name.trim()}>{t('팀 만들기')}</button>
             </div>
           </form>
         )}
@@ -135,20 +136,20 @@ export function TeamChoice() {
               if (!r) clearInvite()
             }}
           >
-            {invited && code === invited && <p className="hint invite-hint">초대 링크로 받은 코드예요. "참여 요청"을 누르면 관리자 승인 후 팀에 들어가요.</p>}
+            {invited && code === invited && <p className="hint invite-hint">{t('초대 링크로 받은 코드예요. "참여 요청"을 누르면 관리자 승인 후 팀에 들어가요.')}</p>}
             <label className="field">
-              <span>초대 코드</span>
-              <input autoFocus value={code} onChange={(e) => { setCode(e.target.value); setErr(null) }} placeholder="예: WKND-2026" />
+              <span>{t('초대 코드')}</span>
+              <input autoFocus value={code} onChange={(e) => { setCode(e.target.value); setErr(null) }} placeholder={t('예: WKND-2026')} />
             </label>
-            {err && <p className="error">{err}</p>}
+            {err && <p className="error">{localize(err)}</p>}
             <div className="row-end">
-              <button type="button" className="btn ghost" onClick={() => { setMode('choose'); clearInvite() }}>뒤로</button>
-              <button className="btn primary" disabled={!code.trim()}>참여 요청</button>
+              <button type="button" className="btn ghost" onClick={() => { setMode('choose'); clearInvite() }}>{t('뒤로')}</button>
+              <button className="btn primary" disabled={!code.trim()}>{t('참여 요청')}</button>
             </div>
           </form>
         )}
 
-        <button className="link-btn" onClick={logout}>다른 계정으로 로그인</button>
+        <button className="link-btn" onClick={logout}>{t('다른 계정으로 로그인')}</button>
       </div>
     </div>
   )
@@ -160,13 +161,11 @@ export function PendingScreen() {
     <div className="center-screen">
       <div className="auth-card">
         <div className="pending-ring"><Icon name="clock" size={30} /></div>
-        <h1 className="brand sm">관리자 승인을 기다리고 있어요</h1>
+        <h1 className="brand sm">{t('관리자 승인을 기다리고 있어요')}</h1>
         <p className="tagline">
-          {me?.name}님의 {team?.name ?? '팀'} 참여 요청이 전달되었습니다.
-          <br />
-          관리자가 역할(팀장·팀원)과 직급을 지정하면 바로 이용할 수 있어요.
+          <Rich text={t('{name}님의 {team} 참여 요청이 전달되었습니다.<br>관리자가 역할(팀장·팀원)과 직급을 지정하면 바로 이용할 수 있어요.', { name: me?.name ?? '', team: team?.name ?? t('팀') })} />
         </p>
-        <button className="btn ghost" onClick={logout}>로그아웃</button>
+        <button className="btn ghost" onClick={logout}>{t('로그아웃')}</button>
       </div>
     </div>
   )

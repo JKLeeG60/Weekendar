@@ -1,4 +1,10 @@
+import { getLang, t } from './i18n'
+
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
+const DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const en = () => getLang() === 'en'
 
 export const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -20,7 +26,7 @@ export function addDays(s: string, n: number): string {
 }
 
 export const dow = (s: string) => parse(s).getDay()
-export const dowLabel = (s: string) => DOW[dow(s)]
+export const dowLabel = (s: string) => (en() ? DOW_EN : DOW)[dow(s)]
 export const isWeekend = (s: string) => dow(s) === 0 || dow(s) === 6
 
 /** 월요일 기준 주 시작일 */
@@ -29,16 +35,47 @@ export function mondayOf(s: string): string {
   return addDays(s, d === 0 ? -6 : 1 - d)
 }
 
-/** "10. 10.(월)" 형식 */
+/** "10. 10.(월)" 형식 (영어: "Mon, Oct 10") */
 export function fmtHead(s: string): string {
   const d = parse(s)
+  if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}`
   return `${d.getMonth() + 1}. ${d.getDate()}.(${DOW[d.getDay()]})`
 }
 
+/** "2026년 11월 10일 (화)" (영어: "Tue, Nov 10, 2026") */
 export function fmtLong(s: string): string {
   const d = parse(s)
+  if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`
 }
+
+/** 날짜 알약: "2026. 11. 9." (영어: "Nov 9, 2026") */
+export function fmtDate(s: string): string {
+  const d = parse(s)
+  if (en()) return `${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`
+}
+
+/** "11월 9일 (월)" (영어: "Mon, Nov 9") */
+export function fmtMonthDay(s: string): string {
+  const d = parse(s)
+  if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}`
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`
+}
+
+/** 시각 "09:30" → "오전 9:30" (영어: "9:30 AM") */
+export function fmtTime(hm: string): string {
+  const h = Number(hm.slice(0, 2)), m = hm.slice(3, 5)
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return en() ? `${h12}:${m} ${h < 12 ? 'AM' : 'PM'}` : `${h < 12 ? '오전' : '오후'} ${h12}:${m}`
+}
+
+/** 달력 제목: "2026년 11월" (영어: "November 2026") */
+export const monthTitle = (y: number, m: number) => (en() ? `${MONTH_EN[m]} ${y}` : `${y}년 ${m + 1}월`)
+/** 달력 요일 머리글 (일요일 시작) */
+export const dowHeads = () => (en() ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : DOW)
+/** 주차 배지: "46주차" (영어: "Week 46") */
+export const weekPill = (n: number) => t('{n}주차', { n })
 
 /** ISO 8601 주차 (월요일 시작, 그 주의 목요일이 속한 연도 기준) */
 export function isoWeek(s: string): number {
@@ -53,6 +90,10 @@ export function isoWeek(s: string): number {
 export function weekRangeLabel(monday: string): string {
   const a = parse(monday)
   const b = parse(addDays(monday, 4))
+  if (en()) {
+    if (a.getFullYear() !== b.getFullYear()) return `${MON_EN[a.getMonth()]} ${a.getDate()}, ${a.getFullYear()} – ${MON_EN[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`
+    return `${MON_EN[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON_EN[b.getMonth()] + ' '}${b.getDate()}, ${a.getFullYear()}`
+  }
   return `${a.getFullYear()}년 ${a.getMonth() + 1}월 ${a.getDate()}일 – ${b.getMonth() + 1}월 ${b.getDate()}일`
 }
 
@@ -156,6 +197,13 @@ export function holidayName(s: string): string | undefined {
     holidayCache.set(year, m)
   }
   return m[s]
+}
+
+/** 화면에 보일 공휴일 이름 (영어면 번역. 예: "설날 연휴" → "Seollal Holiday") */
+export function holidayLabel(s: string): string | undefined {
+  const n = holidayName(s)
+  if (!n || !en()) return n
+  return n.endsWith(' 연휴') ? t('{name} 연휴', { name: t(n.slice(0, -3)) }) : t(n)
 }
 
 /** 팀 표에 표시할 날짜: 월~금 (공휴일도 칸은 유지하고 화면에서 휴일로 표시) */

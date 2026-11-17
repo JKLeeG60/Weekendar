@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
 import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
 import { chatCounts, parseMentions } from './chat'
+import { t as tr } from './i18n'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
@@ -58,7 +59,7 @@ const memberFrom = (r: any): Member => ({
 
 const fail = (e: unknown) => {
   console.error(e)
-  alert('저장하지 못했어요. 네트워크를 확인하고 다시 시도해주세요.\n' + ((e as any)?.message ?? ''))
+  alert(tr('저장하지 못했어요. 네트워크를 확인하고 다시 시도해주세요.') + '\n' + ((e as any)?.message ?? ''))
 }
 
 export function CloudStoreProvider({ children }: { children: ReactNode }) {
@@ -86,7 +87,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     if (err) { console.error(err); return }
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || '이름 없음', email: x.email ?? '' })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '' })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
@@ -165,7 +166,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
   }, [myTeamId])
 
   const store = useMemo<Store>(() => {
-    const userOf = (id: string) => db.users.find((u) => u.id === id) ?? { id, name: '알 수 없음', email: '' }
+    const userOf = (id: string) => db.users.find((u) => u.id === id) ?? { id, name: tr('알 수 없음'), email: '' }
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
     const myMember = db.members.find((m) => m.userId === db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)

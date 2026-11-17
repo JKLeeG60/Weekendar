@@ -2,11 +2,12 @@ import { useStore } from './lib/store'
 import { useUI } from './lib/ui'
 import { Login, PendingScreen, TeamChoice } from './components/Onboarding'
 import { Main } from './components/Main'
+import { t } from './lib/i18n'
 
 function Screen() {
   const { me, myMember, loading, mode, db } = useStore()
-  if (loading) return <div className="center-screen"><p className="fine">불러오는 중…</p></div>
-  if (mode === 'cloud' && db.currentUserId && !me) return <div className="center-screen"><p className="fine">프로필을 준비하는 중…</p></div>
+  if (loading) return <div className="center-screen"><p className="fine">{t('불러오는 중…')}</p></div>
+  if (mode === 'cloud' && db.currentUserId && !me) return <div className="center-screen"><p className="fine">{t('프로필을 준비하는 중…')}</p></div>
   if (!me) return <Login />
   if (!myMember) return <TeamChoice />
   if (myMember.role === 'pending') return <PendingScreen />

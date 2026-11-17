@@ -5,7 +5,8 @@ import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, fmtLong, holidayName, isWeekend } from '../lib/date'
+import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend } from '../lib/date'
+import { localize, Rich, t } from '../lib/i18n'
 import {
   CATEGORY_LABEL,
   type Category, type EventItem, type Occurrence, type Repeat, type Role,
@@ -76,88 +77,88 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { da
     if (base) updateEvent(base.id, data)
     else addEvent(data)
     closeModal()
-    showToast(shared ? '일정을 저장했어요. 팀 표에 공유됩니다.' : '일정을 저장했어요. 나만 볼 수 있습니다.')
+    showToast(shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
   }
 
   return (
     <Modal
-      title={base ? '일정 수정' : '새로운 일정'}
+      title={base ? t('일정 수정') : t('새로운 일정')}
       onClose={closeModal}
       footer={
         <>
           {base && (
-            <button className="btn danger-ghost left" onClick={() => { deleteEvent(base.id); closeModal(); showToast('일정을 삭제했어요.') }}>삭제</button>
+            <button className="btn danger-ghost left" onClick={() => { deleteEvent(base.id); closeModal(); showToast(t('일정을 삭제했어요.')) }}>{t('삭제')}</button>
           )}
-          <button className="btn ghost" onClick={closeModal}>취소</button>
-          <button className="btn primary" disabled={bad} onClick={save}>{base ? '저장' : '추가'}</button>
+          <button className="btn ghost" onClick={closeModal}>{t('취소')}</button>
+          <button className="btn primary" disabled={bad} onClick={save}>{base ? t('저장') : t('추가')}</button>
         </>
       }
     >
       <div className="form">
-        <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 주간회의)" />
+        <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('제목 (예: 주간회의)')} />
         {/* 하루 일정의 날짜: 평소엔 누른 칸의 날짜 그대로, 바꾸고 싶을 때만 눌러서 변경 */}
-        {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
+        {!multi && <PickerField kind="date" value={d} onChange={setD} label={t('날짜')} variant="line" />}
         <div className="group">
           <div className="gr">
             <div className="gr-text">
-              <span>여러 날</span>
-              <small>{multi ? '하루 종일 일정으로, 기간 전체에 표시돼요' : '휴가·출장처럼 며칠 이어지는 일정'}</small>
+              <span>{t('여러 날')}</span>
+              <small>{multi ? t('하루 종일 일정으로, 기간 전체에 표시돼요') : t('휴가·출장처럼 며칠 이어지는 일정')}</small>
             </div>
-            <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label="여러 날" />
+            <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label={t('여러 날')} />
           </div>
           {/* 아이폰 캘린더처럼: 줄마다 오른쪽 끝에 맞춘 회색 알약 버튼 */}
           <div className="gr">
-            <span>시작</span>
+            <span>{t('시작')}</span>
             <span className="pills">
               {multi
-                ? <PickerField kind="date" value={d} onChange={setD} label="시작 날짜" />
-                : <PickerField kind="time" value={start} onChange={setStart} label="시작 시간" />}
+                ? <PickerField kind="date" value={d} onChange={setD} label={t('시작 날짜')} />
+                : <PickerField kind="time" value={start} onChange={setStart} label={t('시작 시간')} />}
             </span>
           </div>
           <div className="gr">
-            <span>종료</span>
+            <span>{t('종료')}</span>
             <span className="pills">
               {multi
-                ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" bad={endDate <= d} />
-                : <PickerField kind="time" value={end} onChange={setEnd} label="종료 시간" bad={end <= start} />}
+                ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label={t('종료 날짜')} bad={endDate <= d} />
+                : <PickerField kind="time" value={end} onChange={setEnd} label={t('종료 시간')} bad={end <= start} />}
             </span>
           </div>
-          <label className="gr"><span>장소</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="장소 추가" /></label>
+          <label className="gr"><span>{t('장소')}</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder={t('장소 추가')} /></label>
         </div>
-        {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
-          : end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
+        {multi ? endDate <= d && <p className="error">{t('종료 날짜는 시작 날짜 이후여야 해요.')}</p>
+          : end <= start && <p className="error">{t('종료 시간은 시작 시간 이후여야 해요.')}</p>}
         <div className="group">
           <div className="gr col">
-            <span>카테고리</span>
+            <span>{t('카테고리')}</span>
             <div className="seg">
               {CATS.map((c) => (
                 <button key={c} type="button" data-cat={c} className={'seg-item' + (category === c ? ' on' : '')} onClick={() => pickCategory(c)}>
-                  {CATEGORY_LABEL[c]}
+                  {t(CATEGORY_LABEL[c])}
                 </button>
               ))}
             </div>
           </div>
           {!multi && <label className="gr">
-            <span>반복</span>
+            <span>{t('반복')}</span>
             <select value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
-              {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <option key={r} value={r}>{REPEAT_LABEL[r]}</option>)}
+              {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <option key={r} value={r}>{t(REPEAT_LABEL[r])}</option>)}
             </select>
           </label>}
           {!multi && <label className="gr">
-            <span>알림</span>
-            <select value={remind === undefined ? '' : String(remind)} onChange={(e) => setRemind(e.target.value === '' ? undefined : Number(e.target.value))} aria-label="미리 알림">
-              {REMIND_OPTIONS.map(([v, l]) => <option key={l} value={v === undefined ? '' : String(v)}>{l}</option>)}
+            <span>{t('알림')}</span>
+            <select value={remind === undefined ? '' : String(remind)} onChange={(e) => setRemind(e.target.value === '' ? undefined : Number(e.target.value))} aria-label={t('미리 알림')}>
+              {REMIND_OPTIONS.map(([v, l]) => <option key={l} value={v === undefined ? '' : String(v)}>{t(l)}</option>)}
             </select>
           </label>}
           <div className="gr">
             <div className="gr-text">
-              <span>팀에 공유</span>
-              <small>{shared ? '팀 주간표에 표시됩니다' : '내 패널에만 표시됩니다'}</small>
+              <span>{t('팀에 공유')}</span>
+              <small>{shared ? t('팀 주간표에 표시됩니다') : t('내 패널에만 표시됩니다')}</small>
             </div>
-            <Switch on={shared} onChange={(v) => setShared(v)} label="팀에 공유" />
+            <Switch on={shared} onChange={(v) => setShared(v)} label={t('팀에 공유')} />
           </div>
         </div>
-        {base && base.repeat !== 'none' && <p className="hint">반복 일정은 수정·삭제 시 모든 날짜에 적용됩니다.</p>}
+        {base && base.repeat !== 'none' && <p className="hint">{t('반복 일정은 수정·삭제 시 모든 날짜에 적용됩니다.')}</p>}
       </div>
     </Modal>
   )
@@ -180,27 +181,27 @@ function EventDetail({ occ }: { occ: Occurrence }) {
       footer={
         mine ? (
           <>
-            <button className="btn danger-ghost left" onClick={() => { deleteEvent(occ.baseId); closeModal(); showToast('일정을 삭제했어요.') }}>삭제</button>
-            <button className="btn primary" onClick={() => openModal({ type: 'event', date: occ.date, event: occ })}>수정</button>
+            <button className="btn danger-ghost left" onClick={() => { deleteEvent(occ.baseId); closeModal(); showToast(t('일정을 삭제했어요.')) }}>{t('삭제')}</button>
+            <button className="btn primary" onClick={() => openModal({ type: 'event', date: occ.date, event: occ })}>{t('수정')}</button>
           </>
         ) : canRequest ? (
           <>
-            <span className="foot-note">팀장이 동의하면 반영돼요</span>
-            <button className="btn danger-ghost" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>삭제 요청</button>
-            <button className="btn primary" onClick={() => openModal({ type: 'request', mode: 'edit', date: occ.date, occ })}>변경 요청</button>
+            <span className="foot-note">{t('팀장이 동의하면 반영돼요')}</span>
+            <button className="btn danger-ghost" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>{t('삭제 요청')}</button>
+            <button className="btn primary" onClick={() => openModal({ type: 'request', mode: 'edit', date: occ.date, occ })}>{t('변경 요청')}</button>
           </>
         ) : (
-          <button className="btn ghost" onClick={closeModal}>닫기</button>
+          <button className="btn ghost" onClick={closeModal}>{t('닫기')}</button>
         )
       }
     >
       <div className="detail" data-cat={occ.category}>
         <div className="detail-bar" />
         <div>
-          <p className="detail-line"><Icon name="clock" size={15} /> {isMultiDay(occ) ? `${spanLabel(occ)} · 종일` : `${fmtLong(occ.date)} · ${occ.start}–${occ.end}${occ.repeat !== 'none' ? ` · ${REPEAT_LABEL[occ.repeat]} 반복` : ''}`}</p>
+          <p className="detail-line"><Icon name="clock" size={15} /> {isMultiDay(occ) ? `${spanLabel(occ)} · ${t('종일')}` : `${fmtLong(occ.date)} · ${occ.start}–${occ.end}${occ.repeat !== 'none' ? ` · ${t(REPEAT_LABEL[occ.repeat] + ' 반복')}` : ''}`}</p>
           {occ.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
-          <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ' (팀장)' : ''} · {occ.shared ? '팀에 공유' : '나만 보기'}</p>
-          <span className="cat-tag" data-cat={occ.category}>{CATEGORY_LABEL[occ.category]}</span>
+          <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ` (${t('팀장')})` : ''} · {occ.shared ? t('팀에 공유') : t('나만 보기')}</p>
+          <span className="cat-tag" data-cat={occ.category}>{t(CATEGORY_LABEL[occ.category])}</span>
         </div>
       </div>
     </Modal>
@@ -224,7 +225,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
   const leader = db.members.find((m) => m.role === 'leader')
   const del = mode === 'delete'
   const bad = !del && (!title.trim() || (multi ? endDate <= d : end <= start))
-  const heading = mode === 'add' ? '팀장 일정 요청' : mode === 'edit' ? '팀장 일정 변경 요청' : '팀장 일정 삭제 요청'
+  const heading = t(mode === 'add' ? '팀장 일정 요청' : mode === 'edit' ? '팀장 일정 변경 요청' : '팀장 일정 삭제 요청')
 
   function submit() {
     createRequest({
@@ -235,7 +236,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
         : { title: title.trim(), date: d, endDate: null, start, end, place: place.trim(), category },
     })
     closeModal()
-    showToast('팀장에게 요청을 보냈어요. 동의하면 일정에 반영됩니다.')
+    showToast(t('팀장에게 요청을 보냈어요. 동의하면 일정에 반영됩니다.'))
   }
 
   return (
@@ -244,73 +245,73 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
       onClose={closeModal}
       footer={
         <>
-          <button className="btn ghost" onClick={closeModal}>취소</button>
-          <button className={'btn ' + (del ? 'danger' : 'primary')} disabled={bad} onClick={submit}>{del ? '삭제 요청 보내기' : '요청 보내기'}</button>
+          <button className="btn ghost" onClick={closeModal}>{t('취소')}</button>
+          <button className={'btn ' + (del ? 'danger' : 'primary')} disabled={bad} onClick={submit}>{del ? t('삭제 요청 보내기') : t('요청 보내기')}</button>
         </>
       }
     >
       <div className="form">
         <div className="to-line">
           <Avatar name={leader ? userOf(leader.userId).name : '?'} size={26} />
-          <span><strong>{leader ? userOf(leader.userId).name : ''}</strong> 팀장에게 전달</span>
+          <span><Rich text={t('<b>{name}</b> 팀장에게 전달', { name: leader ? userOf(leader.userId).name : '' })} /></span>
         </div>
         {del ? (
           <div className="detail" data-cat={occ?.category}>
             <div className="detail-bar" />
             <div>
               <h3>{occ?.title}</h3>
-              <p className="detail-line"><Icon name="clock" size={15} /> {occ && isMultiDay(occ) ? `${spanLabel(occ)} · 종일` : `${fmtLong(d)} · ${occ?.start}–${occ?.end}`}</p>
+              <p className="detail-line"><Icon name="clock" size={15} /> {occ && isMultiDay(occ) ? `${spanLabel(occ)} · ${t('종일')}` : `${fmtLong(d)} · ${occ?.start}–${occ?.end}`}</p>
               {occ?.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
             </div>
           </div>
         ) : (
           <>
-            <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="일정 (예: 신규 캠페인 킥오프)" />
-            {!multi && <PickerField kind="date" value={d} onChange={setD} label="날짜" variant="line" />}
+            <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('일정 (예: 신규 캠페인 킥오프)')} />
+            {!multi && <PickerField kind="date" value={d} onChange={setD} label={t('날짜')} variant="line" />}
             <div className="group">
               <div className="gr">
                 <div className="gr-text">
-                  <span>여러 날</span>
-                  <small>{multi ? '하루 종일 일정으로, 기간 전체에 표시돼요' : '교육·출장처럼 며칠 이어지는 일정'}</small>
+                  <span>{t('여러 날')}</span>
+                  <small>{multi ? t('하루 종일 일정으로, 기간 전체에 표시돼요') : t('교육·출장처럼 며칠 이어지는 일정')}</small>
                 </div>
-                <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label="여러 날" />
+                <Switch on={multi} onChange={(v) => { setMulti(v); if (v && endDate <= d) setEndDate(addDays(d, 2)) }} label={t('여러 날')} />
               </div>
               <div className="gr">
-                <span>시작</span>
+                <span>{t('시작')}</span>
                 <span className="pills">
                   {multi
-                    ? <PickerField kind="date" value={d} onChange={setD} label="시작 날짜" />
-                    : <PickerField kind="time" value={start} onChange={setStart} label="시작 시간" />}
+                    ? <PickerField kind="date" value={d} onChange={setD} label={t('시작 날짜')} />
+                    : <PickerField kind="time" value={start} onChange={setStart} label={t('시작 시간')} />}
                 </span>
               </div>
               <div className="gr">
-                <span>종료</span>
+                <span>{t('종료')}</span>
                 <span className="pills">
                   {multi
-                    ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label="종료 날짜" bad={endDate <= d} />
-                    : <PickerField kind="time" value={end} onChange={setEnd} label="종료 시간" bad={end <= start} />}
+                    ? <PickerField kind="date" value={endDate} min={addDays(d, 1)} onChange={setEndDate} label={t('종료 날짜')} bad={endDate <= d} />
+                    : <PickerField kind="time" value={end} onChange={setEnd} label={t('종료 시간')} bad={end <= start} />}
                 </span>
               </div>
-              <label className="gr"><span>장소</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="장소 추가" /></label>
+              <label className="gr"><span>{t('장소')}</span><input value={place} onChange={(e) => setPlace(e.target.value)} placeholder={t('장소 추가')} /></label>
             </div>
-            {multi ? endDate <= d && <p className="error">종료 날짜는 시작 날짜 이후여야 해요.</p>
-              : end <= start && <p className="error">종료 시간은 시작 시간 이후여야 해요.</p>}
+            {multi ? endDate <= d && <p className="error">{t('종료 날짜는 시작 날짜 이후여야 해요.')}</p>
+              : end <= start && <p className="error">{t('종료 시간은 시작 시간 이후여야 해요.')}</p>}
             <div className="group">
               <div className="gr col">
-                <span>카테고리</span>
+                <span>{t('카테고리')}</span>
                 <div className="seg">
                   {CATS.map((c) => (
                     <button key={c} type="button" data-cat={c} className={'seg-item' + (category === c ? ' on' : '')} onClick={() => setCategory(c)}>
-                      {CATEGORY_LABEL[c]}
+                      {t(CATEGORY_LABEL[c])}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-            {!multi && (isWeekend(d) || holidayName(d)) && <p className="hint">선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.</p>}
+            {!multi && (isWeekend(d) || holidayName(d)) && <p className="hint">{t('선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.')}</p>}
           </>
         )}
-        <p className="hint">저장하면 팀장에게 알림이 전달되고, 팀장이 ‘동의’하면 팀장 일정에 반영되어 모든 팀원에게 보입니다.</p>
+        <p className="hint">{t('저장하면 팀장에게 알림이 전달되고, 팀장이 ‘동의’하면 팀장 일정에 반영되어 모든 팀원에게 보입니다.')}</p>
       </div>
     </Modal>
   )
@@ -327,7 +328,7 @@ function DayModal({ userId, date }: { userId: string; date: string }) {
         {list.map((o) => (
           <li key={o.id}>
             <button className="agenda-item" data-cat={o.category} onClick={() => openModal({ type: 'detail', occ: o })}>
-              <span className="agenda-time">{isMultiDay(o) ? '종일' : o.start}</span>
+              <span className="agenda-time">{isMultiDay(o) ? t('종일') : o.start}</span>
               <span className="agenda-bar" />
               <span className="agenda-body">
                 <span className="agenda-title">{o.title}</span>
@@ -358,29 +359,29 @@ function AdminModal() {
   const movable = active.filter((m) => m.role === 'member')
 
   return (
-    <Modal title="팀 관리" onClose={closeModal} width={720}>
+    <Modal title={t('팀 관리')} onClose={closeModal} width={720}>
       <div className="admin-panel">
         <section>
-          <h3 className="section-label">팀 정보</h3>
+          <h3 className="section-label">{t('팀 정보')}</h3>
           <div className="inline-form">
-            <input value={name} onChange={(e) => setName(e.target.value)} aria-label="팀 이름" />
-            <button className="btn small" disabled={!name.trim() || name === team?.name} onClick={() => { renameTeam(name.trim()); showToast('팀 이름을 변경했어요.') }}>저장</button>
+            <input value={name} onChange={(e) => setName(e.target.value)} aria-label={t('팀 이름')} />
+            <button className="btn small" disabled={!name.trim() || name === team?.name} onClick={() => { renameTeam(name.trim()); showToast(t('팀 이름을 변경했어요.')) }}>{t('저장')}</button>
           </div>
           <div className="invite">
-            <span>초대 코드</span>
+            <span>{t('초대 코드')}</span>
             <code>{team?.inviteCode}</code>
-            <button className="btn small ghost" onClick={() => { navigator.clipboard?.writeText(team?.inviteCode ?? ''); showToast('초대 코드를 복사했어요.') }}>
-              <Icon name="copy" size={14} /> 코드 복사
+            <button className="btn small ghost" onClick={() => { navigator.clipboard?.writeText(team?.inviteCode ?? ''); showToast(t('초대 코드를 복사했어요.')) }}>
+              <Icon name="copy" size={14} /> {t('코드 복사')}
             </button>
-            <button className="btn small primary" onClick={() => { navigator.clipboard?.writeText(inviteLink(team?.inviteCode ?? '')); showToast('초대 링크를 복사했어요. 카톡이나 메일로 보내주세요.') }}>
-              <Icon name="copy" size={14} /> 초대 링크 복사
+            <button className="btn small primary" onClick={() => { navigator.clipboard?.writeText(inviteLink(team?.inviteCode ?? '')); showToast(t('초대 링크를 복사했어요. 카톡이나 메일로 보내주세요.')) }}>
+              <Icon name="copy" size={14} /> {t('초대 링크 복사')}
             </button>
           </div>
         </section>
 
         {pending.length > 0 && (
           <section>
-            <h3 className="section-label">승인 대기 {pending.length}명</h3>
+            <h3 className="section-label">{t('승인 대기 {n}명', { n: pending.length })}</h3>
             {pending.map((m) => {
               const u = userOf(m.userId)
               const role = roles[m.userId] ?? 'member'
@@ -388,16 +389,16 @@ function AdminModal() {
                 <div key={m.userId} className="member-row pend">
                   <Avatar name={u.name} size={32} />
                   <div className="grow"><strong>{u.name}</strong><small>{u.email}</small></div>
-                  <select value={role} onChange={(e) => setRoles({ ...roles, [m.userId]: e.target.value as Role })} aria-label="역할">
-                    <option value="member">팀원</option>
-                    <option value="leader">팀장{hasLeader ? ' (기존 팀장은 팀원으로)' : ''}</option>
+                  <select value={role} onChange={(e) => setRoles({ ...roles, [m.userId]: e.target.value as Role })} aria-label={t('역할')}>
+                    <option value="member">{t('팀원')}</option>
+                    <option value="leader">{t('팀장')}{hasLeader ? t(' (기존 팀장은 팀원으로)') : ''}</option>
                   </select>
-                  <input className="w-title" placeholder="직급" value={titles[m.userId] ?? ''} onChange={(e) => setTitles({ ...titles, [m.userId]: e.target.value })} aria-label="직급" />
-                  <button className="btn small ghost" onClick={() => removeMember(m.userId)}>거절</button>
+                  <input className="w-title" placeholder={t('직급')} value={titles[m.userId] ?? ''} onChange={(e) => setTitles({ ...titles, [m.userId]: e.target.value })} aria-label={t('직급')} />
+                  <button className="btn small ghost" onClick={() => removeMember(m.userId)}>{t('거절')}</button>
                   <button className="btn small primary" onClick={() => {
                     updateMember(m.userId, { role, title: role === 'leader' ? '팀장' : titles[m.userId] ?? '' })
-                    showToast(`${u.name}님의 참여를 승인했어요.`)
-                  }}>승인</button>
+                    showToast(t('{name}님의 참여를 승인했어요.', { name: u.name }))
+                  }}>{t('승인')}</button>
                 </div>
               )
             })}
@@ -405,7 +406,7 @@ function AdminModal() {
         )}
 
         <section>
-          <h3 className="section-label">구성원 {active.length}명 <small>표에는 팀장이 맨 위, 팀원은 아래 순서대로 표시됩니다</small></h3>
+          <h3 className="section-label">{t('구성원 {n}명', { n: active.length })} <small>{t('표에는 팀장이 맨 위, 팀원은 아래 순서대로 표시됩니다')}</small></h3>
           {active.map((m) => {
             const u = userOf(m.userId)
             const mi = movable.findIndex((x) => x.userId === m.userId)
@@ -413,45 +414,45 @@ function AdminModal() {
               <div key={m.userId} className="member-row">
                 <Avatar name={u.name} size={32} />
                 <div className="grow">
-                  <strong>{u.name}{m.isAdmin && <span className="badge admin">관리자</span>}</strong>
+                  <strong>{u.name}{m.isAdmin && <span className="badge admin">{t('관리자')}</span>}</strong>
                   <small>{u.email}</small>
                 </div>
                 <select
                   value={m.role}
                   onChange={(e) => updateMember(m.userId, { role: e.target.value as Role, ...(e.target.value === 'leader' ? { title: '팀장' } : {}) })}
-                  aria-label="역할"
+                  aria-label={t('역할')}
                 >
-                  <option value="leader">팀장</option>
-                  <option value="member">팀원</option>
-                  {m.isAdmin && <option value="none">관리자 전용 (표 미표시)</option>}
+                  <option value="leader">{t('팀장')}</option>
+                  <option value="member">{t('팀원')}</option>
+                  {m.isAdmin && <option value="none">{t('관리자 전용 (표 미표시)')}</option>}
                 </select>
                 <TitleInput
-                  value={m.role === 'leader' ? '팀장' : m.title}
+                  value={m.role === 'leader' ? t('팀장') : m.title}
                   disabled={m.role === 'leader' || m.role === 'none'}
                   onSave={(title) => updateMember(m.userId, { title })}
                 />
                 <span className="order">
-                  <button className="icon-btn tiny" disabled={mi <= 0} onClick={() => moveMember(m.userId, -1)} aria-label="위로"><Icon name="up" size={15} /></button>
-                  <button className="icon-btn tiny" disabled={mi < 0 || mi >= movable.length - 1} onClick={() => moveMember(m.userId, 1)} aria-label="아래로"><Icon name="down" size={15} /></button>
+                  <button className="icon-btn tiny" disabled={mi <= 0} onClick={() => moveMember(m.userId, -1)} aria-label={t('위로')}><Icon name="up" size={15} /></button>
+                  <button className="icon-btn tiny" disabled={mi < 0 || mi >= movable.length - 1} onClick={() => moveMember(m.userId, 1)} aria-label={t('아래로')}><Icon name="down" size={15} /></button>
                 </span>
                 {m.userId !== me?.id && !m.isAdmin && m.role !== 'pending' ? (
-                  <button className={'icon-btn tiny key-slot' + (confirm === 'admin:' + m.userId ? ' on' : '')} onClick={() => setConfirm(confirm === 'admin:' + m.userId ? null : 'admin:' + m.userId)} aria-label="관리자 넘기기" title={`${u.name}님에게 관리자 넘기기`}><Icon name="key" size={15} /></button>
+                  <button className={'icon-btn tiny key-slot' + (confirm === 'admin:' + m.userId ? ' on' : '')} onClick={() => setConfirm(confirm === 'admin:' + m.userId ? null : 'admin:' + m.userId)} aria-label={t('관리자 넘기기')} title={t('{name}님에게 관리자 넘기기', { name: u.name })}><Icon name="key" size={15} /></button>
                 ) : (
                   <span className="key-slot" />
                 )}
                 {m.userId === me?.id ? (
                   <span className="del-slot" />
                 ) : confirm === m.userId ? (
-                  <button className="btn small danger" onClick={() => { removeMember(m.userId); setConfirm(null); showToast(`${u.name}님을 팀에서 삭제했어요.`) }}>정말 삭제</button>
+                  <button className="btn small danger" onClick={() => { removeMember(m.userId); setConfirm(null); showToast(t('{name}님을 팀에서 삭제했어요.', { name: u.name })) }}>{t('정말 삭제')}</button>
                 ) : (
-                  <button className="icon-btn tiny del-slot" onClick={() => setConfirm(m.userId)} aria-label="구성원 삭제"><Icon name="trash" size={15} /></button>
+                  <button className="icon-btn tiny del-slot" onClick={() => setConfirm(m.userId)} aria-label={t('구성원 삭제')}><Icon name="trash" size={15} /></button>
                 )}
                 {/* 관리자 넘기기 확인: 줄 아래에 따로 (줄 정렬이 흐트러지지 않도록) */}
                 {confirm === 'admin:' + m.userId && (
                   <div className="row-confirm">
-                    <span><b>{u.name}</b>님에게 관리자를 넘길까요? 나는 일반 구성원이 되고 팀 관리 메뉴를 쓸 수 없게 돼요.</span>
-                    <button className="btn small ghost" onClick={() => setConfirm(null)}>취소</button>
-                    <button className="btn small primary" onClick={() => { transferAdmin(m.userId); setConfirm(null); closeModal(); showToast(`${u.name}님에게 관리자를 넘겼어요.`) }}>넘기기</button>
+                    <span><Rich text={t('<b>{name}</b>님에게 관리자를 넘길까요? 나는 일반 구성원이 되고 팀 관리 메뉴를 쓸 수 없게 돼요.', { name: u.name })} /></span>
+                    <button className="btn small ghost" onClick={() => setConfirm(null)}>{t('취소')}</button>
+                    <button className="btn small primary" onClick={() => { transferAdmin(m.userId); setConfirm(null); closeModal(); showToast(t('{name}님에게 관리자를 넘겼어요.', { name: u.name })) }}>{t('넘기기')}</button>
                   </div>
                 )}
               </div>
@@ -480,47 +481,47 @@ function CalendarModal() {
   const mine = db.events.filter((e) => e.ownerId === me?.id)
   const copy = async () => {
     if (!url) return
-    try { await navigator.clipboard.writeText(url); showToast('구독 주소를 복사했어요') } catch { showToast('복사하지 못했어요. 주소를 길게 눌러 복사해주세요') }
+    try { await navigator.clipboard.writeText(url); showToast(t('구독 주소를 복사했어요')) } catch { showToast(t('복사하지 못했어요. 주소를 길게 눌러 복사해주세요')) }
   }
 
   return (
-    <Modal title="캘린더 앱에서 보기" onClose={closeModal} width={500}>
+    <Modal title={t('캘린더 앱에서 보기')} onClose={closeModal} width={500}>
       <div className="cal-export">
         <section>
-          <h4>구독 주소 <small>일정이 바뀌면 캘린더 앱에도 자동으로 반영돼요</small></h4>
+          <h4>{t('구독 주소')} <small>{t('일정이 바뀌면 캘린더 앱에도 자동으로 반영돼요')}</small></h4>
           {mode !== 'cloud' ? (
-            <p className="hint">체험 모드에서는 구독 주소를 만들 수 없어요. 아래 파일 내려받기를 이용하세요.</p>
+            <p className="hint">{t('체험 모드에서는 구독 주소를 만들 수 없어요. 아래 파일 내려받기를 이용하세요.')}</p>
           ) : busy ? (
-            <p className="hint">주소를 준비하는 중…</p>
+            <p className="hint">{t('주소를 준비하는 중…')}</p>
           ) : url ? (
             <>
               <div className="cal-url">
-                <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="구독 주소" />
-                <button className="btn small primary" onClick={copy}><Icon name="copy" size={14} /> 복사</button>
+                <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={t('구독 주소')} />
+                <button className="btn small primary" onClick={copy}><Icon name="copy" size={14} /> {t('복사')}</button>
               </div>
               <ul className="cal-steps">
-                <li><b>구글 캘린더 (PC)</b> 왼쪽 "다른 캘린더" 옆 + → "URL로 추가" → 주소 붙여넣기</li>
-                <li><b>아이폰 캘린더</b> 설정 → 캘린더 → 계정 → 계정 추가 → 기타 → "구독 캘린더 추가"</li>
+                <li><Rich text={t('<b>구글 캘린더 (PC)</b> 왼쪽 "다른 캘린더" 옆 + → "URL로 추가" → 주소 붙여넣기')} /></li>
+                <li><Rich text={t('<b>아이폰 캘린더</b> 설정 → 캘린더 → 계정 → 계정 추가 → 기타 → "구독 캘린더 추가"')} /></li>
               </ul>
-              <p className="hint">구글 캘린더는 반영까지 몇 시간 걸릴 수 있어요. 이 주소를 아는 사람은 내 일정을 볼 수 있으니 공유하지 마세요.</p>
+              <p className="hint">{t('구글 캘린더는 반영까지 몇 시간 걸릴 수 있어요. 이 주소를 아는 사람은 내 일정을 볼 수 있으니 공유하지 마세요.')}</p>
               {confirmReset ? (
                 <div className="cal-reset">
-                  <span>이전 주소는 더 이상 동작하지 않아요.</span>
-                  <button className="btn small ghost" onClick={() => setConfirmReset(false)}>취소</button>
-                  <button className="btn small danger" onClick={async () => { setBusy(true); setUrl(await getCalendarUrl(true)); setBusy(false); setConfirmReset(false); showToast('새 주소로 바꿨어요') }}>새 주소로 바꾸기</button>
+                  <span>{t('이전 주소는 더 이상 동작하지 않아요.')}</span>
+                  <button className="btn small ghost" onClick={() => setConfirmReset(false)}>{t('취소')}</button>
+                  <button className="btn small danger" onClick={async () => { setBusy(true); setUrl(await getCalendarUrl(true)); setBusy(false); setConfirmReset(false); showToast(t('새 주소로 바꿨어요')) }}>{t('새 주소로 바꾸기')}</button>
                 </div>
               ) : (
-                <button className="link-btn" onClick={() => setConfirmReset(true)}>주소가 유출됐다면: 새 주소로 바꾸기</button>
+                <button className="link-btn" onClick={() => setConfirmReset(true)}>{t('주소가 유출됐다면: 새 주소로 바꾸기')}</button>
               )}
             </>
           ) : (
-            <p className="hint">주소를 만들지 못했어요. 서버 설정(migration_007)을 확인해주세요.</p>
+            <p className="hint">{t('주소를 만들지 못했어요. 서버 설정(migration_007)을 확인해주세요.')}</p>
           )}
         </section>
         <section>
-          <h4>파일로 내려받기 <small>지금 시점의 일정만 담겨요</small></h4>
+          <h4>{t('파일로 내려받기')} <small>{t('지금 시점의 일정만 담겨요')}</small></h4>
           <button className="btn" onClick={() => downloadICS(buildICS(mine, 'Weekendar · ' + (me?.name ?? '')), 'weekendar.ics')}>
-            <Icon name="cal" size={15} /> 내 일정 {mine.length}개 .ics 내려받기
+            <Icon name="cal" size={15} /> {t('내 일정 {n}개 .ics 내려받기', { n: mine.length })}
           </button>
         </section>
       </div>
@@ -543,8 +544,8 @@ function TitleInput({ value, disabled, onSave }: { value: string; disabled: bool
       onBlur={() => { focused.current = false; commit() }}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur() }}
-      placeholder="직급"
-      aria-label="직급"
+      placeholder={t('직급')}
+      aria-label={t('직급')}
     />
   )
 }
@@ -567,83 +568,75 @@ function PushModal() {
   const toggle = async () => {
     setBusy(true); setErr(null)
     try {
-      if (state === 'on') { await disablePush(); setState('off'); showToast('이 기기의 알림을 껐어요') }
+      if (state === 'on') { await disablePush(); setState('off'); showToast(t('이 기기의 알림을 껐어요')) }
       else {
         const e = await enablePush()
         if (e) setErr(e)
-        else { setState('on'); showToast('이 기기로 알림을 보내드릴게요') }
+        else { setState('on'); showToast(t('이 기기로 알림을 보내드릴게요')) }
       }
-    } catch { setErr('알림을 설정하지 못했어요. 잠시 후 다시 시도해주세요.') }
+    } catch { setErr(t('알림을 설정하지 못했어요. 잠시 후 다시 시도해주세요.')) }
     setBusy(false)
   }
   const test = async () => {
     setBusy(true); setErr(null)
     const e = await sendTestPush()
-    if (e) setErr(e); else showToast('테스트 알림을 보냈어요. 잠시 후 도착해요')
+    if (e) setErr(e); else showToast(t('테스트 알림을 보냈어요. 잠시 후 도착해요'))
     setBusy(false)
   }
 
   return (
-    <Modal title="휴대폰 알림" onClose={closeModal} width={480}>
+    <Modal title={t('휴대폰 알림')} onClose={closeModal} width={480}>
       <div className="cal-export push-set">
         <section>
-          <h4>앱을 닫아도 알려드려요</h4>
+          <h4>{t('앱을 닫아도 알려드려요')}</h4>
           <ul className="push-kinds">
-            <li><Icon name="clock" size={15} /> 일정 미리 알림</li>
-            <li><Icon name="chat" size={15} /> 팀 대화에서 나를 @로 불렀을 때</li>
-            <li><Icon name="bell" size={15} /> 팀장 동의 요청 · 결과, 참여 요청</li>
+            <li><Icon name="clock" size={15} /> {t('일정 미리 알림')}</li>
+            <li><Icon name="chat" size={15} /> {t('팀 대화에서 나를 @로 불렀을 때')}</li>
+            <li><Icon name="bell" size={15} /> {t('팀장 동의 요청 · 결과, 참여 요청')}</li>
           </ul>
         </section>
         {mode !== 'cloud' ? (
-          <p className="hint">체험 모드에서는 휴대폰 알림을 켤 수 없어요.</p>
+          <p className="hint">{t('체험 모드에서는 휴대폰 알림을 켤 수 없어요.')}</p>
         ) : needInstall ? (
           <section>
-            <h4>먼저 홈 화면에 추가해주세요 <small>아이폰은 홈 화면 앱에서만 알림을 받을 수 있어요</small></h4>
+            <h4>{t('먼저 홈 화면에 추가해주세요')} <small>{t('아이폰은 홈 화면 앱에서만 알림을 받을 수 있어요')}</small></h4>
             <ol className="cal-steps push-steps">
-              <li>Safari 아래쪽 <b>공유 버튼</b>(네모에 위쪽 화살표)을 눌러요</li>
-              <li><b>홈 화면에 추가</b>를 눌러요</li>
-              <li>홈 화면의 <b>Weekendar</b> 아이콘으로 열고, 이 메뉴에서 알림을 켜요</li>
+              <li><Rich text={t('Safari 아래쪽 <b>공유 버튼</b>(네모에 위쪽 화살표)을 눌러요')} /></li>
+              <li><Rich text={t('<b>홈 화면에 추가</b>를 눌러요')} /></li>
+              <li><Rich text={t('홈 화면의 <b>Weekendar</b> 아이콘으로 열고, 이 메뉴에서 알림을 켜요')} /></li>
             </ol>
           </section>
         ) : !supported ? (
-          <p className="hint">이 브라우저는 휴대폰 알림을 지원하지 않아요. 크롬, 엣지, Safari(홈 화면 앱)를 이용해주세요.</p>
+          <p className="hint">{t('이 브라우저는 휴대폰 알림을 지원하지 않아요. 크롬, 엣지, Safari(홈 화면 앱)를 이용해주세요.')}</p>
         ) : denied ? (
-          <p className="hint">알림이 차단되어 있어요. 기기(또는 브라우저) 설정에서 Weekendar 알림을 허용한 뒤 다시 열어주세요.</p>
+          <p className="hint">{t('알림이 차단되어 있어요. 기기(또는 브라우저) 설정에서 Weekendar 알림을 허용한 뒤 다시 열어주세요.')}</p>
         ) : (
           <section>
             <div className="push-row">
               <div>
-                <strong>이 기기로 알림 받기</strong>
-                <span>{state === 'loading' ? '확인하는 중…' : state === 'on' ? '켜져 있어요' : '꺼져 있어요'}</span>
+                <strong>{t('이 기기로 알림 받기')}</strong>
+                <span>{state === 'loading' ? t('확인하는 중…') : state === 'on' ? t('켜져 있어요') : t('꺼져 있어요')}</span>
               </div>
-              <button className={'switch' + (state === 'on' ? ' on' : '')} disabled={busy || state === 'loading'} onClick={toggle} role="switch" aria-checked={state === 'on'} aria-label="이 기기로 알림 받기">
+              <button className={'switch' + (state === 'on' ? ' on' : '')} disabled={busy || state === 'loading'} onClick={toggle} role="switch" aria-checked={state === 'on'} aria-label={t('이 기기로 알림 받기')}>
                 <span />
               </button>
             </div>
-            {state === 'on' && <button className="btn small" disabled={busy} onClick={test}>테스트 알림 보내기</button>}
-            {!installed && !ios && <p className="hint">주소창 오른쪽의 설치 아이콘을 누르면 Weekendar를 앱처럼 설치할 수 있어요.</p>}
+            {state === 'on' && <button className="btn small" disabled={busy} onClick={test}>{t('테스트 알림 보내기')}</button>}
+            {!installed && !ios && <p className="hint">{t('주소창 오른쪽의 설치 아이콘을 누르면 Weekendar를 앱처럼 설치할 수 있어요.')}</p>}
           </section>
         )}
-        {err && <p className="push-err">{err}</p>}
+        {err && <p className="push-err">{localize(err)}</p>}
       </div>
     </Modal>
   )
 }
 
-
 /** 날짜·시간 칸: 브라우저 언어와 상관없이 "2026. 11. 9." / "오전 9:00" 형태의 알약 버튼으로 보여주고, 누르면 선택 창이 열림 */
 function PickerField({ kind, value, onChange, min, label, bad, variant }: { kind: 'date' | 'time'; value: string; onChange: (v: string) => void; min?: string; label: string; bad?: boolean; variant?: 'line' }) {
   const ref = useRef<HTMLInputElement>(null)
-  let text = kind === 'date' ? '날짜 선택' : '시간 선택'
-  if (value && kind === 'date') {
-    text = variant === 'line'
-      ? `${Number(value.slice(5, 7))}월 ${Number(value.slice(8, 10))}일 (${'일월화수목금토'[new Date(value + 'T00:00:00').getDay()]})`
-      : `${Number(value.slice(0, 4))}. ${Number(value.slice(5, 7))}. ${Number(value.slice(8, 10))}.`
-  }
-  if (value && kind === 'time') {
-    const h = Number(value.slice(0, 2)), m = value.slice(3, 5)
-    text = `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${m}`
-  }
+  let text = kind === 'date' ? t('날짜 선택') : t('시간 선택')
+  if (value && kind === 'date') text = variant === 'line' ? fmtMonthDay(value) : fmtDate(value)
+  if (value && kind === 'time') text = fmtTime(value)
   return (
     <span className={'pick' + (bad ? ' bad' : '') + (variant === 'line' ? ' line' : '')}>
       {variant === 'line' && <Icon name="cal" size={14} />}
@@ -674,20 +667,20 @@ function LeaveModal() {
   const alone = others.length === 0
   return (
     <Modal
-      title="팀 나가기"
+      title={t('팀 나가기')}
       onClose={closeModal}
       width={440}
       footer={
         blocked ? (
-          <button className="btn primary" onClick={closeModal}>확인</button>
+          <button className="btn primary" onClick={closeModal}>{t('확인')}</button>
         ) : (
           <>
-            <button className="btn ghost" onClick={closeModal}>취소</button>
+            <button className="btn ghost" onClick={closeModal}>{t('취소')}</button>
             <button className="btn danger" disabled={mustHand && !heir} onClick={() => {
               leaveTeam(mustHand ? heir : undefined); closeModal()
-              showToast(alone ? '팀을 삭제하고 나왔어요.' : mustHand ? `${userOf(heir).name}님에게 관리자를 넘기고 나왔어요.` : `${team?.name ?? '팀'}에서 나왔어요.`)
+              showToast(alone ? t('팀을 삭제하고 나왔어요.') : mustHand ? t('{name}님에게 관리자를 넘기고 나왔어요.', { name: userOf(heir).name }) : t('{team}에서 나왔어요.', { team: team?.name ?? t('팀') }))
             }}>
-              {alone ? '팀 삭제하고 나가기' : mustHand ? '관리자 넘기고 나가기' : '팀 나가기'}
+              {alone ? t('팀 삭제하고 나가기') : mustHand ? t('관리자 넘기고 나가기') : t('팀 나가기')}
             </button>
           </>
         )
@@ -695,27 +688,26 @@ function LeaveModal() {
     >
       {blocked ? (
         <p className="leave-text">
-          <b>지금은 관리자를 넘길 사람이 없어요.</b><br />
-          참여 승인을 기다리는 사람만 있어요. 먼저 팀 관리에서 승인하거나 거절한 뒤 다시 시도해주세요.
+          <Rich text={t('<b>지금은 관리자를 넘길 사람이 없어요.</b><br>참여 승인을 기다리는 사람만 있어요. 먼저 팀 관리에서 승인하거나 거절한 뒤 다시 시도해주세요.')} />
         </p>
       ) : (
         <>
-          <p className="leave-text"><b>{team?.name}</b>에서 나갈까요?</p>
+          <p className="leave-text"><Rich text={t('<b>{team}</b>에서 나갈까요?', { team: team?.name ?? '' })} /></p>
           {mustHand && (
             <div className="group heir">
               <label className="gr">
-                <span>관리자 넘겨받을 사람</span>
-                <select value={heir} onChange={(e) => setHeir(e.target.value)} aria-label="관리자 넘겨받을 사람">
-                  {candidates.map((m) => <option key={m.userId} value={m.userId}>{userOf(m.userId).name}{m.role === 'leader' ? ' (팀장)' : m.title ? ` (${m.title})` : ''}</option>)}
+                <span>{t('관리자 넘겨받을 사람')}</span>
+                <select value={heir} onChange={(e) => setHeir(e.target.value)} aria-label={t('관리자 넘겨받을 사람')}>
+                  {candidates.map((m) => <option key={m.userId} value={m.userId}>{userOf(m.userId).name}{m.role === 'leader' ? ` (${t('팀장')})` : m.title ? ` (${m.title})` : ''}</option>)}
                 </select>
               </label>
             </div>
           )}
           <ul className="leave-list">
-            <li>내 일정과 할 일, 보내거나 받은 대기 중 요청이 <b>모두 삭제</b>돼요.</li>
-            <li>팀 대화에 남긴 메시지는 팀 기록으로 남아요.</li>
-            {alone && <li><b>마지막 구성원이라 팀도 함께 삭제</b>돼요.</li>}
-            <li>나간 뒤에는 새 팀을 만들거나 초대 코드로 다시 참여할 수 있어요.</li>
+            <li><Rich text={t('내 일정과 할 일, 보내거나 받은 대기 중 요청이 <b>모두 삭제</b>돼요.')} /></li>
+            <li>{t('팀 대화에 남긴 메시지는 팀 기록으로 남아요.')}</li>
+            {alone && <li><Rich text={t('<b>마지막 구성원이라 팀도 함께 삭제</b>돼요.')} /></li>}
+            <li>{t('나간 뒤에는 새 팀을 만들거나 초대 코드로 다시 참여할 수 있어요.')}</li>
           </ul>
         </>
       )}

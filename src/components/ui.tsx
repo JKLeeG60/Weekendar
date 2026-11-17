@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 
 export function Modal({
   title,
@@ -44,7 +45,7 @@ export function Modal({
     >
       <div className="modal-head">
         <h2 id={titleId} className={big ? 'big' : undefined}>{title}</h2>
-        <button className="icon-btn" onClick={onClose} aria-label="닫기">
+        <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}>
           <Icon name="x" />
         </button>
       </div>

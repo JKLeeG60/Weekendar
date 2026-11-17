@@ -893,3 +893,8 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
     scroll-behavior: auto !important;
   }
 }
+
+/* 언어 선택(자동/한국어/English): 글자가 길어져도 줄바꿈 없이, 메뉴 폭은 내용에 맞춤 */
+.menu { width: auto; min-width: 15rem; }
+[data-mobile='true'] .menu { width: auto; min-width: 16rem; max-width: calc(100vw - 1.5rem); }
+.theme-seg button { white-space: nowrap; }

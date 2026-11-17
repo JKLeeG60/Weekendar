@@ -4,6 +4,7 @@ import { occurrencesOn } from '../lib/events'
 import { addDays, todayStr } from '../lib/date'
 import { popup } from '../lib/bus'
 import { pushOnHere } from '../lib/push'
+import { t } from '../lib/i18n'
 
 const KEY = 'weekendar-reminded'
 const load = (): Record<string, number> => {
@@ -44,12 +45,13 @@ export function Reminders() {
           done[key] = Date.now()
           changed = true
           const left = start - nowMin
-          const when = o.remind === 0 || left <= 0 ? '지금 시작해요'
-            : offset > 0 ? `내일 ${o.start} 시작`
-            : left < 60 ? `${left}분 뒤 시작`
-            : `${Math.floor(left / 60)}시간${left % 60 ? ` ${left % 60}분` : ''} 뒤 시작`
+          const when = o.remind === 0 || left <= 0 ? t('지금 시작해요')
+            : offset > 0 ? t('내일 {time} 시작', { time: o.start })
+            : left < 60 ? t('{n}분 뒤 시작', { n: left })
+            : left % 60 ? t('{h}시간 {m}분 뒤 시작', { h: Math.floor(left / 60), m: left % 60 })
+            : t('{h}시간 뒤 시작', { h: Math.floor(left / 60) })
           const text = `${o.start}–${o.end}${o.place ? ' · ' + o.place : ''} · ${when}`
-          popup({ id: 'r_' + key, title: o.title, text, tag: '미리 알림', icon: 'clock' })
+          popup({ id: 'r_' + key, title: o.title, text, tag: t('미리 알림'), icon: 'clock' })
           try {
             // 이 기기에서 휴대폰 알림이 켜져 있으면 서버가 보내므로 창 알림은 생략 (중복 방지)
             if (!pushOnHere() && 'Notification' in window && Notification.permission === 'granted') new Notification(o.title, { body: text, tag: key })

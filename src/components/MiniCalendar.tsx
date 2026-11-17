@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { holidayName, monthGrid, parse, todayStr } from '../lib/date'
+import { dowHeads, holidayLabel, holidayName, monthGrid, monthTitle, parse, todayStr } from '../lib/date'
+import { t } from '../lib/i18n'
 import { Icon } from './ui'
 
 export function MiniCalendar({ selected, onPick, onClose }: { selected: string; onPick: (d: string) => void; onClose: () => void }) {
@@ -14,17 +15,17 @@ export function MiniCalendar({ selected, onPick, onClose }: { selected: string; 
   return (
     <>
       <div className="popover-scrim" onMouseDown={onClose} />
-      <div className="minical" role="dialog" aria-label="날짜 선택">
+      <div className="minical" role="dialog" aria-label={t('날짜 선택')}>
         <div className="minical-head">
-          <strong>{ym.y}년 {ym.m + 1}월</strong>
+          <strong>{monthTitle(ym.y, ym.m)}</strong>
           <span>
-            <button className="icon-btn" onClick={() => move(-1)} aria-label="이전 달"><Icon name="chevL" size={16} /></button>
-            <button className="icon-btn" onClick={() => move(1)} aria-label="다음 달"><Icon name="chevR" size={16} /></button>
+            <button className="icon-btn" onClick={() => move(-1)} aria-label={t('이전 달')}><Icon name="chevL" size={16} /></button>
+            <button className="icon-btn" onClick={() => move(1)} aria-label={t('다음 달')}><Icon name="chevR" size={16} /></button>
           </span>
         </div>
         <div className="minical-grid dow">
-          {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-            <span key={d} className={i === 0 ? 'sun' : i === 6 ? 'sat' : ''}>{d}</span>
+          {dowHeads().map((d, i) => (
+            <span key={i} className={i === 0 ? 'sun' : i === 6 ? 'sat' : ''}>{d}</span>
           ))}
         </div>
         <div className="minical-grid">
@@ -36,7 +37,7 @@ export function MiniCalendar({ selected, onPick, onClose }: { selected: string; 
             return (
               <button
                 key={d}
-                title={hol}
+                title={holidayLabel(d)}
                 className={
                   'mc-day' + (out ? ' out' : '') + (d === selected ? ' sel' : '') + (d === today ? ' today' : '') +
                   (wd === 0 || hol ? ' red' : wd === 6 ? ' blue' : '')

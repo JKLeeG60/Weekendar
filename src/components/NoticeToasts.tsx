@@ -5,6 +5,7 @@ import { useUI } from '../lib/ui'
 import { mentionsMe } from '../lib/chat'
 import { onPopup } from '../lib/bus'
 import { Icon } from './ui'
+import { localize, t } from '../lib/i18n'
 
 const SHOW_MS = 5000
 
@@ -17,7 +18,7 @@ interface Item {
   icon?: 'clock' | 'cal'
 }
 
-const noticeTitle = (k: string) => (k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : '요청 결과')
+const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : '요청 결과')
 
 /**
  * 오른쪽 아래 알림 팝업 (5초).
@@ -77,7 +78,7 @@ export function NoticeToasts() {
     }
     const fresh = mine.filter((n) => !seenNotice.current!.has(n.id) && !n.read)
     mine.forEach((n) => seenNotice.current!.add(n.id))
-    push(fresh.map((n) => ({ id: n.id, kind: 'notice', title: noticeTitle(n.kind), text: n.text })))
+    push(fresh.map((n) => ({ id: n.id, kind: 'notice', title: noticeTitle(n.kind), text: localize(n.text) })))
   }, [db.notices, me?.id])
 
   useEffect(() => {
@@ -90,7 +91,7 @@ export function NoticeToasts() {
     )
     messages.forEach((m) => seenMsg.current!.add(m.id))
     if (chatOpen) return // 대화를 보고 있으면 이미 보인다
-    push(fresh.map((m) => ({ id: 'm_' + m.id, kind: 'mention', title: `${userOf(m.authorId).name}님이 나를 호출했어요`, text: m.body })))
+    push(fresh.map((m) => ({ id: 'm_' + m.id, kind: 'mention', title: t('{name}님이 나를 호출했어요', { name: userOf(m.authorId).name }), text: m.body })))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, me?.id])
 
@@ -116,7 +117,7 @@ export function NoticeToasts() {
             <strong>{n.title}</strong>
             <span>{n.text}</span>
           </span>
-          <span className="ntoast-time">{n.tag ?? '지금'}</span>
+          <span className="ntoast-time">{n.tag ?? t('지금')}</span>
         </button>
       ))}
     </div>

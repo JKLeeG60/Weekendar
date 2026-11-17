@@ -7,6 +7,7 @@ import { StoreProvider } from './lib/store'
 import { CloudStoreProvider } from './lib/cloud'
 import { cloudEnabled } from './lib/supabase'
 import { UIProvider } from './lib/ui'
+import { LangKey, LangProvider } from './lib/i18n'
 import { captureInvite } from './lib/invite'
 import { registerSW } from './lib/push'
 
@@ -20,10 +21,14 @@ const Provider = cloudEnabled() ? CloudStoreProvider : StoreProvider
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Provider>
-      <UIProvider>
-        <App />
-      </UIProvider>
-    </Provider>
+    <LangProvider>
+      <Provider>
+        <UIProvider>
+          <LangKey>
+            <App />
+          </LangKey>
+        </UIProvider>
+      </Provider>
+    </LangProvider>
   </StrictMode>,
 )

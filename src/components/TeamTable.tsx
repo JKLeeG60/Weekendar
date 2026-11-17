@@ -2,7 +2,8 @@ import { Fragment } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { fmtHead, holidayName, todayStr, weekDays } from '../lib/date'
+import { fmtHead, holidayLabel, holidayName, todayStr, weekDays } from '../lib/date'
+import { t } from '../lib/i18n'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 
@@ -58,7 +59,7 @@ export function TeamTable() {
     m.userId === me?.id || (m.role === 'leader' && myMember?.role === 'member')
 
   if (days.length === 0) {
-    return <div className="empty-week">이번 주는 표시할 평일이 없어요. (공휴일 제외)</div>
+    return <div className="empty-week">{t('이번 주는 표시할 평일이 없어요. (공휴일 제외)')}</div>
   }
 
   return (
@@ -70,11 +71,11 @@ export function TeamTable() {
         </colgroup>
         <thead>
           <tr>
-            <th className="corner">구성원</th>
+            <th className="corner">{t('구성원')}</th>
             {days.map((d) => (
               <th key={d} className={'day' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
                 <span>{fmtHead(d)}</span>
-                {holidayName(d) && <small className="hol-name">{holidayName(d)}</small>}
+                {holidayName(d) && <small className="hol-name">{holidayLabel(d)}</small>}
               </th>
             ))}
           </tr>
@@ -92,9 +93,9 @@ export function TeamTable() {
                     <div>
                       <div className="who-name">
                         {u.name}
-                        {m.role === 'leader' && <span className="badge">팀장</span>}
+                        {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
                       </div>
-                      <div className="who-title">{m.role === 'leader' ? '' : m.title || '직급 미지정'}</div>
+                      <div className="who-title">{m.role === 'leader' ? '' : m.title || t('직급 미지정')}</div>
                     </div>
                   </div>
                 </th>
@@ -116,7 +117,7 @@ export function TeamTable() {
                       onClick={() => {
                         onCell(m, d)
                       }}
-                      title={clickable(m) ? (mine ? '클릭해서 내 일정 추가' : '클릭해서 팀장에게 일정 요청') : undefined}
+                      title={clickable(m) ? (mine ? t('클릭해서 내 일정 추가') : t('클릭해서 팀장에게 일정 요청')) : undefined}
                     >
                       {spans.filter((s) => s.from === di).map((s) => {
                         const n = s.to - s.from + 1
@@ -130,7 +131,7 @@ export function TeamTable() {
                             title={`${spanLabel(s.e)} ${s.e.title}${s.e.place ? ' · ' + s.e.place : ''}`}
                             onClick={(ev) => { ev.stopPropagation(); openModal({ type: 'detail', occ: o }) }}
                           >
-                            <span className="span-tag">{CATEGORY_LABEL[s.e.category]}</span>
+                            <span className="span-tag">{t(CATEGORY_LABEL[s.e.category])}</span>
                             <span className="span-title">{s.e.title}</span>
                             <span className="span-range">{spanLabel(s.e)}</span>
                           </button>
@@ -145,12 +146,12 @@ export function TeamTable() {
                                 key={r.id}
                                 className={'chip ghost' + (roomy ? ' roomy' : '')}
                                 data-cat={r.payload.category ?? 'meeting'}
-                                title={`팀장 동의 대기 중 · ${r.payload.start}–${r.payload.end} ${r.payload.title}`}
+                                title={`${t('팀장 동의 대기 중')} · ${r.payload.start}–${r.payload.end} ${r.payload.title}`}
                                 onClick={(ev) => ev.stopPropagation()}
                               >
-                                <span className="chip-time">{r.payload.endDate && r.payload.endDate > r.payload.date ? '종일' : r.payload.start}</span>
+                                <span className="chip-time">{r.payload.endDate && r.payload.endDate > r.payload.date ? t('종일') : r.payload.start}</span>
                                 <span className="chip-title">{r.payload.title}</span>
-                                <span className="wait-tag">대기</span>
+                                <span className="wait-tag">{t('대기')}</span>
                                 {roomy && r.payload.place && <span className="chip-place">{r.payload.place}</span>}
                               </div>
                             )
@@ -170,7 +171,7 @@ export function TeamTable() {
                             >
                               <span className="chip-time">{o.start}</span>
                               <span className="chip-title">{o.title}</span>
-                              {mk && <span className="wait-tag">{mk.type === 'edit' ? '수정 요청' : '삭제 요청'}</span>}
+                              {mk && <span className="wait-tag">{mk.type === 'edit' ? t('수정 요청') : t('삭제 요청')}</span>}
                               {roomy && o.place && <span className="chip-place">{o.place}</span>}
                             </button>
                           )
@@ -183,7 +184,7 @@ export function TeamTable() {
                               openModal({ type: 'day', userId: m.userId, date: d })
                             }}
                           >
-                            +{rest}개 더보기
+                            {t('+{n}개 더보기', { n: rest })}
                           </button>
                         )}
                       </div>
@@ -196,7 +197,7 @@ export function TeamTable() {
         </tbody>
         <tfoot>
           <tr>
-            <th className="who absent-label" scope="row">부재자</th>
+            <th className="who absent-label" scope="row">{t('부재자')}</th>
             {days.map((d) => {
               const absent = tableMembers.flatMap((m) => {
                 const o = eventsOf(m.userId, d).find((x) => isAbsence(x.category))
@@ -210,7 +211,7 @@ export function TeamTable() {
                       <Fragment key={m.userId}>
                         <span className="pill" data-cat={o.category}>
                           {userOf(m.userId).name}
-                          <em>{CATEGORY_LABEL[o.category]}</em>
+                          <em>{t(CATEGORY_LABEL[o.category])}</em>
                         </span>
                       </Fragment>
                     ))}
