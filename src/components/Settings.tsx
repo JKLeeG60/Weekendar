@@ -43,6 +43,12 @@ export function SettingsModal() {
         )}
       </Group>
 
+      {!narrow && (
+        <Group label={t('키보드')}>
+          <Row icon="keyboard" color="#636366" label={t('단축키')} sub={t('Space 빠른 입력 · ? 단축키 보기')} onClick={() => openLayer({ type: 'shortcuts' })} />
+        </Group>
+      )}
+
       <Group label={t('할 일')}>
         <Row icon="carry" color="#ff9f0a" label={t('못 끝낸 할 일을 다음 날로 넘기기')} sub={carry ? t('체크하지 않은 할 일이 다음 날 목록에도 계속 보여요') : t('할 일은 만든 날 목록에만 보여요')}>
           <Switch on={carry} onChange={setTodoCarry} label={t('못 끝낸 할 일을 다음 날로 넘기기')} />

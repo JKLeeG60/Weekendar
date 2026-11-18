@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { addDays, isoWeek, mondayOf, weekPill, weekRangeLabel } from '../lib/date'
@@ -12,6 +12,12 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
   const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
   const { selected, setSelected, panelOpen, togglePanel, openModal } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
+  // 단축키(알림)로 알림 목록 열고 닫기
+  useEffect(() => {
+    const h = () => setPop((p) => (p === 'bell' ? null : 'bell'))
+    window.addEventListener('wk:notices', h)
+    return () => window.removeEventListener('wk:notices', h)
+  }, [])
   const mon = mondayOf(selected)
 
   return (

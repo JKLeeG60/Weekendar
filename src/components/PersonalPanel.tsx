@@ -121,7 +121,7 @@ export function Todos() {
           }}
         >
           <Icon name="plus" size={16} />
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('새로운 할 일')} aria-label={t('새로운 할 일')} />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('새로운 할 일')} aria-label={t('새로운 할 일')} data-todo-input />
         </form>
         {list.length === 0 && (
           <div className="empty-guide">

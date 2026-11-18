@@ -206,6 +206,8 @@ export interface Store {
   finishTutorial: () => void
   /** 설정: 못 끝낸 할 일을 다음 날로 넘기기 (계정에 저장) */
   setTodoCarry: (on: boolean) => void
+  /** 설정: 내 단축키 저장 (바꾼 것만, 빈 값이면 모두 기본값) */
+  setShortcuts: (map: Record<string, string>) => void
   createTeam: (name: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
@@ -226,7 +228,8 @@ export interface Store {
   createRequest: (r: Pick<ChangeRequest, 'type' | 'eventId'> & { payload: RequestPayload }) => void
   decideRequest: (id: string, accept: boolean, reason?: string) => void
   // To-do
-  addTodo: (text: string, date: string) => void
+  /** priority: 중요 표시로 바로 추가 (빠른 입력에서 "중요") */
+  addTodo: (text: string, date: string, priority?: boolean) => void
   toggleTodo: (id: string) => void
   togglePriority: (id: string) => void
   removeTodo: (id: string) => void
@@ -370,6 +373,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logout: () => set((p) => ({ ...p, currentUserId: null })),
       finishTutorial: () =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, tutorialSeen: true } : u)) })),
+      setShortcuts: (map) =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, shortcuts: map } : u)) })),
       setTodoCarry: (on) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, todoCarry: on } : u)) })),
 
@@ -572,10 +577,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
 
-      addTodo: (text, date) =>
+      addTodo: (text, date, priority = false) =>
         set((p) => ({
           ...p,
-          todos: [...p.todos, { id: uid(), ownerId: p.currentUserId!, text, date, done: false, priority: false }],
+          todos: [...p.todos, { id: uid(), ownerId: p.currentUserId!, text, date, done: false, priority }],
         })),
       toggleTodo: (id) =>
         set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) })),

@@ -8,6 +8,8 @@ export interface User {
   tutorialSeen?: boolean
   /** 못 끝낸 할 일을 다음 날로 넘길지 (없으면 켜짐) */
   todoCarry?: boolean
+  /** 바꾼 단축키만 (단축키 id → 키). 없으면 기본 단축키 */
+  shortcuts?: Record<string, string>
 }
 
 export interface Team {

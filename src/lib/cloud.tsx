@@ -109,7 +109,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {} })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
@@ -269,6 +269,16 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      // 단축키 설정: 먼저 화면에 반영하고, 실패하면 되돌린다
+      setShortcuts: async (map) => {
+        if (!me) return
+        const before = me.shortcuts ?? {}
+        const put = (v: Record<string, string>) => setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, shortcuts: v } : u)) }))
+        put(map)
+        const { error } = await supabase.from('profiles').update({ shortcuts: map }).eq('id', me.id)
+        if (error) { put(before); fail(error) }
+      },
+
       // 할 일 넘기기 설정: 먼저 화면에 반영하고, 실패하면 되돌린다
       setTodoCarry: async (on) => {
         if (!me) return
@@ -345,7 +355,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         run(() => supabase.rpc('decide_request', { p_id: id, p_accept: accept, p_reason: reason ?? '' }))
       },
 
-      addTodo: (text, date) => run(() => supabase.from('todos').insert({ owner_id: me_id, title: text, date })) as unknown as void,
+      addTodo: (text, date, priority = false) => run(() => supabase.from('todos').insert({ owner_id: me_id, title: text, date, ...(priority ? { priority: true } : {}) })) as unknown as void,
       // 체크/중요 표시는 즉시 반영하고 서버에 저장
       toggleTodo: (id) => {
         const t = db.todos.find((x) => x.id === id); if (!t) return

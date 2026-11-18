@@ -14,10 +14,11 @@ import { clearInvite, getInvite } from '../lib/invite'
 import { t } from '../lib/i18n'
 import { DayDropStrip, Toast } from './DayDrop'
 import { useAutoTutorial } from './Tutorial'
+import { comboOf, resolveShortcuts, type ShortcutId } from '../lib/shortcuts'
 
 export function Main() {
-  const { selected, setSelected, modal, openModal, toast, panelOpen, isMobile, showToast } = useUI()
-  const { myMember, team } = useStore()
+  const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen } = useUI()
+  const { myMember, team, me } = useStore()
   useAutoTutorial() // 처음 가입한 사람에게만 사용 안내를 한 번 보여준다
 
   // 이미 팀이 있는데 초대 링크로 들어온 경우: 안내하고 코드는 버린다
@@ -29,19 +30,43 @@ export function Main() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team?.id])
 
-  // 키보드 단축키: ← → 주 이동, T 이번 주, N 새 일정
+  // 키보드 단축키 (PC 전용): 사람마다 바꿀 수 있고(설정 → 단축키), 키보드 자리로 알아들어 한글 상태에서도 작동
+  const keys = resolveShortcuts(me?.shortcuts)
   useEffect(() => {
+    if (isMobile) return
     const h = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement
-      if (modal || /INPUT|TEXTAREA|SELECT/.test(t.tagName) || e.metaKey || e.ctrlKey) return
-      if (e.key === 'ArrowLeft') setSelected(addDays(selected, -7))
-      else if (e.key === 'ArrowRight') setSelected(addDays(selected, 7))
-      else if (e.key.toLowerCase() === 't') setSelected(initialDate())
-      else if (e.key.toLowerCase() === 'n') openModal({ type: 'event', date: selected })
+      const el = e.target as HTMLElement
+      // 창이 떠 있거나 글을 쓰는 중이면 무시
+      if (modal || e.isComposing || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable) return
+      const combo = comboOf(e)
+      if (!combo) return
+      const id = (Object.keys(keys) as ShortcutId[]).find((k) => keys[k] === combo)
+      if (!id) return
+      e.preventDefault()
+      const run: Record<ShortcutId, () => void> = {
+        quickAdd: () => openModal({ type: 'quick' }),
+        newEvent: () => openModal({ type: 'event', date: selected }),
+        newTodo: () => {
+          if (!panelOpen) togglePanel()
+          window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-todo-input]')?.focus(), 60)
+        },
+        prevWeek: () => setSelected(addDays(selected, -7)),
+        nextWeek: () => setSelected(addDays(selected, 7)),
+        today: () => setSelected(initialDate()),
+        prevDay: () => setSelected(addDays(selected, -1)),
+        nextDay: () => setSelected(addDays(selected, 1)),
+        chat: () => setChatOpen(!chatOpen),
+        month: () => me && openModal({ type: 'month', userId: me.id }),
+        notices: () => window.dispatchEvent(new Event('wk:notices')),
+        panel: () => togglePanel(),
+        settings: () => openModal({ type: 'settings' }),
+        help: () => openModal({ type: 'shortcuts' }),
+      }
+      run[id]()
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [selected, modal, setSelected, openModal])
+  }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me])
 
   if (isMobile) return <MobileMain />
 

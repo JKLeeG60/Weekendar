@@ -15,6 +15,8 @@ import { Avatar, Icon, Modal, Switch } from './ui'
 import { InstallModal, MailModal, MemberMenu, MonthModal } from './People'
 import { TutorialModal } from './Tutorial'
 import { SettingsModal } from './Settings'
+import { QuickAddModal } from './QuickAdd'
+import { ShortcutsModal } from './Shortcuts'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
@@ -43,7 +45,7 @@ export function Modals() {
 function ModalSwitch({ modal }: { modal: ModalState }) {
   if (!modal) return null
   switch (modal.type) {
-    case 'event': return <EventModal date={modal.date} start={modal.start} occ={modal.event} titleHint={modal.title} sharedHint={modal.shared} />
+    case 'event': return <EventModal date={modal.date} start={modal.start} occ={modal.event} titleHint={modal.title} sharedHint={modal.shared} draft={modal.draft} />
     case 'detail': return <EventDetail occ={modal.occ} />
     case 'request': return <RequestModal mode={modal.mode} date={modal.date} occ={modal.occ} />
     case 'day': return <DayModal userId={modal.userId} date={modal.date} />
@@ -57,6 +59,8 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'install': return <InstallModal />
     case 'tutorial': return <TutorialModal />
     case 'settings': return <SettingsModal />
+    case 'quick': return <QuickAddModal />
+    case 'shortcuts': return <ShortcutsModal />
   }
 }
 
@@ -66,22 +70,22 @@ const addHour = (t: string) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 }
 
-function EventModal({ date, start: startHint, occ, titleHint, sharedHint }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean }) {
+function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean; draft?: Partial<EventItem> }) {
   const { db, addEvent, updateEvent, deleteEvent } = useStore()
   const { closeModal, showToast } = useUI()
   const base: EventItem | undefined = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
   const [title, setTitle] = useState(base?.title ?? titleHint ?? '')
   const [d, setD] = useState(base?.date ?? date)
   const [start, setStart] = useState(base?.start ?? startHint ?? '09:00')
-  const [end, setEnd] = useState(base?.end ?? addHour(startHint ?? '09:00'))
-  const [place, setPlace] = useState(base?.place ?? '')
-  const [category, setCategory] = useState<Category>(base?.category ?? 'work')
+  const [end, setEnd] = useState(base?.end ?? draft?.end ?? addHour(startHint ?? '09:00'))
+  const [place, setPlace] = useState(base?.place ?? draft?.place ?? '')
+  const [category, setCategory] = useState<Category>(base?.category ?? draft?.category ?? 'work')
   const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
   const [shared, setShared] = useState(base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
   const [remind, setRemind] = useState<number | undefined>(base?.remind)
   // 여러 날(종일) 일정: 예) 월~수 출장
-  const [multi, setMulti] = useState(base ? isMultiDay(base) : false)
-  const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2))
+  const [multi, setMulti] = useState(base ? isMultiDay(base) : !!draft?.endDate)
+  const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : draft?.endDate ?? addDays(base?.date ?? date, 2))
   const bad = !title.trim() || (multi ? endDate <= d : end <= start)
 
   function pickCategory(c: Category) {

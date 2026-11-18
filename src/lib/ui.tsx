@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Occurrence } from './types'
+import type { EventItem, Occurrence } from './types'
 import { initialDate } from './store'
 
 export type ModalState =
   /** back: 닫거나 저장하면 이 창으로 돌아간다 (예: 월간 일정에서 연 경우) */
-  | { type: 'event'; date: string; start?: string; event?: Occurrence; title?: string; shared?: boolean; back?: ModalState }
+  /** draft: 빠른 입력에서 채워 온 값 (끝 시간·장소·종류·여러 날) */
+  | { type: 'event'; date: string; start?: string; event?: Occurrence; title?: string; shared?: boolean; back?: ModalState; draft?: Partial<EventItem> }
   | { type: 'detail'; occ: Occurrence }
   | { type: 'request'; mode: 'add' | 'edit' | 'delete'; date: string; occ?: Occurrence; back?: ModalState }
   | { type: 'day'; userId: string; date: string }
@@ -20,6 +21,10 @@ export type ModalState =
   | { type: 'install' }
   | { type: 'tutorial' }
   | { type: 'settings' }
+  /** 빠른 입력 (Space) */
+  | { type: 'quick' }
+  /** 단축키 목록·바꾸기 */
+  | { type: 'shortcuts' }
   | null
 
 interface UI {
