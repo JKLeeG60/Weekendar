@@ -127,7 +127,7 @@ export function Todos() {
           <div className="empty-guide">
             <span className="eg-icon"><Icon name="check" size={18} /></span>
             <strong>{t('오늘 할 일이 없어요')}</strong>
-            <small><Rich text={t('위 칸에 할 일을 적어 보세요.<br>적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.')} /></small>
+            <small><Rich text={t('위 칸에 할 일을 적어 보세요. <mbr>적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.')} /></small>
           </div>
         )}
         <ul className="todos">

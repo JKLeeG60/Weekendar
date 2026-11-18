@@ -57,13 +57,13 @@ export function t(ko: string, vars?: Vars): string {
   return s
 }
 
-/** 문장 안의 <b>굵게</b>, <br> 를 화면 요소로 바꿔 보여준다 */
+/** 문장 안의 <b>굵게</b>, <br>, <mbr>(휴대폰에서만 줄바꿈) 를 화면 요소로 바꿔 보여준다 */
 export function Rich({ text }: { text: string }) {
-  const parts = text.split(/(<b>[\s\S]*?<\/b>|<br>)/g)
+  const parts = text.split(/(<b>[\s\S]*?<\/b>|<br>|<mbr>)/g)
   return (
     <>
       {parts.map((p, i) =>
-        p === '<br>' ? <br key={i} /> : p.startsWith('<b>') ? <b key={i}>{p.slice(3, -4)}</b> : <Fragment key={i}>{p}</Fragment>,
+        p === '<br>' ? <br key={i} /> : p === '<mbr>' ? <br key={i} className="m-br" /> : p.startsWith('<b>') ? <b key={i}>{p.slice(3, -4)}</b> : <Fragment key={i}>{p}</Fragment>,
       )}
     </>
   )

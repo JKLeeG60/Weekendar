@@ -64,7 +64,7 @@ export function Login() {
             {preview ? t('데스크탑 화면으로 보기') : t('폰 화면으로 미리보기')}
           </button>
         )}
-        {mode === 'cloud' && <p className="fine"><Rich text={t('Google 계정으로 로그인하면 팀을 만들거나<br>초대 코드로 참여할 수 있어요.')} /></p>}
+        {mode === 'cloud' && <p className="fine"><Rich text={t('Google 계정으로 로그인하면 팀을 만들거나 <mbr>초대 코드로 참여할 수 있어요.')} /></p>}
         <p className="legal-links">
           <a href={TERMS_URL} target="_blank" rel="noopener">{t('이용약관')}</a>
           <span aria-hidden>·</span>
@@ -210,7 +210,7 @@ export function TermsAgree() {
       <div className="auth-card">
         <Logo size={56} />
         <h1 className="brand sm">{t('약관에 동의해주세요')}</h1>
-        <p className="tagline">{t('Weekendar를 시작하려면 아래 내용에 동의가 필요해요.')}</p>
+        <p className="tagline"><Rich text={t('Weekendar를 시작하려면 <mbr>아래 내용에 동의가 필요해요.')} /></p>
         <div className="agree">
           <label className="agree-row all">
             <input type="checkbox" checked={all} onChange={(e) => { setTerms(e.target.checked); setPrivacy(e.target.checked) }} />
