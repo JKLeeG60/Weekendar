@@ -31,7 +31,6 @@ export function DayAgenda() {
             <div className="datebtn-wrap">
               <button className="datebtn" onClick={() => setCal((v) => !v)} aria-haspopup="dialog" aria-expanded={cal}>
                 {fmtHead(selected)}
-                {isToday && <span className="today-tag">{t('오늘')}</span>}
               </button>
               {cal && (
                 <MiniCalendar
@@ -42,6 +41,8 @@ export function DayAgenda() {
               )}
             </div>
             <button className="icon-btn" onClick={() => setSelected(addDays(selected, 1))} aria-label={t('다음날')}><Icon name="chevR" /></button>
+            {/* 오늘 표시는 화살표 바깥 오른쪽에 (날짜 글자 길이가 바뀌어도 화살표가 흔들리지 않게) */}
+            {isToday && <span className="today-tag">{t('오늘')}</span>}
           </div>
           <button className="icon-btn accent" onClick={() => openModal({ type: 'event', date: selected })} aria-label={t('일정 추가')} title={t('일정 추가 (N)')}>
             <Icon name="plus" />
