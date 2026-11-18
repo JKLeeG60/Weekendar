@@ -6,20 +6,26 @@ import { GoogleMark, Icon } from './ui'
 import { localize, Rich, t } from '../lib/i18n'
 
 export function Logo({ size = 44 }: { size?: number }) {
+  // 점 5개 × 3줄 : 가운데 줄이 "이번 주"(월~금)
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 1024 1024" aria-hidden>
       <defs>
-        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#5ac8fa" />
-          <stop offset="1" stopColor="#007aff" />
+        <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4DA3FF" />
+          <stop offset="1" stopColor="#0A63E0" />
+        </linearGradient>
+        <linearGradient id="lg-shine" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".28" />
+          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <rect width="48" height="48" rx="11" fill="url(#lg)" />
-      <rect x="9" y="14" width="30" height="24" rx="4" fill="#fff" fillOpacity=".95" />
-      <rect x="9" y="14" width="30" height="7" rx="3" fill="#ff3b30" />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <rect key={i} x={12.5 + i * 5.4} y="25" width="3.6" height="9" rx="1.2" fill="#007aff" fillOpacity={i === 2 ? 1 : 0.28} />
-      ))}
+      <rect width="1024" height="1024" rx="230" fill="url(#lg)" />
+      <rect width="1024" height="1024" rx="230" fill="url(#lg-shine)" />
+      {[0, 1, 2].map((r) =>
+        [0, 1, 2, 3, 4].map((c) => (
+          <circle key={`${r}${c}`} cx={192 + c * 160} cy={312 + r * 200} r={r === 1 ? 68 : 46} fill="#fff" fillOpacity={r === 1 ? 1 : 0.38} />
+        )),
+      )}
     </svg>
   )
 }
