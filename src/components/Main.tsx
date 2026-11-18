@@ -23,7 +23,11 @@ export function Main() {
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {
     if (mode !== 'cloud' || !me) return
-    finishGcalConnect().then((msg) => { if (msg) showToast(msg) })
+    finishGcalConnect().then((r) => {
+      if (!r) return
+      showToast(r.msg)
+      if (r.back) openModal(r.back) // 쓰던 일정 창을 토글이 켜진 채로 다시 연다
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, me?.id])
   useAutoTutorial() // 처음 가입한 사람에게만 사용 안내를 한 번 보여준다

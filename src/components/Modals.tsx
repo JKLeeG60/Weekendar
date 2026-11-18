@@ -72,50 +72,50 @@ const addHour = (t: string) => {
 }
 
 function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean; draft?: Partial<EventItem> }) {
-  const { db, addEvent, updateEvent, deleteEvent, mode } = useStore()
+  const { db, addEvent, updateEvent, deleteEvent, mode, me } = useStore()
   const { closeModal, showToast } = useUI()
   const base: EventItem | undefined = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
-  const [title, setTitle] = useState(base?.title ?? titleHint ?? '')
-  const [d, setD] = useState(base?.date ?? date)
-  const [start, setStart] = useState(base?.start ?? startHint ?? '09:00')
-  const [end, setEnd] = useState(base?.end ?? draft?.end ?? addHour(startHint ?? '09:00'))
-  const [place, setPlace] = useState(base?.place ?? draft?.place ?? '')
-  const [category, setCategory] = useState<Category>(base?.category ?? draft?.category ?? 'work')
-  const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
-  const [shared, setShared] = useState(base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
-  const [remind, setRemind] = useState<number | undefined>(base?.remind)
-  // 구글 캘린더에 추가 (기본 꺼짐). 실서비스에서만 연결 상태를 확인한다
-  const [gcal, setGcal] = useState(base?.gcal ?? false)
+  const [title, setTitle] = useState(draft?.title ?? base?.title ?? titleHint ?? '')
+  const [d, setD] = useState(draft?.date ?? base?.date ?? date)
+  const [start, setStart] = useState(draft?.start ?? base?.start ?? startHint ?? '09:00')
+  const [end, setEnd] = useState(draft?.end ?? base?.end ?? addHour(startHint ?? '09:00'))
+  const [place, setPlace] = useState(draft?.place ?? base?.place ?? '')
+  const [category, setCategory] = useState<Category>(draft?.category ?? base?.category ?? 'work')
+  const [repeat, setRepeat] = useState<Repeat>(draft?.repeat ?? base?.repeat ?? 'none')
+  const [shared, setShared] = useState(draft?.shared ?? base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
+  const [remind, setRemind] = useState<number | undefined>(draft && 'remind' in draft ? draft.remind : base?.remind)
+  // 구글 캘린더에 추가 (기본 꺼짐). 실서비스에서만 연결 상태를 확인한다 (연결 전이면 [연결] 버튼)
+  const [gcal, setGcal] = useState(draft?.gcal ?? base?.gcal ?? false)
   const [linked, setLinked] = useState<boolean | null>(null)
   useEffect(() => {
     if (mode !== 'cloud') return
     gcalStatus().then((s) => setLinked(s.connected && !s.broken))
   }, [mode])
   // 여러 날(종일) 일정: 예) 월~수 출장
-  const [multi, setMulti] = useState(base ? isMultiDay(base) : !!draft?.endDate)
-  const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : draft?.endDate ?? addDays(base?.date ?? date, 2))
+  const [multi, setMulti] = useState(draft ? !!draft.endDate : base ? isMultiDay(base) : false)
+  const [endDate, setEndDate] = useState(draft?.endDate ?? (base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2)))
   const bad = !title.trim() || (multi ? endDate <= d : end <= start)
 
   function pickCategory(c: Category) {
     setCategory(c)
   }
 
-  async function save() {
+  function save() {
     const data = multi
       ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category, repeat: 'none' as Repeat, shared, remind: undefined, gcal }
       : { title: title.trim(), date: d, endDate: undefined, start, end, place: place.trim(), category, repeat, shared, remind, gcal }
     if (data.remind !== undefined) askNotifyPermission()
-    // 구글에 아직 연결하지 않았으면: 저장을 끝낸 뒤 구글 연결 화면으로 (돌아오면 이 일정이 구글로 감)
-    const needLink = gcal && mode === 'cloud' && linked === false
-    const saving = base ? updateEvent(base.id, data) : addEvent(data)
-    if (needLink) {
-      await (saving as unknown as Promise<void>)
-      showToast(t('구글 캘린더 연결 화면으로 이동해요'))
-      connectGcal()
-      return
-    }
+    void (base ? updateEvent(base.id, data) : addEvent(data))
     closeModal()
     showToast(shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
+  }
+
+  // [연결]: 지금까지 쓴 내용을 잠깐 저장해 두고 구글 동의 화면으로 (돌아오면 토글이 켜진 채로 다시 열림)
+  function linkGoogle() {
+    const kept: Partial<EventItem> = multi
+      ? { title, date: d, endDate, place, category, shared, gcal: true }
+      : { title, date: d, start, end, place, category, repeat, shared, remind, gcal: true }
+    connectGcal({ type: 'event', date: d, event: occ, draft: kept }, me?.email)
   }
 
   return (
@@ -195,21 +195,22 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
             </div>
             <Switch on={shared} onChange={(v) => setShared(v)} label={t('팀에 공유')} />
           </div>
-          <div className="gr">
-            <div className="gr-text">
-              <span className="gcal-label"><GcalIcon />{t('구글 캘린더에 추가')}</span>
-              <small>
-                {mode !== 'cloud'
-                  ? t('체험 모드에서는 구글로 보내지 않아요')
-                  : !gcal
-                    ? t('켜면 내 구글 캘린더의 "Weekendar" 캘린더에도 저장돼요')
-                    : linked === false
-                      ? t('처음 한 번 구글 계정 연결이 필요해요 · 저장하면 연결 화면으로 이동')
-                      : t('내 구글 캘린더의 "Weekendar" 캘린더에 함께 저장돼요')}
-              </small>
+          {mode === 'cloud' && linked !== true ? (
+            <div className="gr">
+              <div className="gr-text">
+                <span className="gcal-label"><GcalIcon />{t('구글 캘린더')}</span>
+                <small>{t('연결하면 일정마다 내 구글 캘린더에도 저장할 수 있어요')}</small>
+              </div>
+              <button className="btn small primary gcal-link" disabled={linked === null} onClick={linkGoogle}>{t('연결')}</button>
             </div>
-            <Switch on={gcal} onChange={(v) => setGcal(v)} label={t('구글 캘린더에 추가')} />
-          </div>
+          ) : (
+            <div className="gr">
+              <div className="gr-text">
+                <span className="gcal-label"><GcalIcon />{t('구글 캘린더에 추가')}</span>
+              </div>
+              <Switch on={gcal} onChange={(v) => setGcal(v)} label={t('구글 캘린더에 추가')} />
+            </div>
+          )}
         </div>
         {base && base.repeat !== 'none' && <p className="hint">{t('반복 일정은 수정·삭제 시 모든 날짜에 적용됩니다.')}</p>}
       </div>
