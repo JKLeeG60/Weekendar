@@ -4,7 +4,8 @@ import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
 import type { ChangeRequest, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, Todo } from './types'
 import { chatCounts, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
-import { t as tr, useLang } from './i18n'
+import { localize, t as tr, useLang } from './i18n'
+import { TERMS_VERSION } from './legal'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
@@ -116,7 +117,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {} })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0 })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
@@ -286,6 +287,22 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         put(map)
         const { error } = await supabase.from('profiles').update({ shortcuts: map }).eq('id', me.id)
         if (error) { put(before); fail(error) }
+      },
+
+      // 약관 동의: 저장에 성공하면 화면을 넘긴다
+      agreeTerms: async () => {
+        if (!me) return
+        const { error } = await supabase.rpc('agree_terms', { p_version: TERMS_VERSION })
+        if (error) { fail(error); return }
+        setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, termsVersion: TERMS_VERSION } : u)) }))
+      },
+
+      // 탈퇴: 서버에서 계정을 지운 뒤 로그아웃 (팀에 속해 있으면 서버가 막는다)
+      deleteAccount: async () => {
+        const { error } = await supabase.rpc('delete_account')
+        if (error) return localize(error.message)
+        await supabase.auth.signOut(); uidRef.current = null; setDb(EMPTY)
+        return null
       },
 
       // 할 일 넘기기 설정: 먼저 화면에 반영하고, 실패하면 되돌린다

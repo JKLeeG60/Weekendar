@@ -1,6 +1,7 @@
 import { useStore } from './lib/store'
 import { useUI } from './lib/ui'
-import { Login, PendingScreen, TeamChoice } from './components/Onboarding'
+import { Login, PendingScreen, TeamChoice, TermsAgree } from './components/Onboarding'
+import { TERMS_VERSION } from './lib/legal'
 import { Main } from './components/Main'
 import { t } from './lib/i18n'
 import { useEffect, useState } from 'react'
@@ -41,6 +42,9 @@ function Screen() {
   // 불러오는 중에는 화면을 비워 두고 위의 첫 화면(Splash)이 덮는다
   if (loading || (mode === 'cloud' && db.currentUserId && !me)) return null
   if (!me) return <Login />
+  // 약관 동의: 실서비스는 처음 로그인한 뒤 한 번 (체험 모드는 주소에 &terms 를 붙이면 미리보기)
+  const termsPreview = mode === 'demo' && new URLSearchParams(location.search).has('terms')
+  if ((mode === 'cloud' || termsPreview) && (me.termsVersion ?? 0) < TERMS_VERSION) return <TermsAgree />
   if (!myMember) return <TeamChoice />
   if (myMember.role === 'pending') return <PendingScreen />
   return <Main />

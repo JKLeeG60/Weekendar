@@ -23,6 +23,7 @@ import type {
 } from './types'
 import { addDays, isWeekend, mondayOf, todayStr } from './date'
 import { t as tr } from './i18n'
+import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
 
 const KEY = 'weekendar-v1'
@@ -238,6 +239,10 @@ export interface Store {
   setTodoCarry: (on: boolean) => void
   /** 설정: 내 단축키 저장 (바꾼 것만, 빈 값이면 모두 기본값) */
   setShortcuts: (map: Record<string, string>) => void
+  /** 약관 동의 기록 (실서비스: 처음 로그인한 뒤 한 번) */
+  agreeTerms: () => void | Promise<void>
+  /** Weekendar 탈퇴: 팀에 속하지 않은 내 계정과 데이터를 지운다. 실패하면 안내 문구 */
+  deleteAccount: () => string | null | Promise<string | null>
   createTeam: (name: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
@@ -409,6 +414,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, shortcuts: map } : u)) })),
       setTodoCarry: (on) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, todoCarry: on } : u)) })),
+      agreeTerms: () =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, termsVersion: TERMS_VERSION } : u)) })),
+      // 탈퇴(체험): 팀에 속해 있으면 막고, 아니면 내 기록을 지우고 로그아웃
+      deleteAccount: () => {
+        const id = db.currentUserId
+        if (!id) return null
+        if (db.members.some((m) => m.userId === id)) return tr('팀에서 먼저 나간 뒤 탈퇴할 수 있어요')
+        set((p) => ({
+          ...p,
+          users: p.users.filter((u) => u.id !== id),
+          events: p.events.filter((e) => e.ownerId !== id),
+          todos: p.todos.filter((x) => x.ownerId !== id),
+          notices: p.notices.filter((n) => n.userId !== id),
+          messages: p.messages.filter((m) => m.authorId !== id),
+          requests: p.requests.filter((r) => r.requesterId !== id && r.leaderId !== id),
+          currentUserId: null,
+        }))
+        return null
+      },
 
       createTeam: (name) =>
         set((p) => {

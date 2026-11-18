@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { clearInvite, getInvite } from '../lib/invite'
-import { GoogleMark, Icon } from './ui'
+import { GoogleMark, Icon, Modal } from './ui'
+import { PRIVACY_URL, TERMS_URL } from '../lib/legal'
 import { localize, Rich, t } from '../lib/i18n'
 
 export function Logo({ size = 44 }: { size?: number }) {
@@ -33,6 +34,8 @@ export function Logo({ size = 44 }: { size?: number }) {
 export function Login() {
   const { login, db, mode, loginGoogle } = useStore()
   const { narrow, preview, setPreview } = useUI()
+  // 방금 탈퇴했으면 한 번만 안내
+  const [bye] = useState(() => { try { const v = sessionStorage.getItem('weekendar-bye') === '1'; sessionStorage.removeItem('weekendar-bye'); return v } catch { return false } })
   const demo = [
     { id: 'u_admin', label: `${t('관리자')} · 김하늘` },
     { id: 'u_leader', label: `${t('팀장')} · 박서준` },
@@ -51,6 +54,7 @@ export function Login() {
             <span><Rich text={t('초대 링크로 들어왔어요. 로그인하면 <b>{code}</b> 팀에 바로 참여 요청할 수 있어요.', { code: getInvite() ?? '' })} /></span>
           </div>
         )}
+        {bye && <p className="bye-note">{t('탈퇴가 끝났어요. 그동안 이용해 주셔서 고마워요.')}</p>}
         <button className="btn google" onClick={() => (mode === 'cloud' ? loginGoogle() : login('u_new'))}>
           <GoogleMark />
           {t('Google로 계속하기')}
@@ -61,6 +65,11 @@ export function Login() {
           </button>
         )}
         {mode === 'cloud' && <p className="fine"><Rich text={t('Google 계정으로 로그인하면 팀을 만들거나<br>초대 코드로 참여할 수 있어요.')} /></p>}
+        <p className="legal-links">
+          <a href={TERMS_URL} target="_blank" rel="noopener">{t('이용약관')}</a>
+          <span aria-hidden>·</span>
+          <a href={PRIVACY_URL} target="_blank" rel="noopener">{t('개인정보처리방침')}</a>
+        </p>
         {mode === 'demo' && <div className="demo-box">
           <div className="demo-title">{t('데모 계정으로 둘러보기')}</div>
           <div className="demo-list">
@@ -83,7 +92,10 @@ export function Login() {
 }
 
 export function TeamChoice() {
-  const { me, createTeam, joinTeam, logout } = useStore()
+  const { me, createTeam, joinTeam, logout, deleteAccount } = useStore()
+  const [bye, setBye] = useState(false) // 탈퇴 확인 창
+  const [busy, setBusy] = useState(false)
+  const [byeErr, setByeErr] = useState<string | null>(null)
   const invited = getInvite()
   const [mode, setMode] = useState<'choose' | 'create' | 'join'>(invited ? 'join' : 'choose')
   const [name, setName] = useState('')
@@ -155,6 +167,72 @@ export function TeamChoice() {
           </form>
         )}
 
+        <button className="link-btn" onClick={logout}>{t('다른 계정으로 로그인')}</button>
+        <button className="link-btn withdraw-link" onClick={() => setBye(true)}>{t('Weekendar 탈퇴')}</button>
+      </div>
+      {bye && (
+        <Modal
+          title={t('Weekendar에서 탈퇴할까요?')}
+          onClose={() => { setBye(false); setByeErr(null) }}
+          width={380}
+          footer={
+            <>
+              <button className="btn ghost" onClick={() => { setBye(false); setByeErr(null) }}>{t('취소')}</button>
+              <button className="btn danger" disabled={busy} onClick={async () => {
+                setBusy(true)
+                // 로그인 화면에 완료 안내 (탈퇴하자마자 화면이 바뀌므로 먼저 남기고, 실패하면 지운다)
+                try { sessionStorage.setItem('weekendar-bye', '1') } catch { /* 무시 */ }
+                const e = await deleteAccount()
+                setBusy(false)
+                if (e) { try { sessionStorage.removeItem('weekendar-bye') } catch { /* 무시 */ } setByeErr(e) }
+              }}>{t('탈퇴하기')}</button>
+            </>
+          }
+        >
+          <p className="leave-text"><Rich text={t('내 일정·할 일·대화와 알림·구글 캘린더 연결 정보가 <b>모두 지워지고</b> 되돌릴 수 없어요.')} /></p>
+          {byeErr && <p className="error">{byeErr}</p>}
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+/** 약관 동의: 처음 로그인한 뒤 한 번. 필수 두 개를 모두 체크해야 시작할 수 있다 */
+export function TermsAgree() {
+  const { agreeTerms, logout } = useStore()
+  const [terms, setTerms] = useState(false)
+  const [privacy, setPrivacy] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const all = terms && privacy
+  const Check = ({ on }: { on: boolean }) => <span className={'agree-ck' + (on ? ' on' : '')} aria-hidden>{on && <Icon name="check" size={13} />}</span>
+  return (
+    <div className="center-screen">
+      <div className="auth-card">
+        <Logo size={56} />
+        <h1 className="brand sm">{t('약관에 동의해주세요')}</h1>
+        <p className="tagline">{t('Weekendar를 시작하려면 아래 내용에 동의가 필요해요.')}</p>
+        <div className="agree">
+          <label className="agree-row all">
+            <input type="checkbox" checked={all} onChange={(e) => { setTerms(e.target.checked); setPrivacy(e.target.checked) }} />
+            <Check on={all} />
+            <span>{t('전체 동의')}</span>
+          </label>
+          <label className="agree-row">
+            <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
+            <Check on={terms} />
+            <span><b className="agree-req">{t('[필수]')}</b> {t('이용약관 동의')}</span>
+            <a className="agree-view" href={TERMS_URL} target="_blank" rel="noopener">{t('보기')} ›</a>
+          </label>
+          <label className="agree-row">
+            <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
+            <Check on={privacy} />
+            <span><b className="agree-req">{t('[필수]')}</b> {t('개인정보 수집·이용 동의')}</span>
+            <a className="agree-view" href={PRIVACY_URL} target="_blank" rel="noopener">{t('보기')} ›</a>
+          </label>
+        </div>
+        <button className="btn primary agree-go" disabled={!all || busy} onClick={async () => { setBusy(true); await agreeTerms(); setBusy(false) }}>
+          {t('동의하고 시작')}
+        </button>
         <button className="link-btn" onClick={logout}>{t('다른 계정으로 로그인')}</button>
       </div>
     </div>

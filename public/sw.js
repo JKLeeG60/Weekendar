@@ -20,6 +20,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return // Supabase 등 바깥 요청은 건드리지 않음
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/cal/')) return
+  if (url.pathname === '/privacy.html' || url.pathname === '/terms.html') return // 약관 페이지는 앱 첫 화면 저장본으로 쓰지 않음
 
   // 페이지: 항상 최신을 먼저 시도하고, 실패하면 저장본
   if (req.mode === 'navigate') {

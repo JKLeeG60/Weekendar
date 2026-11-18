@@ -10,6 +10,8 @@ export interface User {
   todoCarry?: boolean
   /** 바꾼 단축키만 (단축키 id → 키). 없으면 기본 단축키 */
   shortcuts?: Record<string, string>
+  /** 동의한 약관 버전 (0 또는 없음 = 아직 동의 안 함) */
+  termsVersion?: number
 }
 
 export interface Team {
