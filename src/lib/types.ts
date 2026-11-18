@@ -6,6 +6,8 @@ export interface User {
   email: string
   /** 처음 사용 안내를 이미 봤는지 (false 일 때만 처음 한 번 보여준다. 없으면 본 것으로 취급) */
   tutorialSeen?: boolean
+  /** 못 끝낸 할 일을 다음 날로 넘길지 (없으면 켜짐) */
+  todoCarry?: boolean
 }
 
 export interface Team {

@@ -95,9 +95,11 @@ export function Todos() {
   const { selected, openModal, isMobile } = useUI()
   const act = useEventActions()
   const [text, setText] = useState('')
+  const carry = me?.todoCarry !== false
 
   const list = db.todos
-    .filter((t) => t.ownerId === me?.id && (t.date === selected || (t.date < selected && !t.done)))
+    // 넘기기 설정이 켜져 있으면 지난 날의 못 끝낸 할 일도 함께 보여준다
+    .filter((t) => t.ownerId === me?.id && (t.date === selected || (carry && t.date < selected && !t.done)))
     .sort((a, b) => Number(a.done) - Number(b.done) || Number(b.priority) - Number(a.priority))
   const left = list.filter((t) => !t.done).length
 
@@ -150,7 +152,6 @@ export function Todos() {
                 {t.done && <Icon name="check" size={13} />}
               </button>
               <span className="todo-text">{t.text}</span>
-              {t.date < selected && !t.done && <span className="carry">{tr('이월')}</span>}
               {!t.done && (
                 <button
                   className="icon-btn tiny to-event"

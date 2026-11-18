@@ -1207,3 +1207,20 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .m-days .m-day.dd-over strong { background: var(--accent); color: #fff; transform: scale(1.16); box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 42%, transparent); }
 .m-wk-arrow { transition: background 0.18s, color 0.18s; }
 .m-wk-arrow.dd-over { background: var(--accent-soft); color: var(--accent); }
+
+/* ───────── 설정 (아이폰 설정 앱 같은 묶음 목록) ───────── */
+.settings .modal-body, .modal.settings { background: var(--surface-2); }
+.set-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); margin: 0.9rem 0.75rem 0.4rem; }
+.settings section:first-of-type .set-label { margin-top: 0.2rem; }
+.set-group { background: var(--surface); border-radius: 0.9rem; overflow: hidden; }
+.set-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 2.9rem; padding: 0.55rem 0.85rem; border-top: 1px solid var(--line-soft); text-align: left; font-size: 0.95rem; color: var(--text); }
+.set-row:first-child { border-top: 0; }
+.set-row.link:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.set-row > svg:last-child { color: var(--faint); flex: none; }
+.set-ic { width: 1.8rem; height: 1.8rem; border-radius: 0.5rem; display: grid; place-items: center; color: #fff; flex: none; }
+.set-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.set-text small { font-size: 0.76rem; color: var(--muted); margin-top: 0.12rem; line-height: 1.35; }
+.set-danger { margin-top: 1.3rem; }
+.set-danger .set-row { justify-content: center; color: var(--red); font-weight: 600; }
+.set-foot { text-align: center; font-size: 0.75rem; color: var(--faint); margin: 0.9rem 0 0.1rem; }
+.set-row .theme-seg { flex: none; }

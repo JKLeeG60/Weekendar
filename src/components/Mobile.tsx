@@ -35,7 +35,8 @@ export function MobileMain() {
     if (chatOpen) setTab('chat')
   }, [chatOpen])
   const { selected } = useUI()
-  const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && t.date <= selected).length
+  const carry = me?.todoCarry !== false
+  const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && (carry ? t.date <= selected : t.date === selected)).length
 
   return (
     <div className="m-app">

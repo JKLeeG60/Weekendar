@@ -191,6 +191,8 @@ export interface Store {
   logout: () => void
   /** 처음 사용 안내를 봤다고 기록 */
   finishTutorial: () => void
+  /** 설정: 못 끝낸 할 일을 다음 날로 넘기기 (계정에 저장) */
+  setTodoCarry: (on: boolean) => void
   createTeam: (name: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
@@ -336,6 +338,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logout: () => set((p) => ({ ...p, currentUserId: null })),
       finishTutorial: () =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, tutorialSeen: true } : u)) })),
+      setTodoCarry: (on) =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, todoCarry: on } : u)) })),
 
       createTeam: (name) =>
         set((p) => {

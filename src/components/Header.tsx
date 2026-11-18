@@ -2,19 +2,16 @@ import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { addDays, isoWeek, mondayOf, weekPill, weekRangeLabel } from '../lib/date'
-import { t, useLang, type LangPref } from '../lib/i18n'
+import { t } from '../lib/i18n'
 import { Avatar, Icon } from './ui'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
-import { startInstall, useInstallable } from './People'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
   const { team, me, myMember, isAdmin, unreadCount, logout, login, db, mode } = useStore()
-  const { selected, setSelected, themePref, setThemePref, panelOpen, togglePanel, openModal, showToast, narrow, preview, setPreview } = useUI()
+  const { selected, setSelected, panelOpen, togglePanel, openModal } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
-  const { pref, setPref } = useLang()
-  const installable = useInstallable()
   const mon = mondayOf(selected)
 
   return (
@@ -80,57 +77,18 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                   )
                 })}
                 <div className="menu-sep" />
-                <div className="menu-theme">
-                  <span>{t('화면')}</span>
-                  <div className="theme-seg" role="radiogroup" aria-label={t('화면 모드')}>
-                    {([['system', '자동'], ['light', '라이트'], ['dark', '다크']] as const).map(([v, l]) => (
-                      <button key={v} role="radio" aria-checked={themePref === v} className={themePref === v ? 'on' : ''} onClick={() => setThemePref(v)}>{t(l)}</button>
-                    ))}
-                  </div>
-                </div>
-                {/* 언어: 자동(기기 언어) / 한국어 / English — 언어 이름은 늘 그 언어로 */}
-                <div className="menu-theme">
-                  <span>{t('언어')}</span>
-                  <div className="theme-seg" role="radiogroup" aria-label={t('언어')}>
-                    {([['auto', t('자동')], ['ko', '한국어'], ['en', 'English']] as [LangPref, string][]).map(([v, l]) => (
-                      <button key={v} role="radio" aria-checked={pref === v} className={pref === v ? 'on' : ''} onClick={() => setPref(v)}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="menu-sep" />
-                <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'calendar' }) }}>
-                  {t('캘린더 앱에서 보기')}
-                </button>
-                {installable && (
-                  <button className="menu-item install-item" onClick={() => { setPop(null); startInstall(() => openModal({ type: 'install' }), showToast) }}>
-                    <span><Icon name="addBox" size={16} /> {t('홈 화면에 추가')}</span>
-                    <small>{t('앱처럼 쓰기')}</small>
-                  </button>
-                )}
-                <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'push' }) }}>
-                  {t('휴대폰 알림')}
+                {/* 화면·언어·할 일·알림 같은 설정은 "설정" 창에 모았다 */}
+                <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'settings' }) }}>
+                  <span><Icon name="gear" size={15} /> {t('설정')}</span>
                 </button>
                 {myMember && (myMember.role === 'leader' || myMember.role === 'member') && (
                   <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'tutorial' }) }}>
-                    {t('사용법 다시 보기')}
-                  </button>
-                )}
-                {!narrow && (
-                  <button className="menu-item" onClick={() => { setPop(null); setPreview(!preview) }}>
-                    {preview ? t('데스크탑 화면으로 돌아가기') : t('폰 화면 미리보기')}
+                    <span><Icon name="help" size={15} /> {t('사용법 다시 보기')}</span>
                   </button>
                 )}
                 <button className="menu-item" onClick={() => { setPop(null); logout() }}>
                   <span><Icon name="logout" size={15} /> {t('로그아웃')}</span>
                 </button>
-                {myMember && myMember.role !== 'pending' && (
-                  <>
-                    <div className="menu-sep" />
-                    <button className="menu-item danger" onClick={() => { setPop(null); openModal({ type: 'leave' }) }}>
-                      {t('팀 나가기')}
-                    </button>
-                  </>
-                )}
               </div>
             </>
           )}

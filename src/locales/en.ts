@@ -551,4 +551,12 @@ export const EN: Record<string, string | [string, string]> = {
   '{date}에 {what}': '{what} on {date}',
   '빈 칸을 누르면 일정 추가, 날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요': 'Click an empty spot to add an event, a date number to open that week, or an event for details',
   '날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요': 'Click a date number to open that week, or an event for details',
+
+  // ── 설정 ──
+  '설정': 'Settings',
+  '못 끝낸 할 일을 다음 날로 넘기기': 'Carry unfinished to-dos to the next day',
+  '체크하지 않은 할 일이 다음 날 목록에도 계속 보여요': 'Unchecked to-dos keep showing on the following days',
+  '할 일은 만든 날 목록에만 보여요': 'To-dos only show on the day they were added',
+  '알림과 앱': 'Notifications & app',
+  '도움말': 'Help',
 }

@@ -14,6 +14,7 @@ import {
 import { Avatar, Icon, Modal, Switch } from './ui'
 import { InstallModal, MailModal, MemberMenu, MonthModal } from './People'
 import { TutorialModal } from './Tutorial'
+import { SettingsModal } from './Settings'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
@@ -55,6 +56,7 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'mail': return <MailModal userId={modal.userId} />
     case 'install': return <InstallModal />
     case 'tutorial': return <TutorialModal />
+    case 'settings': return <SettingsModal />
   }
 }
 
