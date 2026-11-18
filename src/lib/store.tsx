@@ -23,6 +23,7 @@ import type {
 } from './types'
 import { addDays, isWeekend, mondayOf, todayStr } from './date'
 import { t as tr } from './i18n'
+import { changeOf } from './confirm'
 
 const KEY = 'weekendar-v1'
 export const uid = () => Math.random().toString(36).slice(2, 10)
@@ -31,6 +32,35 @@ export const uid = () => Math.random().toString(36).slice(2, 10)
 export function initialDate(): string {
   const t = todayStr()
   return isWeekend(t) ? addDays(mondayOf(t), 7) : t
+}
+
+/**
+ * 팀장이 팀에 공유한 일정을 고쳤으면: "변경" 표시를 남기고, 이전 확인을 지우고, 팀원에게 알림을 보낸다.
+ * (실서비스에서는 DB 의 migration_023 트리거가 같은 일을 한다)
+ */
+function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
+  const today = todayStr()
+  let confirms = p.confirms ?? []
+  let notices = p.notices
+  const events = after.map((e) => {
+    const old = before.find((x) => x.id === e.id)
+    const owner = p.members.find((m) => m.userId === e.ownerId)
+    if (!old || old === e || owner?.role !== 'leader') return e
+    const ch = changeOf(old, e)
+    if (!ch) return e
+    // 이미 지난 일정(반복 아님)을 고치는 것은 알리지 않는다
+    if (e.repeat === 'none' && (e.endDate ?? e.date) < today && (old.endDate ?? old.date) < today) return e
+    const name = p.users.find((u) => u.id === e.ownerId)?.name ?? ''
+    confirms = confirms.filter((c) => c.eventId !== e.id)
+    notices = [
+      ...p.members
+        .filter((m) => m.teamId === owner.teamId && m.role === 'member')
+        .map((m): Notice => ({ id: uid(), userId: m.userId, kind: 'confirm', text: ch.noticeText(name), eventId: e.id, read: false, createdAt: Date.now() })),
+      ...notices.map((n) => (n.kind === 'confirm' && n.eventId === e.id ? { ...n, read: true } : n)),
+    ].slice(0, 200)
+    return { ...e, changedAt: Date.now(), changeText: ch.changeText }
+  })
+  return { ...p, events, confirms, notices }
 }
 
 function seed(): DB {
@@ -224,6 +254,8 @@ export interface Store {
   addEvent: (e: Omit<EventItem, 'id' | 'ownerId'>) => void
   updateEvent: (id: string, patch: Partial<EventItem>) => void
   deleteEvent: (id: string) => void
+  /** 팀장이 바꾼 일정을 "확인했어요" (팀원) */
+  confirmEvent: (id: string) => void
   // 팀장 일정 변경 요청
   createRequest: (r: Pick<ChangeRequest, 'type' | 'eventId'> & { payload: RequestPayload }) => void
   decideRequest: (id: string, accept: boolean, reason?: string) => void
@@ -516,8 +548,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addEvent: (e) =>
         set((p) => ({ ...p, events: [...p.events, { ...e, id: uid(), ownerId: p.currentUserId! }] })),
       updateEvent: (id, patch) =>
-        set((p) => ({ ...p, events: p.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
+        set((p) => flagLeaderChanges(p, p.events, p.events.map((e) => (e.id === id ? { ...e, ...patch } : e)))),
       deleteEvent: (id) => set((p) => ({ ...p, events: p.events.filter((e) => e.id !== id) })),
+      confirmEvent: (id) =>
+        set((p) => {
+          const e = p.events.find((x) => x.id === id)
+          const me = p.currentUserId
+          if (!e || !e.changedAt || !me || e.ownerId === me) return p
+          return {
+            ...p,
+            confirms: [...(p.confirms ?? []).filter((c) => !(c.eventId === id && c.userId === me)), { eventId: id, userId: me, changedAt: e.changedAt }],
+            notices: p.notices.map((n) => (n.kind === 'confirm' && n.eventId === id && n.userId === me ? { ...n, read: true } : n)),
+          }
+        }),
 
       createRequest: (r) =>
         set((p) => {
@@ -557,15 +600,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             }
           }
           const verb = r.type === 'add' ? '추가' : r.type === 'edit' ? '수정' : '삭제'
+          // 팀장 일정이 요청대로 바뀌었으면 팀원 확인을 받는다
+          const flagged = flagLeaderChanges(p, p.events, events)
           return {
-            ...p,
-            events,
+            ...flagged,
             requests: p.requests.map((x) =>
               x.id === id ? { ...x, status: accept ? 'accepted' : 'rejected', reason } : x,
             ),
             // notify 는 기존 알림 목록까지 포함해 돌려주므로, 읽음 처리한 목록을 넘겨 한 번만 합친다 (중복 방지)
             notices: notify(
-              { ...p, notices: p.notices.map((n) => (n.refId === id && n.userId === r.leaderId ? { ...n, read: true } : n)) },
+              { ...flagged, notices: flagged.notices.map((n) => (n.refId === id && n.userId === r.leaderId ? { ...n, read: true } : n)) },
               r.requesterId,
               {
                 kind: 'result', refId: id,

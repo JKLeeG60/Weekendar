@@ -6,28 +6,34 @@ import { mentionsMe } from '../lib/chat'
 import { onPopup } from '../lib/bus'
 import { Icon } from './ui'
 import { localize, t } from '../lib/i18n'
+import { confirmedBy } from '../lib/confirm'
 
 const SHOW_MS = 5000
+// 확인 버튼이 있는 알림은 눌러야 하므로 더 오래 둔다 (안 눌러도 팀 표에 "확인 필요" 표시가 남는다)
+const CONFIRM_MS = 30000
 
 interface Item {
   id: string
-  kind: 'notice' | 'mention' | 'remind'
+  kind: 'notice' | 'mention' | 'remind' | 'confirm'
+  /** 'confirm' 이 가리키는 일정 */
+  eventId?: string
   title: string
   text: string
   tag?: string
   icon?: 'clock' | 'cal'
 }
 
-const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : '요청 결과')
+const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : k === 'confirm' ? '팀장이 일정을 변경했어요' : '요청 결과')
 
 /**
  * 오른쪽 아래 알림 팝업 (5초).
  * - 새 알림(요청·결과·참여)
+ * - 팀장이 일정을 바꿨을 때: "✅ 확인했어요" 버튼이 있는 알림 (30초)
  * - 대화에서 누가 나를 @호출했을 때 (대화창을 보고 있으면 띄우지 않음)
  * 일반 대화는 팝업 없이 말풍선 숫자만 올라간다.
  */
 export function NoticeToasts() {
-  const { db, me, messages, userOf } = useStore()
+  const { db, me, messages, userOf, confirmEvent } = useStore()
   const { chatOpen, setChatOpen, modal } = useUI()
   const [items, setItems] = useState<Item[]>([])
   // 입력·상세 창(<dialog>)이 열려 있으면 알림을 그 창 안에 그린다.
@@ -54,7 +60,7 @@ export function NoticeToasts() {
   const push = (fresh: Item[]) => {
     if (fresh.length === 0) return
     setItems((prev) => [...prev, ...fresh].slice(-3))
-    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), SHOW_MS))
+    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), n.kind === 'confirm' ? CONFIRM_MS : SHOW_MS))
   }
 
   // 미리 알림 등 다른 곳에서 보낸 팝업
@@ -78,7 +84,7 @@ export function NoticeToasts() {
     }
     const fresh = mine.filter((n) => !seenNotice.current!.has(n.id) && !n.read)
     mine.forEach((n) => seenNotice.current!.add(n.id))
-    push(fresh.map((n) => ({ id: n.id, kind: 'notice', title: noticeTitle(n.kind), text: localize(n.text) })))
+    push(fresh.map((n): Item => ({ id: n.id, kind: n.kind === 'confirm' ? 'confirm' : 'notice', title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId })))
   }, [db.notices, me?.id])
 
   useEffect(() => {
@@ -95,6 +101,18 @@ export function NoticeToasts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, me?.id])
 
+  // 다른 곳에서 이미 확인했거나 일정이 없어졌으면 확인 팝업을 닫는다
+  useEffect(() => {
+    setItems((prev) => {
+      const next = prev.filter((x) => {
+        if (x.kind !== 'confirm') return true
+        const e = db.events.find((ev) => ev.id === x.eventId)
+        return !!e && !confirmedBy(db, e, me?.id ?? '')
+      })
+      return next.length === prev.length ? prev : next
+    })
+  }, [db.events, db.confirms, me?.id])
+
   // 대화창을 열면 호출 팝업은 바로 닫는다 (이미 대화창에서 보이므로)
   useEffect(() => {
     if (chatOpen) setItems((prev) => prev.filter((x) => x.kind !== 'mention'))
@@ -103,7 +121,19 @@ export function NoticeToasts() {
   if (items.length === 0) return null
   const stack = (
     <div className={'ntoast-stack' + (chatOpen ? ' beside-chat' : '')} role="status" aria-live="polite">
-      {items.map((n) => (
+      {items.map((n) => n.kind === 'confirm' ? (
+        <div key={n.id} className="ntoast confirm">
+          <span className="ntoast-ico"><Icon name="cal" size={18} /></span>
+          <span className="ntoast-body">
+            <strong>{n.title}</strong>
+            <span>{n.text}</span>
+            <span className="ntoast-actions">
+              <button className="ntoast-ok" onClick={() => { confirmEvent(n.eventId!); setItems((p) => p.filter((x) => x.id !== n.id)) }}>✅ {t('확인했어요')}</button>
+              <button className="ntoast-later" onClick={() => setItems((p) => p.filter((x) => x.id !== n.id))}>{t('나중에')}</button>
+            </span>
+          </span>
+        </div>
+      ) : (
         <button
           key={n.id}
           className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' ? ' info' : '')}

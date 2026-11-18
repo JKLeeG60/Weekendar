@@ -47,6 +47,8 @@ function noticeText(text: string, lang: Lang): string {
   if ((m = text.match(/^(.+)님이 팀 참여를 요청했(?:어요|습니다)\.?$/))) return `${m[1]} asked to join the team.`
   if ((m = text.match(/^(.+)님이 일정 (추가|수정|삭제)을(?:\(를\))? 요청했(?:어요|습니다)\.?$/))) return `${m[1]} sent a request to ${VERB[m[2]]} an event.`
   if ((m = text.match(/^(.+) 팀장이 요청을 (수락|거절)했어요$/))) return `${m[1]} (team lead) ${m[2] === '수락' ? 'approved' : 'declined'} your request.`
+  if ((m = text.match(/^(.+) 팀장이 일정을 변경했어요: ([\s\S]+?)(?: \(([^()]+ → [^()]+)\))?$/)))
+    return `${m[1]} (team lead) changed an event: ${m[2]}` + (m[3] ? ` (${m[3]})` : '')
   if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청에 동의했습니다\. \(([\s\S]*)\)$/))) return `Your team lead approved your request to ${VERB[m[1]]} an event. (${m[2]})`
   if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청을 거절했습니다\. \(([\s\S]*?)\)(?: 사유: ([\s\S]*))?$/)))
     return `Your team lead declined your request to ${VERB[m[1]]} an event. (${m[2]})` + (m[3] ? ` Reason: ${m[3]}` : '')

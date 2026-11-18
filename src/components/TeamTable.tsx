@@ -8,6 +8,7 @@ import { useEventActions } from './DayDrop'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
 import { AbsencePill } from './AbsencePill'
+import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 
 const MAX_CHIPS = 5
 
@@ -83,6 +84,19 @@ export function TeamTable() {
   )
   const markOf = (o: Occurrence): ChangeRequest | undefined =>
     myPending.find((r) => r.type !== 'add' && r.eventId === o.baseId)
+
+  // 팀장이 바꾼 일정 표시: 팀원에게는 "확인 필요/변경", 팀장 본인에게는 "✅ 확인한 수/전체"
+  const changeInfo = (baseId: string, day: string) => {
+    const e = db.events.find((x) => x.id === baseId)
+    if (!e || !changedActive(e, day, today)) return null
+    const need = needsMyConfirm(db, e, me?.id, day, today)
+    const st = e.ownerId === me?.id ? confirmStatus(db, e) : null
+    return { need, st }
+  }
+  const changeTag = (ci: ReturnType<typeof changeInfo>) =>
+    !ci ? null : ci.need ? <span className="wait-tag">{t('확인 필요')}</span>
+      : ci.st && ci.st.all.length > 0 ? <span className={'chg-tag' + (ci.st.waiting.length === 0 ? ' all' : '')} title={t('확인 {a} / {b}명', { a: ci.st.done.length, b: ci.st.all.length })}>✅ {ci.st.done.length}/{ci.st.all.length}</span>
+      : <span className="chg-tag">{t('변경')}</span>
 
   const eventsOf = (userId: string, day: string): Occurrence[] =>
     occurrencesOn(shared.filter((e) => e.ownerId === userId), day)
@@ -168,6 +182,7 @@ export function TeamTable() {
                       {spans.filter((s) => s.from === di).map((s) => {
                         const n = s.to - s.from + 1
                         const o: Occurrence = { ...s.e, baseId: s.e.id }
+                        const ci = changeInfo(s.e.id, days[s.from])
                         return (
                           <button
                             key={s.e.id}
@@ -176,7 +191,7 @@ export function TeamTable() {
                               const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
                               return days[di + Math.min(n - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * n)))]
                             })}
-                            className={'span-bar' + (s.cutL ? ' cut-l' : '') + (s.cutR ? ' cut-r' : '')}
+                            className={'span-bar' + (s.cutL ? ' cut-l' : '') + (s.cutR ? ' cut-r' : '') + (ci?.need ? ' need-confirm' : '')}
                             data-cat={s.e.category}
                             style={{ top: `calc(0.35rem + ${s.lane} * var(--bar-step))`, width: `calc(${n} * 100% + ${n - 1}px - ${0.7 - (s.cutL ? 0.35 : 0) - (s.cutR ? 0.35 : 0)}rem)` }}
                             title={`${spanLabel(s.e)} ${s.e.title}${s.e.place ? ' · ' + s.e.place : ''}`}
@@ -185,6 +200,7 @@ export function TeamTable() {
                             <span className="span-tag">{t(CATEGORY_LABEL[s.e.category])}</span>
                             <span className="span-title">{s.e.title}</span>
                             <span className="span-range">{spanLabel(s.e)}</span>
+                            {changeTag(ci)}
                           </button>
                         )
                       })}
@@ -209,11 +225,12 @@ export function TeamTable() {
                           }
                           const o = en.ev!
                           const mk = markOf(o)
+                          const ci = changeInfo(o.baseId, d)
                           return (
                             <button
                               key={o.id + o.date}
                               {...dragProps(o, d)}
-                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '')}
+                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '')}
                               data-cat={o.category}
                               title={`${o.start}–${o.end} ${o.title}${o.place ? ' · ' + o.place : ''}`}
                               onClick={(ev) => {
@@ -224,6 +241,7 @@ export function TeamTable() {
                               <span className="chip-time">{o.start}</span>
                               <span className="chip-title">{o.title}</span>
                               {mk && <span className="wait-tag">{mk.type === 'edit' ? t('수정 요청') : t('삭제 요청')}</span>}
+                              {changeTag(ci)}
                               {roomy && o.place && <span className="chip-place">{o.place}</span>}
                             </button>
                           )

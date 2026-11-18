@@ -5,7 +5,8 @@ import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI, type ModalState } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend } from '../lib/date'
+import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr } from '../lib/date'
+import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 import { localize, Rich, t } from '../lib/i18n'
 import {
   CATEGORY_LABEL,
@@ -220,12 +221,20 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
 
 /* ───────── 일정 상세 ───────── */
 function EventDetail({ occ }: { occ: Occurrence }) {
-  const { me, myMember, userOf, db, deleteEvent } = useStore()
+  const { me, myMember, userOf, db, deleteEvent, confirmEvent } = useStore()
   const { closeModal, openModal, showToast } = useUI()
   const owner = db.members.find((m) => m.userId === occ.ownerId)
   const mine = occ.ownerId === me?.id
   const leaderEvent = owner?.role === 'leader'
   const canRequest = !mine && leaderEvent && myMember?.role === 'member'
+  // 팀장이 일정을 바꿨을 때: 바뀐 내용, 확인 현황, 팀원의 "확인했어요" 버튼
+  const base = db.events.find((e) => e.id === occ.baseId)
+  const today = todayStr()
+  const changed = !!base && leaderEvent && changedActive(base, occ.date, today)
+  const needConfirm = !!base && needsMyConfirm(db, base, me?.id, occ.date, today)
+  const status = base && changed ? confirmStatus(db, base) : null
+  const [from, to] = (base?.changeText ?? '').split(' → ')
+  const names = (ids: string[]) => ids.map((id) => userOf(id).name).join(', ')
 
   return (
     <Modal
@@ -240,9 +249,10 @@ function EventDetail({ occ }: { occ: Occurrence }) {
           </>
         ) : canRequest ? (
           <>
-            <span className="foot-note">{t('팀장이 동의하면 반영돼요')}</span>
-            <button className="btn danger-ghost" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>{t('삭제 요청')}</button>
-            <button className="btn primary" onClick={() => openModal({ type: 'request', mode: 'edit', date: occ.date, occ })}>{t('변경 요청')}</button>
+            {!needConfirm && <span className="foot-note">{t('팀장이 동의하면 반영돼요')}</span>}
+            <button className="btn danger-ghost nowrap" onClick={() => openModal({ type: 'request', mode: 'delete', date: occ.date, occ })}>{t('삭제 요청')}</button>
+            <button className={'btn nowrap ' + (needConfirm ? 'ghost' : 'primary')} onClick={() => openModal({ type: 'request', mode: 'edit', date: occ.date, occ })}>{t('변경 요청')}</button>
+            {needConfirm && <button className="btn primary nowrap" onClick={() => { confirmEvent(occ.baseId); showToast(t('확인했어요.')) }}>✅ {t('확인했어요')}</button>}
           </>
         ) : (
           <button className="btn ghost" onClick={closeModal}>{t('닫기')}</button>
@@ -257,6 +267,22 @@ function EventDetail({ occ }: { occ: Occurrence }) {
           <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ` (${t('팀장')})` : ''} · {occ.shared ? t('팀에 공유') : t('나만 보기')}</p>
           {occ.gcal && occ.ownerId === me?.id && <p className="detail-line"><GcalIcon /> {t('구글 캘린더에도 저장된 일정')}</p>}
           <span className="cat-tag" data-cat={occ.category}>{t(CATEGORY_LABEL[occ.category])}</span>
+          {changed && base && (
+            <div className="change-box">
+              <p className="change-head">
+                <span className="chg-tag">{t('변경')}</span>
+                {base.changeText ? <><s>{from}</s> → <b>{to}</b></> : <span>{t('제목이나 장소가 바뀌었어요')}</span>}
+              </p>
+              {status && status.all.length > 0 && (
+                <>
+                  <p className="change-line">✅ {t('확인 {a} / {b}명', { a: status.done.length, b: status.all.length })}</p>
+                  <div className="change-bar"><i style={{ width: `${(status.done.length / status.all.length) * 100}%` }} /></div>
+                  {status.done.length > 0 && <p className="change-line sub">{t('확인 완료')}: {names(status.done)}</p>}
+                  {status.waiting.length > 0 && <p className="change-line sub">{t('아직')}: {names(status.waiting)}</p>}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>

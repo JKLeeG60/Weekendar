@@ -58,6 +58,17 @@ export interface EventItem {
   remind?: number
   /** 구글 캘린더에도 추가 (켠 일정만 구글의 "Weekendar" 캘린더로 보냄) */
   gcal?: boolean
+  /** 팀장이 공유 일정을 바꾼 시각(ms). 팀원 확인을 받아야 하는 변경이 있을 때만 있음 */
+  changedAt?: number
+  /** 바뀐 내용 요약 (예: "14:00–15:00 → 15:00–16:00"). 시간이 안 바뀌고 제목·장소만 바뀌면 빈 글 */
+  changeText?: string
+}
+
+/** 팀원이 "확인했어요"를 누른 기록 (changedAt 은 확인한 변경의 시각) */
+export interface EventConfirm {
+  eventId: string
+  userId: string
+  changedAt: number
 }
 
 export interface Occurrence extends EventItem {
@@ -100,9 +111,11 @@ export interface Todo {
 export interface Notice {
   id: string
   userId: string
-  kind: 'request' | 'result' | 'join'
+  kind: 'request' | 'result' | 'join' | 'confirm'
   text: string
   refId?: string
+  /** 'confirm' 알림이 가리키는 일정 */
+  eventId?: string
   read: boolean
   createdAt: number
 }
@@ -152,6 +165,8 @@ export interface DB {
   members: Member[]
   events: EventItem[]
   requests: ChangeRequest[]
+  /** 팀장 일정 변경에 대한 팀원 확인 기록 */
+  confirms?: EventConfirm[]
   todos: Todo[]
   notices: Notice[]
   messages: Message[]

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, ChatRoom, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
+import type { ChangeRequest, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, Todo } from './types'
 import { chatCounts, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { t as tr, useLang } from './i18n'
 
@@ -15,6 +15,7 @@ const evFrom = (r: any): EventItem => ({
   shared: r.shared, repeat: r.repeat_rule, until: r.until ?? undefined, endDate: r.end_date ?? undefined,
   remind: r.remind_min ?? undefined,
   gcal: !!r.gcal,
+  ...(r.changed_at ? { changedAt: Date.parse(r.changed_at), changeText: r.change_text ?? '' } : {}),
 })
 const evTo = (e: Partial<EventItem>) => {
   const o: Record<string, unknown> = {}
@@ -41,7 +42,7 @@ const reqFrom = (r: any): ChangeRequest => ({
   reason: r.reason || undefined, createdAt: Date.parse(r.created_at),
 })
 const noticeFrom = (r: any): Notice => ({
-  id: r.id, userId: r.user_id, kind: r.kind, text: r.text, refId: r.request_id ?? undefined,
+  id: r.id, userId: r.user_id, kind: r.kind, text: r.text, refId: r.request_id ?? undefined, eventId: r.event_id ?? undefined,
   read: r.read, createdAt: Date.parse(r.created_at),
 })
 const msgFrom = (r: any): Message => ({
@@ -99,6 +100,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       r.members.push({ userId: x.user_id, joinedAt: Date.parse(x.joined_at), lastReadAt: Date.parse(x.last_read_at) })
       roomMap.set(x.room_id, r)
     }
+    // 팀장 일정 변경 확인 기록 (migration_023 전이면 비어 있음)
+    const cf = await supabase.from('event_confirms').select('event_id, user_id, changed_at')
+    if (cf.error) console.warn('확인 기록을 불러오지 못했어요', cf.error.message)
+    const confirms: EventConfirm[] = ((cf.data ?? []) as any[]).map((x) => ({ eventId: x.event_id, userId: x.user_id, changedAt: Date.parse(x.changed_at) }))
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
     if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
@@ -116,6 +121,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
       requests: (r.data ?? []).map(reqFrom),
+      confirms,
       notices: (n.data ?? []).map(noticeFrom),
       todos: (td.data ?? []).map(todoFrom),
       messages: (ms.data ?? []).map(msgFrom).reverse(),
@@ -166,6 +172,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const on = (table: string, filter?: string) =>
       ch.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, kick)
     on('events')
+    on('event_confirms')
     on('notices', `user_id=eq.${me}`)
     on('todos', `owner_id=eq.${me}`)
     on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
@@ -344,6 +351,18 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       addEvent: (e) => run(() => supabase.from('events').insert({ ...evTo(e), owner_id: me_id })) as unknown as void,
       updateEvent: (id, patch) => run(() => supabase.from('events').update(evTo(patch)).eq('id', id)) as unknown as void,
       deleteEvent: (id) => run(() => supabase.from('events').delete().eq('id', id)) as unknown as void,
+      confirmEvent: (id) => {
+        // 눌렀을 때 바로 반영하고, 서버에 기록 (실패하면 다시 불러와 원래대로)
+        const e = db.events.find((x) => x.id === id)
+        if (e?.changedAt && me_id) {
+          setDb((p) => ({
+            ...p,
+            confirms: [...(p.confirms ?? []).filter((c) => !(c.eventId === id && c.userId === me_id)), { eventId: id, userId: me_id, changedAt: e.changedAt! }],
+            notices: p.notices.map((n) => (n.kind === 'confirm' && n.eventId === id ? { ...n, read: true } : n)),
+          }))
+        }
+        return run(() => supabase.rpc('confirm_event', { p_event: id })) as unknown as void
+      },
 
       createRequest: (r) => {
         const leader = tableMembers.find((m) => m.role === 'leader')

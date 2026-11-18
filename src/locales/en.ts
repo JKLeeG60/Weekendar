@@ -235,6 +235,19 @@ export const EN: Record<string, string | [string, string]> = {
   '일정 요청': 'Event request',
   '팀 참여 요청': 'Join request',
   '요청 결과': 'Request result',
+  // 팀장 일정 변경 확인
+  '팀장이 일정을 변경했어요': 'Team lead changed an event',
+  '{name} 팀장이 일정을 변경했어요: {title}': '{name} (team lead) changed an event: {title}',
+  '{name} 팀장이 일정을 변경했어요: {title} ({change})': '{name} (team lead) changed an event: {title} ({change})',
+  '확인했어요': 'Got it',
+  '확인했어요.': 'Marked as seen.',
+  '나중에': 'Later',
+  '확인 필요': 'Needs check',
+  '변경': 'Changed',
+  '확인 {a} / {b}명': '{a} of {b} confirmed',
+  '확인 완료': 'Confirmed',
+  '아직': 'Not yet',
+  '제목이나 장소가 바뀌었어요': 'The title or place changed',
   '{name}님이 나를 호출했어요': '{name} mentioned you',
 
   // 서버·체험 모드가 만든 알림 문장 (i18n.tsx 의 localize)

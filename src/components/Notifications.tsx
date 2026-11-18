@@ -6,6 +6,7 @@ import { useUI } from '../lib/ui'
 import { fmtHead } from '../lib/date'
 import type { ChangeRequest } from '../lib/types'
 import { localize, t } from '../lib/i18n'
+import { confirmedBy } from '../lib/confirm'
 
 const TYPE_LABEL = { add: '추가', edit: '수정', delete: '삭제' } as const
 
@@ -17,7 +18,7 @@ function ago(at: number): string {
 }
 
 export function Notifications({ onClose }: { onClose: () => void }) {
-  const { db, me, isLeader, userOf, decideRequest, markAllRead } = useStore()
+  const { db, me, isLeader, userOf, decideRequest, markAllRead, confirmEvent } = useStore()
   const { openModal, showToast } = useUI()
   const pending = isLeader
     ? db.requests.filter((r) => r.leaderId === me?.id && r.status === 'pending')
@@ -57,6 +58,12 @@ export function Notifications({ onClose }: { onClose: () => void }) {
               <div>
                 <p>{localize(n.text)}</p>
                 <small>{ago(n.createdAt)}</small>
+                {n.kind === 'confirm' && (() => {
+                  const e = db.events.find((x) => x.id === n.eventId)
+                  return e && e.changedAt && !confirmedBy(db, e, me?.id ?? '')
+                    ? <button className="link-btn" onClick={() => confirmEvent(e.id)}>✅ {t('확인했어요')}</button>
+                    : null
+                })()}
                 {n.kind === 'join' && (
                   <button className="link-btn" onClick={() => { onClose(); openModal({ type: 'admin' }) }}>{t('팀 관리에서 승인하기')}</button>
                 )}

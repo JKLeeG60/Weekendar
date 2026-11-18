@@ -1311,3 +1311,23 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .gcal-set-ic { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .set-btns { display: flex; gap: 0.3rem; flex: none; }
 .btn.danger-text { color: var(--red); }
+
+/* ───────── 팀장 일정 변경 확인 (✅) ───────── */
+.chip.need-confirm, .span-bar.need-confirm { background: rgba(255, 149, 0, 0.12); box-shadow: inset 0 0 0 1.5px #ff9500; }
+.chg-tag { flex: none; font-size: 0.68rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 0.05rem 0.4rem; border-radius: 99px; white-space: nowrap; }
+.chg-tag.all { color: #1f8f3d; background: rgba(52, 199, 89, 0.16); }
+[data-theme='dark'] .chg-tag.all { color: #4cd964; }
+.ntoast.confirm { box-shadow: 0 10px 30px rgba(255,149,0,0.2), 0 0 0 1.5px rgba(255,149,0,0.55); }
+.ntoast.confirm .ntoast-ico { background: #ff9500; }
+.ntoast-actions { display: flex; gap: 0.5rem; margin-top: 0.55rem; }
+.ntoast-actions button { height: 2rem; padding: 0 0.9rem; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 600; }
+.ntoast-actions .ntoast-ok { background: var(--accent); color: #fff; }
+.ntoast-actions .ntoast-later { background: var(--surface-2); color: var(--muted); }
+.change-box { margin-top: 0.9rem; padding: 0.75rem 0.9rem; border-radius: 0.8rem; background: rgba(255, 149, 0, 0.1); }
+.change-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; font-size: 0.92rem; margin-bottom: 0.2rem; }
+.change-head s { color: var(--muted); }
+.change-line { font-size: 0.88rem; margin-top: 0.4rem; }
+.change-line.sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.15rem; }
+.change-bar { height: 0.35rem; border-radius: 99px; background: var(--line); margin-top: 0.4rem; overflow: hidden; }
+.change-bar i { display: block; height: 100%; background: #34c759; border-radius: 99px; }
+.btn.nowrap { white-space: nowrap; }
