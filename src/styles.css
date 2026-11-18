@@ -1228,3 +1228,15 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .set-foot { text-align: center; font-size: 0.75rem; color: var(--faint); margin: 0.9rem 0 0.1rem; }
 .set-row .theme-seg { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); width: 11.5rem; }
 .set-row .theme-seg button { text-align: center; padding-inline: 0.2rem; }
+
+/* ───────── 부재자 이름표 → 말풍선 ───────── */
+.abs-pill { cursor: pointer; font: inherit; font-size: 0.8rem; font-weight: 600; }
+.abs-pill.sel { box-shadow: 0 0 0 2px currentColor; }
+.abs-scrim { position: fixed; inset: 0; z-index: 95; }
+.abs-pop { position: fixed; z-index: 96; min-width: 12rem; max-width: 16rem; background: var(--surface); color: var(--text); border-radius: 0.9rem; padding: 0.7rem 0.9rem 0.75rem; box-shadow: 0 14px 36px rgba(0,0,0,0.22), 0 0 0 1px var(--line-soft); animation: rrin 0.14s ease; }
+.abs-pop::before { content: ''; position: absolute; top: -6px; left: var(--ax, 22px); width: 12px; height: 12px; background: var(--surface); transform: rotate(45deg); box-shadow: -1px -1px 0 var(--line-soft); }
+.abs-pop.up::before { top: auto; bottom: -6px; box-shadow: 1px 1px 0 var(--line-soft); }
+.abs-h { display: flex; align-items: center; gap: 0.45rem; font-size: 0.76rem; color: var(--muted); }
+.abs-h i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--cc); }
+.abs-pop b { display: block; font-size: 1rem; font-weight: 700; margin: 0.25rem 0 0.2rem; overflow-wrap: anywhere; }
+.abs-pop small { display: block; font-size: 0.8rem; color: var(--muted); line-height: 1.5; }

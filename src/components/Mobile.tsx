@@ -12,6 +12,7 @@ import { NoticeToasts } from './NoticeToasts'
 import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
+import { AbsencePill } from './AbsencePill'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
 import { useDayDrag } from '../lib/dayDrag'
 
@@ -157,10 +158,7 @@ function MobileTeam() {
               <div className="m-pills">
                 {absent.length === 0 && <span className="none">{t('없음')}</span>}
                 {absent.map(({ m, o }) => (
-                  <span key={m.userId} className="pill" data-cat={o.category}>
-                    {userOf(m.userId).name}
-                    <em>{t(CATEGORY_LABEL[o.category])}</em>
-                  </span>
+                  <AbsencePill key={m.userId} name={userOf(m.userId).name} o={o} />
                 ))}
               </div>
             </section>

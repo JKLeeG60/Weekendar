@@ -1,4 +1,4 @@
-import React, { Fragment, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
@@ -7,6 +7,7 @@ import { t } from '../lib/i18n'
 import { useEventActions } from './DayDrop'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
 import { Avatar } from './ui'
+import { AbsencePill } from './AbsencePill'
 
 const MAX_CHIPS = 5
 
@@ -259,12 +260,7 @@ export function TeamTable() {
                   <div className="cell-inner row">
                     {absent.length === 0 && <span className="none">–</span>}
                     {absent.map(({ m, o }) => (
-                      <Fragment key={m.userId}>
-                        <span className="pill" data-cat={o.category}>
-                          {userOf(m.userId).name}
-                          <em>{t(CATEGORY_LABEL[o.category])}</em>
-                        </span>
-                      </Fragment>
+                      <AbsencePill key={m.userId} name={userOf(m.userId).name} o={o} />
                     ))}
                   </div>
                 </td>
