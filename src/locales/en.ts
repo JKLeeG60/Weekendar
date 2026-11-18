@@ -631,7 +631,7 @@ export const EN: Record<string, string | [string, string]> = {
   '다시 보내기': 'Resend',
   '연결 끊기': 'Disconnect',
   '구글 캘린더 연결을 끊었어요': 'Disconnected Google Calendar',
-  '연결하면 일정마다 내 구글 캘린더에도 저장할 수 있어요': 'Connect to also save events to your Google Calendar',
+  '연결하면 구글 캘린더에도 저장돼요': 'Connect to also save to Google Calendar',
   '구글 캘린더에 연결했어요': 'Connected to Google Calendar',
   '다시 연결': 'Reconnect',
   '연결': 'Connect',

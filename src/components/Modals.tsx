@@ -197,9 +197,9 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
           </div>
           {mode === 'cloud' && linked !== true ? (
             <div className="gr">
-              <div className="gr-text">
+              <div className="gr-text gcal-text">
                 <span className="gcal-label"><GcalIcon />{t('구글 캘린더')}</span>
-                <small>{t('연결하면 일정마다 내 구글 캘린더에도 저장할 수 있어요')}</small>
+                <small>{t('연결하면 구글 캘린더에도 저장돼요')}</small>
               </div>
               <button className="btn small primary gcal-link" disabled={linked === null} onClick={linkGoogle}>{t('연결')}</button>
             </div>
