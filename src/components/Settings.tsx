@@ -63,7 +63,6 @@ export function SettingsModal() {
           <Row icon="addBox" color="#34c759" label={t('홈 화면에 추가')} sub={t('앱처럼 쓰기')} onClick={() => startInstall(() => openLayer({ type: 'install' }), showToast)} />
         )}
         <GcalRow />
-        <Row icon="cal" color="#ff2d55" label={t('캘린더 앱에서 보기')} onClick={() => openLayer({ type: 'calendar' })} />
       </Group>
 
       {member && (
