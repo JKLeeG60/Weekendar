@@ -37,7 +37,9 @@ export function Modal({
       d.style.left = Math.max(8, Math.min(at.x + 8, innerWidth - r.width - 8)) + 'px'
       d.style.top = Math.max(8, Math.min(at.y + 8, innerHeight - r.height - 8)) + 'px'
     }
-    want?.focus()
+    // 초점을 줄 입력칸이 없으면 창 자체에 초점 (첫 버튼에 파란 초점 테두리가 생기지 않게)
+    if (want) want.focus()
+    else d.focus()
     return () => d.close()
   }, [])
   return (
@@ -46,6 +48,7 @@ export function Modal({
       className={'modal' + (at ? ' at' : '') + (className ? ' ' + className : '')}
       style={{ width: `${width / 16}rem` }}
       aria-labelledby={titleId}
+      tabIndex={-1}
       // Esc 키·안드로이드 뒤로가기: 브라우저가 직접 닫지 않게 막고, 앱 상태(onClose)로 닫는다
       onCancel={(e) => {
         e.preventDefault()

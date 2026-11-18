@@ -41,7 +41,7 @@ export function MobileMain() {
   return (
     <div className="m-app">
       {/* 팀 탭은 기존 제목(○○팀 주간예정사항), 나머지 탭은 탭 이름 */}
-      <Header mobileTitle={tab === 'team' ? undefined : t(TAB_TITLE[tab])} />
+      <Header mobileTitle={tab === 'team' ? t('주간예정사항') : t(TAB_TITLE[tab])} />
       <div className="m-body">
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}

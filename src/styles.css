@@ -1223,4 +1223,5 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .set-danger { margin-top: 1.3rem; }
 .set-danger .set-row { justify-content: center; color: var(--red); font-weight: 600; }
 .set-foot { text-align: center; font-size: 0.75rem; color: var(--faint); margin: 0.9rem 0 0.1rem; }
-.set-row .theme-seg { flex: none; }
+.set-row .theme-seg { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); width: 11.5rem; }
+.set-row .theme-seg button { text-align: center; padding-inline: 0.2rem; }

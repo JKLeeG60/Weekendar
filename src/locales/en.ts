@@ -559,4 +559,7 @@ export const EN: Record<string, string | [string, string]> = {
   '할 일은 만든 날 목록에만 보여요': 'To-dos only show on the day they were added',
   '알림과 앱': 'Notifications & app',
   '도움말': 'Help',
+
+  // ── 폰 팀 탭 제목 ──
+  '주간예정사항': 'Weekly Schedule',
 }
