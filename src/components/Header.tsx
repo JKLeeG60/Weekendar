@@ -9,7 +9,7 @@ import { ChatButton } from './Chat'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
-  const { team, me, myMember, isAdmin, unreadCount, logout, login, db, mode } = useStore()
+  const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
   const { selected, setSelected, panelOpen, togglePanel, openModal } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   const mon = mondayOf(selected)
@@ -81,11 +81,6 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'settings' }) }}>
                   <span><Icon name="gear" size={15} /> {t('설정')}</span>
                 </button>
-                {myMember && (myMember.role === 'leader' || myMember.role === 'member') && (
-                  <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'tutorial' }) }}>
-                    <span><Icon name="help" size={15} /> {t('사용법 다시 보기')}</span>
-                  </button>
-                )}
                 <button className="menu-item" onClick={() => { setPop(null); logout() }}>
                   <span><Icon name="logout" size={15} /> {t('로그아웃')}</span>
                 </button>
