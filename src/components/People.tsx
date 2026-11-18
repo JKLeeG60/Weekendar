@@ -274,6 +274,20 @@ export function MailModal({ userId }: { userId: string }) {
   const who = me?.email ? `authuser=${encodeURIComponent(me.email)}&` : ''
   const gmail = `https://mail.google.com/mail/?${who}view=cm&fs=1&to=${encodeURIComponent(u.email)}&su=${encodeURIComponent(subject)}`
   const mailto = `mailto:${u.email}?subject=${encodeURIComponent(subject)}`
+  // 휴대폰: 웹 주소로는 Gmail 앱이 받는 사람을 받지 못하므로 앱으로 직접 연다
+  //  · 아이폰: Gmail 앱 주소 (앱이 없으면 1.5초 뒤 기본 메일 앱으로)
+  //  · 안드로이드: mailto (대개 Gmail 이 받는 사람을 채운 채로 열림)
+  const ios = isIOS()
+  const android = /Android/i.test(navigator.userAgent)
+  const openGmail = (e: React.MouseEvent) => {
+    if (!ios && !android) { closeModal(); return } // PC: 링크 그대로 (웹 Gmail 새 창)
+    e.preventDefault()
+    closeModal()
+    if (android) { window.location.href = mailto; return }
+    const timer = window.setTimeout(() => { if (document.visibilityState === 'visible') window.location.href = mailto }, 1500)
+    document.addEventListener('visibilitychange', () => window.clearTimeout(timer), { once: true })
+    window.location.href = `googlegmail:///co?to=${encodeURIComponent(u.email)}&subject=${encodeURIComponent(subject)}`
+  }
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(u.email)
@@ -290,7 +304,7 @@ export function MailModal({ userId }: { userId: string }) {
         <span>{u.name} &lt;{u.email}&gt;</span>
       </div>
       <div className="mail-actions">
-        <a className="btn primary" href={gmail} target="_blank" rel="noopener noreferrer" onClick={closeModal} data-autofocus>
+        <a className="btn primary" href={gmail} target="_blank" rel="noopener noreferrer" onClick={openGmail} data-autofocus>
           <Icon name="mail" size={16} /> {t('Gmail로 쓰기')}
         </a>
         <a className="btn ghost" href={mailto} onClick={closeModal}>{t('기본 메일 앱으로 쓰기')}</a>
