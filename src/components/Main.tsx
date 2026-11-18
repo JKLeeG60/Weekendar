@@ -15,10 +15,17 @@ import { t } from '../lib/i18n'
 import { DayDropStrip, Toast } from './DayDrop'
 import { useAutoTutorial } from './Tutorial'
 import { comboOf, resolveShortcuts, type ShortcutId } from '../lib/shortcuts'
+import { finishGcalConnect } from '../lib/gcal'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen } = useUI()
-  const { myMember, team, me } = useStore()
+  const { myMember, team, me, mode } = useStore()
+  // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
+  useEffect(() => {
+    if (mode !== 'cloud' || !me) return
+    finishGcalConnect().then((msg) => { if (msg) showToast(msg) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, me?.id])
   useAutoTutorial() // 처음 가입한 사람에게만 사용 안내를 한 번 보여준다
 
   // 이미 팀이 있는데 초대 링크로 들어온 경우: 안내하고 코드는 버린다

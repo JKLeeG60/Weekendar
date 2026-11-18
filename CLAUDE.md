@@ -21,7 +21,8 @@
   - `ics.ts` 캘린더 구독 피드 (`/cal/:token` → `/api/ics`)
   - `invite.ts` 초대 링크 미리보기 카드 (`/join/:code` → `/api/invite`)
   - `push.ts` 휴대폰 푸쉬 발송 (Supabase 트리거·pg_cron 이 호출)
-- **Vercel 환경 변수(이름만):** `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `PUSH_SECRET`
+  - `gcal.ts` 구글 캘린더 일정 보내기 (일정별 토글, Supabase 트리거가 호출)
+- **Vercel 환경 변수(이름만):** `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `PUSH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 
 ## 폴더 구조
 - `src/lib/store.tsx` — **체험 모드** 저장소(localStorage `weekendar-v1`). 저장소 인터페이스(`Store`)도 여기 정의.
@@ -35,7 +36,7 @@
 ## DB 변경 규칙
 - DB를 바꿀 때는 새 `supabase/migration_NNN.sql` 을 만들고, 같은 내용을 `schema.sql` 끝에도 덧붙인다.
 - SQL은 **사용자가 Supabase SQL Editor에서 직접 실행**한다. 실행 전에 앱이 배포되면 오류가 나므로 **SQL 실행 → 커밋** 순서로 안내한다.
-- 실행한 마이그레이션: 002, 003, 005~009, 011~021 (004는 없음, 010은 미배포 구글 캘린더 기능용으로 비워 둠)
+- 실행한 마이그레이션: 002, 003, 005~009, 011~022 (004는 없음, 010은 건너뜀 — 구글 캘린더는 022로 대체)
 
 ## 주의할 점
 - 한국 공휴일 규칙이 `src/lib/date.ts` 와 `api/push.ts` **두 곳**에 있다. 공휴일을 바꾸면 둘 다 고친다.

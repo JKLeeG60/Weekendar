@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { connectGcal, disconnectGcal, gcalStatus, resyncGcal, type GcalStatus } from '../lib/gcal'
+import { GcalIcon } from './Modals'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { t, useLang, type LangPref } from '../lib/i18n'
@@ -60,6 +62,7 @@ export function SettingsModal() {
         {installable && (
           <Row icon="addBox" color="#34c759" label={t('홈 화면에 추가')} sub={t('앱처럼 쓰기')} onClick={() => startInstall(() => openLayer({ type: 'install' }), showToast)} />
         )}
+        <GcalRow />
         <Row icon="cal" color="#ff2d55" label={t('캘린더 앱에서 보기')} onClick={() => openLayer({ type: 'calendar' })} />
       </Group>
 
@@ -102,4 +105,35 @@ function Row({ icon, color, label, sub, children, onClick }: {
     </>
   )
   return onClick ? <button className="set-row link" onClick={onClick}>{inner}</button> : <div className="set-row">{inner}</div>
+}
+
+/** 구글 캘린더 연결: 연결 / 다시 보내기 / 연결 끊기 (토글을 켠 일정만 보냄) */
+function GcalRow() {
+  const { mode } = useStore()
+  const { showToast } = useUI()
+  const [st, setSt] = useState<GcalStatus | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (mode === 'cloud') gcalStatus().then(setSt) }, [mode])
+  const sub = mode !== 'cloud'
+    ? t('체험 모드에서는 연결할 수 없어요')
+    : !st ? t('확인하는 중…')
+    : st.broken ? t('연결이 끊겼어요. 다시 연결해 주세요')
+    : st.connected ? t('연결됨 · "구글 캘린더에 추가"를 켠 일정만 보내요')
+    : t('일정마다 켜면 내 구글 캘린더에도 저장돼요')
+  return (
+    <div className="set-row">
+      <span className="set-ic gcal-set-ic"><GcalIcon size={20} /></span>
+      <span className="set-text">{t('구글 캘린더')}<small>{sub}</small></span>
+      {mode === 'cloud' && st && (
+        st.connected && !st.broken ? (
+          <span className="set-btns">
+            <button className="btn small ghost" disabled={busy} onClick={async () => { setBusy(true); showToast(await resyncGcal()); setBusy(false) }}>{t('다시 보내기')}</button>
+            <button className="btn small ghost danger-text" onClick={async () => { await disconnectGcal(); setSt({ connected: false, broken: false }); showToast(t('구글 캘린더 연결을 끊었어요')) }}>{t('연결 끊기')}</button>
+          </span>
+        ) : (
+          <button className="btn small primary" onClick={() => connectGcal()}>{st.broken ? t('다시 연결') : t('연결')}</button>
+        )
+      )}
+    </div>
+  )
 }

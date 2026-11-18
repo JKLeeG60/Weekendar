@@ -2,5 +2,8 @@
   "rewrites": [
     { "source": "/cal/:token", "destination": "/api/ics?token=:token" },
     { "source": "/join/:code", "destination": "/api/invite?code=:code" }
-  ]
+  ],
+  "functions": {
+    "api/gcal.ts": { "maxDuration": 60 }
+  }
 }

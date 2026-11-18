@@ -17,6 +17,7 @@ import { TutorialModal } from './Tutorial'
 import { SettingsModal } from './Settings'
 import { QuickAddModal } from './QuickAdd'
 import { ShortcutsModal } from './Shortcuts'
+import { connectGcal, gcalStatus } from '../lib/gcal'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
@@ -71,7 +72,7 @@ const addHour = (t: string) => {
 }
 
 function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean; draft?: Partial<EventItem> }) {
-  const { db, addEvent, updateEvent, deleteEvent } = useStore()
+  const { db, addEvent, updateEvent, deleteEvent, mode } = useStore()
   const { closeModal, showToast } = useUI()
   const base: EventItem | undefined = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
   const [title, setTitle] = useState(base?.title ?? titleHint ?? '')
@@ -83,6 +84,13 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
   const [repeat, setRepeat] = useState<Repeat>(base?.repeat ?? 'none')
   const [shared, setShared] = useState(base?.shared ?? sharedHint ?? true) // 기본값: 팀에 공유 ON
   const [remind, setRemind] = useState<number | undefined>(base?.remind)
+  // 구글 캘린더에 추가 (기본 꺼짐). 실서비스에서만 연결 상태를 확인한다
+  const [gcal, setGcal] = useState(base?.gcal ?? false)
+  const [linked, setLinked] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (mode !== 'cloud') return
+    gcalStatus().then((s) => setLinked(s.connected && !s.broken))
+  }, [mode])
   // 여러 날(종일) 일정: 예) 월~수 출장
   const [multi, setMulti] = useState(base ? isMultiDay(base) : !!draft?.endDate)
   const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : draft?.endDate ?? addDays(base?.date ?? date, 2))
@@ -92,13 +100,20 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
     setCategory(c)
   }
 
-  function save() {
+  async function save() {
     const data = multi
-      ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category, repeat: 'none' as Repeat, shared, remind: undefined }
-      : { title: title.trim(), date: d, endDate: undefined, start, end, place: place.trim(), category, repeat, shared, remind }
+      ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category, repeat: 'none' as Repeat, shared, remind: undefined, gcal }
+      : { title: title.trim(), date: d, endDate: undefined, start, end, place: place.trim(), category, repeat, shared, remind, gcal }
     if (data.remind !== undefined) askNotifyPermission()
-    if (base) updateEvent(base.id, data)
-    else addEvent(data)
+    // 구글에 아직 연결하지 않았으면: 저장을 끝낸 뒤 구글 연결 화면으로 (돌아오면 이 일정이 구글로 감)
+    const needLink = gcal && mode === 'cloud' && linked === false
+    const saving = base ? updateEvent(base.id, data) : addEvent(data)
+    if (needLink) {
+      await (saving as unknown as Promise<void>)
+      showToast(t('구글 캘린더 연결 화면으로 이동해요'))
+      connectGcal()
+      return
+    }
     closeModal()
     showToast(shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
   }
@@ -180,6 +195,21 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
             </div>
             <Switch on={shared} onChange={(v) => setShared(v)} label={t('팀에 공유')} />
           </div>
+          <div className="gr">
+            <div className="gr-text">
+              <span className="gcal-label"><GcalIcon />{t('구글 캘린더에 추가')}</span>
+              <small>
+                {mode !== 'cloud'
+                  ? t('체험 모드에서는 구글로 보내지 않아요')
+                  : !gcal
+                    ? t('켜면 내 구글 캘린더의 "Weekendar" 캘린더에도 저장돼요')
+                    : linked === false
+                      ? t('처음 한 번 구글 계정 연결이 필요해요 · 저장하면 연결 화면으로 이동')
+                      : t('내 구글 캘린더의 "Weekendar" 캘린더에 함께 저장돼요')}
+              </small>
+            </div>
+            <Switch on={gcal} onChange={(v) => setGcal(v)} label={t('구글 캘린더에 추가')} />
+          </div>
         </div>
         {base && base.repeat !== 'none' && <p className="hint">{t('반복 일정은 수정·삭제 시 모든 날짜에 적용됩니다.')}</p>}
       </div>
@@ -224,6 +254,7 @@ function EventDetail({ occ }: { occ: Occurrence }) {
           <p className="detail-line"><Icon name="clock" size={15} /> {isMultiDay(occ) ? `${spanLabel(occ)} · ${t('종일')}` : `${fmtLong(occ.date)} · ${occ.start}–${occ.end}${occ.repeat !== 'none' ? ` · ${t(REPEAT_LABEL[occ.repeat] + ' 반복')}` : ''}`}</p>
           {occ.place && <p className="detail-line"><Icon name="pin" size={15} /> {occ.place}</p>}
           <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ` (${t('팀장')})` : ''} · {occ.shared ? t('팀에 공유') : t('나만 보기')}</p>
+          {occ.gcal && occ.ownerId === me?.id && <p className="detail-line"><GcalIcon /> {t('구글 캘린더에도 저장된 일정')}</p>}
           <span className="cat-tag" data-cat={occ.category}>{t(CATEGORY_LABEL[occ.category])}</span>
         </div>
       </div>
@@ -735,5 +766,16 @@ function LeaveModal() {
         </>
       )}
     </Modal>
+  )
+}
+
+/** 구글 캘린더 모양 작은 아이콘 */
+export function GcalIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="gcal-ic">
+      <rect x="3" y="4" width="18" height="17" rx="3" fill="#fff" stroke="#dadce0" />
+      <rect x="3" y="4" width="18" height="5" rx="2" fill="#4285f4" />
+      <text x="12" y="18.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="#4285f4" fontFamily="Arial">31</text>
+    </svg>
   )
 }

@@ -1300,3 +1300,10 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .kbd-btn.wait { color: var(--accent); font-weight: 600; animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 .keys-foot { display: flex; justify-content: flex-end; margin-top: 0.9rem; }
+
+/* ───────── 구글 캘린더에 추가 ───────── */
+.gcal-label { display: inline-flex; align-items: center; gap: 0.4rem; }
+.gcal-ic { flex: none; vertical-align: -3px; }
+.gcal-set-ic { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.set-btns { display: flex; gap: 0.3rem; flex: none; }
+.btn.danger-text { color: var(--red); }

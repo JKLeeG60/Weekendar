@@ -56,6 +56,8 @@ export interface EventItem {
   endDate?: string
   /** 미리 알림: 시작 몇 분 전 (없으면 알림 없음) */
   remind?: number
+  /** 구글 캘린더에도 추가 (켠 일정만 구글의 "Weekendar" 캘린더로 보냄) */
+  gcal?: boolean
 }
 
 export interface Occurrence extends EventItem {

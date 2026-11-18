@@ -14,6 +14,7 @@ const evFrom = (r: any): EventItem => ({
   start: r.start_time, end: r.end_time, place: r.place ?? '', category: r.category,
   shared: r.shared, repeat: r.repeat_rule, until: r.until ?? undefined, endDate: r.end_date ?? undefined,
   remind: r.remind_min ?? undefined,
+  gcal: !!r.gcal,
 })
 const evTo = (e: Partial<EventItem>) => {
   const o: Record<string, unknown> = {}
@@ -28,6 +29,7 @@ const evTo = (e: Partial<EventItem>) => {
   if ('until' in e) o.until = e.until || null
   if ('endDate' in e) o.end_date = e.endDate || null
   if ('remind' in e) o.remind_min = e.remind ?? null
+  if (e.gcal !== undefined) o.gcal = e.gcal
   return o
 }
 const todoFrom = (r: any): Todo => ({
