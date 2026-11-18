@@ -5,7 +5,7 @@ import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
 import { fmtHead, fmtLong, weekDays } from '../lib/date'
 import { ALL, ALL_EN, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
-import { getLang, t } from '../lib/i18n'
+import { getLang, localize, t } from '../lib/i18n'
 import type { ChatRef, Message } from '../lib/types'
 import { Avatar, Icon } from './ui'
 
@@ -120,16 +120,46 @@ export function ChatWindow() {
 
 /** 대화창: [팀 대화 | 1:1 대화] 탭 (데스크탑 창과 모바일 탭에서 함께 사용) */
 export function ChatPanel({ onClose }: { onClose?: () => void }) {
-  const { team, tableMembers, userOf, chatUnread, dmUnread } = useStore()
+  const { team, tableMembers, userOf, chatUnread, dmUnread, rooms, me, createRoom, inviteToRoom, leaveRoom } = useStore()
   const { chatTab, setChatTab, dmPeer, setDmPeer } = useUI()
-  const peer = chatTab === 'dm' ? dmPeer : null
+  const sel = chatTab === 'dm' ? dmPeer : null
+  // "room:방id" 이면 그룹 대화방, 아니면 1:1 상대 id
+  const roomId = sel?.startsWith('room:') ? sel.slice(5) : null
+  const peer = roomId ? null : sel
   const peerMember = tableMembers.find((m) => m.userId === peer)
+  const room = roomId ? rooms.find((r) => r.id === roomId) : undefined
+  const roomOthers = room ? room.memberIds.filter((x) => x !== me?.id) : []
+  const [invite, setInvite] = useState(false)
+  // 방이 없어지면(나가기 등) 목록으로
+  useEffect(() => { if (roomId && !room) setDmPeer(null) }, [roomId, room, setDmPeer])
   return (
     <section className="chat">
       <header className="chat-head">
-        {peer ? (
+        {room ? (
           <>
-            <button className="icon-btn dm-back" onClick={() => setDmPeer(null)} aria-label={t('1:1 대화 목록')}>
+            <button className="icon-btn dm-back" onClick={() => setDmPeer(null)} aria-label={t('개인 대화 목록')}>
+              <Icon name="chevL" size={18} />
+            </button>
+            <GroupAvatar ids={roomOthers} size={30} />
+            <div className="dm-who">
+              <strong>{roomOthers.map((x) => userOf(x).name).join(', ')}</strong>
+              <small>{t('그룹 대화 · {n}명', { n: room.memberIds.length })}</small>
+            </div>
+            <button className="icon-btn dm-tool" onClick={() => setInvite(true)} aria-label={t('대화상대 초대')} title={t('대화상대 초대')}>
+              <Icon name="userPlus" size={18} />
+            </button>
+            <button
+              className="icon-btn dm-tool"
+              onClick={() => { if (window.confirm(t('이 대화방에서 나갈까요? 나가면 대화 내용이 내 목록에서 사라져요.'))) leaveRoom(room.id) }}
+              aria-label={t('대화방 나가기')}
+              title={t('대화방 나가기')}
+            >
+              <Icon name="logout" size={17} />
+            </button>
+          </>
+        ) : peer ? (
+          <>
+            <button className="icon-btn dm-back" onClick={() => setDmPeer(null)} aria-label={t('개인 대화 목록')}>
               <Icon name="chevL" size={18} />
             </button>
             <Avatar name={userOf(peer).name} size={28} />
@@ -137,6 +167,9 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
               <strong>{userOf(peer).name}</strong>
               <small>{peerMember?.role === 'leader' ? t('팀장') + ' · ' : peerMember?.title ? peerMember.title + ' · ' : ''}{t('1:1 대화')}</small>
             </div>
+            <button className="icon-btn dm-tool" onClick={() => setInvite(true)} aria-label={t('대화상대 초대')} title={t('대화상대 초대')}>
+              <Icon name="userPlus" size={18} />
+            </button>
           </>
         ) : (
           <>
@@ -155,17 +188,36 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           {t('팀 대화')}{chatUnread > 0 && <em>{chatUnread > 99 ? '99+' : chatUnread}</em>}
         </button>
         <button role="tab" aria-selected={chatTab === 'dm'} className={chatTab === 'dm' ? 'on' : ''} onClick={() => setChatTab('dm')}>
-          {t('1:1 대화')}{dmUnread > 0 && <em>{dmUnread > 99 ? '99+' : dmUnread}</em>}
+          {t('개인 대화')}{dmUnread > 0 && <em>{dmUnread > 99 ? '99+' : dmUnread}</em>}
         </button>
       </div>
-      {chatTab === 'team' ? <ChatBody key="team" /> : peer ? <ChatBody key={peer} peer={peer} /> : <DmList onPick={setDmPeer} />}
+      {chatTab === 'team' ? <ChatBody key="team" /> : room ? <ChatBody key={sel!} room={room.id} /> : peer ? <ChatBody key={peer} peer={peer} /> : <DmList onPick={setDmPeer} />}
+      {invite && (peer || room) && (
+        <InviteSheet
+          locked={room ? room.memberIds.filter((x) => x !== me?.id) : [peer!]}
+          group={!!room}
+          onClose={() => setInvite(false)}
+          onDone={async (ids) => {
+            setInvite(false)
+            if (room) { inviteToRoom(room.id, ids); return }
+            const id = await createRoom([peer!, ...ids])
+            if (id) setDmPeer('room:' + id)
+          }}
+        />
+      )}
     </section>
   )
 }
 
 /** 1:1 대화 목록: 대화한 사람(최근 먼저) + 아직 대화하지 않은 팀원 */
 function DmList({ onPick }: { onPick: (id: string) => void }) {
-  const { dmThreads, tableMembers, userOf, me } = useStore()
+  const { dmThreads, tableMembers, userOf, me, rooms } = useStore()
+  // 1:1 대화와 그룹 대화방을 최근 대화 순서로 함께
+  const rows = [
+    ...dmThreads.map((th) => ({ kind: 'dm' as const, at: th.last.createdAt, th })),
+    ...rooms.map((r) => ({ kind: 'room' as const, at: r.last?.createdAt ?? r.joinedAt, r })),
+  ].sort((a, b) => b.at - a.at)
+  const lastText = (m: Message) => m.system ? localize(m.body) : m.deleted ? t('삭제된 메시지예요') : m.body || (m.ref ? t('일정을 공유했어요') : '')
   const talked = new Set(dmThreads.map((x) => x.peerId))
   const others = tableMembers.filter((m) => m.userId !== me?.id && !talked.has(m.userId))
   const sub = (id: string) => {
@@ -174,20 +226,40 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
   }
   return (
     <div className="dm-list">
-      {dmThreads.map((th) => (
+      {rows.map((row) => {
+        if (row.kind === 'room') {
+          const r = row.r
+          const others = r.memberIds.filter((x) => x !== me?.id)
+          return (
+            <button key={'room:' + r.id} className="dm-row" onClick={() => onPick('room:' + r.id)}>
+              <GroupAvatar ids={others} size={38} />
+              <span className="dm-txt">
+                <b>{others.map((x) => userOf(x).name).join(', ')} <small>{r.memberIds.length}</small></b>
+                <span>{r.last ? (r.last.system || r.last.authorId === me?.id ? '' : userOf(r.last.authorId).name + ': ') + lastText(r.last) : t('그룹 대화를 시작했어요')}</span>
+              </span>
+              <span className="dm-side">
+                {r.last && <time>{timeLabel(r.last.createdAt)}</time>}
+                {r.unread > 0 && <em>{r.unread}</em>}
+              </span>
+            </button>
+          )
+        }
+        const th = row.th
+        return (
         <button key={th.peerId} className="dm-row" onClick={() => onPick(th.peerId)}>
           <Avatar name={userOf(th.peerId).name} size={38} />
           <span className="dm-txt">
             <b>{userOf(th.peerId).name} <small>{sub(th.peerId)}</small></b>
-            <span>{th.last.deleted ? t('삭제된 메시지예요') : th.last.body || (th.last.ref ? t('일정을 공유했어요') : '')}</span>
+            <span>{lastText(th.last)}</span>
           </span>
           <span className="dm-side">
             <time>{timeLabel(th.last.createdAt)}</time>
             {th.unread > 0 && <em>{th.unread}</em>}
           </span>
         </button>
-      ))}
-      {others.length > 0 && <div className="dm-label">{dmThreads.length ? t('새 대화 시작') : t('대화할 팀원을 고르세요')}</div>}
+        )
+      })}
+      {others.length > 0 && <div className="dm-label">{rows.length ? t('새 대화 시작') : t('대화할 팀원을 고르세요')}</div>}
       {others.map((m) => (
         <button key={m.userId} className="dm-row new" onClick={() => onPick(m.userId)}>
           <Avatar name={userOf(m.userId).name} size={38} />
@@ -197,16 +269,19 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
           <span className="dm-side"><Icon name="chat" size={16} /></span>
         </button>
       ))}
-      {dmThreads.length === 0 && others.length === 0 && <p className="chat-empty">{t('대화할 팀원이 아직 없어요.')}</p>}
+      {rows.length === 0 && others.length === 0 && <p className="chat-empty">{t('대화할 팀원이 아직 없어요.')}</p>}
     </div>
   )
 }
 
 /** 메시지 목록 + 입력창. peer 가 있으면 그 사람과의 1:1 대화 */
-function ChatBody({ peer }: { peer?: string }) {
-  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react } = useStore()
-  const messages = peer ? dmMessages(peer) : teamMessages
-  const markRead = peer ? () => markDmRead(peer) : markChatRead
+function ChatBody({ peer, room }: { peer?: string; room?: string }) {
+  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react, rooms, roomMessages, markRoomRead } = useStore()
+  // 대화 종류: 그룹 대화방 / 1:1 / 팀 대화
+  const roomInfo = room ? rooms.find((r) => r.id === room) : undefined
+  const messages = room ? roomMessages(room) : peer ? dmMessages(peer) : teamMessages
+  const markRead = room ? () => markRoomRead(room) : peer ? () => markDmRead(peer) : markChatRead
+  const priv = !!(peer || room) // 1:1·그룹은 @호출 없음
   const { openModal, isMobile, showToast } = useUI()
   const [receipt, setReceipt] = useState<{ m: Message; rect: DOMRect } | null>(null)
   // 답장할 메시지, 메시지 메뉴, 이모지 줄·전체 고르기, 반응한 사람, 전달하기
@@ -248,7 +323,7 @@ function ChatBody({ peer }: { peer?: string }) {
 
   // @ 입력 중이면 팀원 목록
   // 1:1 대화에서는 @호출 목록을 띄우지 않는다
-  const q = peer ? null : /@(\S*)$/.exec(text.slice(0, caret))
+  const q = priv ? null : /@(\S*)$/.exec(text.slice(0, caret))
   const people = tableMembers
     .filter((m) => m.userId !== me?.id)
     .map((m) => ({ id: m.userId, name: userOf(m.userId).name, sub: m.role === 'leader' ? t('팀장') : m.title }))
@@ -269,7 +344,7 @@ function ChatBody({ peer }: { peer?: string }) {
 
   function send() {
     if (!text.trim() && !ref) return
-    sendMessage(text, ref ?? undefined, peer, replyTo ? { replyTo: replyTo.id } : undefined)
+    sendMessage(text, ref ?? undefined, peer, room || replyTo ? { ...(replyTo ? { replyTo: replyTo.id } : {}), ...(room ? { roomId: room } : {}) } : undefined)
     setText('')
     setCaret(0)
     setRef(null)
@@ -344,13 +419,20 @@ function ChatBody({ peer }: { peer?: string }) {
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
           <p className="chat-empty">
-            {peer ? t('{name}님과 아직 대화가 없어요. 첫 메시지를 남겨보세요.', { name: userOf(peer).name }) : t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}
+            {peer && !room ? t('{name}님과 아직 대화가 없어요. 첫 메시지를 남겨보세요.', { name: userOf(peer).name }) : t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}
           </p>
         )}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
           const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt)
-          const grouped = !newDay && prev && prev.authorId === m.authorId && m.createdAt - prev.createdAt < 5 * 60000
+          const grouped = !newDay && prev && !prev.system && prev.authorId === m.authorId && m.createdAt - prev.createdAt < 5 * 60000
+          // 초대·나가기 안내는 가운데 회색 글씨
+          if (m.system) return (
+            <Fragment key={m.id}>
+              {newDay && <span className="chat-day">{fmtLong(dayKey(m.createdAt))}</span>}
+              <span className="chat-sys">{localize(m.body)}</span>
+            </Fragment>
+          )
           return (
             <Fragment key={m.id}>
               {newDay && <span className="chat-day">{fmtLong(dayKey(m.createdAt))}</span>}
@@ -386,7 +468,7 @@ function ChatBody({ peer }: { peer?: string }) {
           m={receipt.m}
           rect={receipt.rect}
           load={getReadReceipts}
-          people={tableMembers.filter((x) => x.userId !== receipt.m.authorId && (!peer || x.userId === peer)).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
+          people={tableMembers.filter((x) => x.userId !== receipt.m.authorId && (room ? !!roomInfo?.memberIds.includes(x.userId) : !peer || x.userId === peer)).map((x) => ({ id: x.userId, name: userOf(x.userId).name, leader: x.role === 'leader' }))}
           onClose={() => setReceipt(null)}
         />
       )}
@@ -434,6 +516,7 @@ function ChatBody({ peer }: { peer?: string }) {
       )}
 
       {peer && <div className="dm-lock">🔒 {t('두 사람만 볼 수 있는 대화예요')}</div>}
+      {roomInfo && <div className="dm-lock">🔒 {t('{n}명만 볼 수 있는 대화예요', { n: roomInfo.memberIds.length })}</div>}
       <footer className="chat-foot">
         {options.length > 0 && (
           <div className="mention-pick" role="listbox" aria-label={t('호출할 사람')}>
@@ -492,7 +575,7 @@ function ChatBody({ peer }: { peer?: string }) {
             rows={1}
             value={text}
             maxLength={1000}
-            placeholder={peer ? t('{name}님에게 메시지', { name: userOf(peer).name }) : t('메시지 입력 (@로 호출)')}
+            placeholder={room ? t('메시지 입력') : peer ? t('{name}님에게 메시지', { name: userOf(peer).name }) : t('메시지 입력 (@로 호출)')}
             onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setPickIdx(0) }}
             onSelect={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart)}
             onKeyDown={onKey}
@@ -996,5 +1079,81 @@ function ReadReceipts(props: {
         <div className="rr-lock">{t('읽은 시각은 보낸 사람에게만 보여요')}</div>
       </div>
     </>
+  )
+}
+
+/** 그룹 대화방 사진: 사람 사진을 최대 3장 겹쳐서 */
+function GroupAvatar({ ids, size }: { ids: string[]; size: number }) {
+  const { userOf } = useStore()
+  const show = ids.slice(0, 3)
+  const s = Math.round(size * 0.66)
+  const spots = show.length === 1 ? [[0, 0]] : show.length === 2 ? [[0, 0], [size - s, size - s]] : [[0, 0], [size - s, 2], [(size - s) / 2, size - s]]
+  return (
+    <span className="group-av" style={{ width: size, height: size }} aria-hidden="true">
+      {show.map((id, i) => (
+        <span key={id} style={{ left: spots[i][0], top: spots[i][1] }}>
+          <Avatar name={userOf(id).name} size={show.length === 1 ? size : s} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/**
+ * 대화상대 초대: 팀원을 체크해서 고른다 (여러 명)
+ * - locked: 이미 대화에 있는 사람 (회색 체크, 바꿀 수 없음)
+ * - 1:1 대화에서 고르면 새 그룹 대화방, 그룹 대화방에서 고르면 그 방에 초대
+ */
+function InviteSheet({ locked, group, onClose, onDone }: { locked: string[]; group: boolean; onClose: () => void; onDone: (ids: string[]) => void }) {
+  const { tableMembers, userOf, me } = useStore()
+  const { isMobile } = useUI()
+  useEsc(onClose)
+  const [picked, setPicked] = useState<string[]>([])
+  const people = tableMembers.filter((m) => m.userId !== me?.id)
+  const toggle = (id: string) => setPicked((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]))
+  const sub = (id: string) => {
+    const m = tableMembers.find((x) => x.userId === id)
+    return m?.role === 'leader' ? t('팀장') : m?.title ?? ''
+  }
+  const chosen = [...locked, ...picked]
+  const label = picked.length === 0
+    ? t('초대할 사람을 고르세요')
+    : group
+      ? t('{n}명 초대하기', { n: picked.length })
+      : t('{n}명과 그룹 대화 시작', { n: chosen.length })
+  return createPortal(
+    <>
+      <div className="mm-scrim dim" onPointerDown={onClose} />
+      <div className={'inv-sheet' + (isMobile ? ' sheet' : '')} role="dialog" aria-label={t('대화상대 초대')}>
+        <div className="emo-head">
+          <b>{t('대화상대 초대')}</b>
+          <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="inv-chips">
+          {chosen.map((id) => (
+            <button key={id} className="inv-chip" onClick={() => !locked.includes(id) && toggle(id)} disabled={locked.includes(id)} aria-label={userOf(id).name}>
+              <Avatar name={userOf(id).name} size={38} />
+              <span>{userOf(id).name}</span>
+              {!locked.includes(id) && <i><Icon name="x" size={10} /></i>}
+            </button>
+          ))}
+        </div>
+        <div className="inv-list">
+          {people.map((m) => {
+            const lock = locked.includes(m.userId)
+            const on = lock || picked.includes(m.userId)
+            return (
+              <button key={m.userId} className="inv-row" onClick={() => !lock && toggle(m.userId)} disabled={lock} role="checkbox" aria-checked={on}>
+                <Avatar name={userOf(m.userId).name} size={34} />
+                <span className="inv-name">{userOf(m.userId).name} <small>{sub(m.userId)}</small></span>
+                <span className={'inv-ck' + (lock ? ' lock' : on ? ' on' : '')}>{on && <Icon name="check" size={14} />}</span>
+              </button>
+            )
+          })}
+        </div>
+        <button className="fwd-send" disabled={picked.length === 0} onClick={() => onDone(picked)}>{label}</button>
+      </div>
+    </>,
+    document.body,
   )
 }

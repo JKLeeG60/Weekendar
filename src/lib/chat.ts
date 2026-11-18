@@ -1,5 +1,5 @@
 import { fmtTime } from './date'
-import type { Message } from './types'
+import type { ChatRoom, Message } from './types'
 
 export const ALL = '전체'
 /** 영어 화면에서 쓰는 @all (한국어 @전체 와 똑같이 팀 모두를 부른다) */
@@ -61,3 +61,29 @@ export function timeLabel(ms: number) {
   const d = new Date(ms)
   return fmtTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
 }
+
+/** 그룹 대화방 목록 한 줄: 방 사람, 마지막 메시지, 안 읽은 수 */
+export interface RoomThread { id: string; memberIds: string[]; last: Message | null; unread: number; joinedAt: number }
+
+/** 내가 들어가 있는 대화방들 (최근 대화 먼저). 내가 들어온 뒤의 메시지만 센다 */
+export function roomThreads(rooms: ChatRoom[], messages: Message[], me: string | null | undefined, teamId?: string): RoomThread[] {
+  const out: RoomThread[] = []
+  for (const r of rooms) {
+    if (teamId && r.teamId !== teamId) continue
+    const mine = r.members.find((x) => x.userId === me)
+    if (!mine) continue
+    const list = messages.filter((m) => m.roomId === r.id && m.createdAt >= mine.joinedAt)
+    out.push({
+      id: r.id,
+      memberIds: r.members.map((x) => x.userId),
+      last: list.length ? list[list.length - 1] : null,
+      unread: list.filter((m) => m.authorId !== me && !m.deleted && !m.system && m.createdAt > mine.lastReadAt).length,
+      joinedAt: mine.joinedAt,
+    })
+  }
+  return out.sort((a, b) => (b.last?.createdAt ?? b.joinedAt) - (a.last?.createdAt ?? a.joinedAt))
+}
+
+/** 대화방 안내 문장 (서버 migration_020 과 같은 모양: "김하늘님이 박서준님, 최유리님을 초대했어요") */
+export const inviteNotice = (who: string, names: string[]) => `${who}님이 ${names.map((n) => n + '님').join(', ')}을 초대했어요`
+export const leaveNotice = (who: string) => `${who}님이 나갔어요`

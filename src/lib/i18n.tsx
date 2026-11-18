@@ -78,6 +78,10 @@ export function localize(s: string): string {
   if (cur === 'ko' || !s) return s
   if (EN[s] !== undefined) return t(s)
   let m: RegExpMatchArray | null
+  // 그룹 대화방 안내 (서버 migration_020 · 체험 모드가 만드는 문장)
+  if ((m = s.match(/^(.+?)님이 (.+)님을 초대했어요$/)))
+    return t('{name}님이 {names}님을 초대했어요', { name: m[1], names: m[2].split('님, ').join(', ') })
+  if ((m = s.match(/^(.+)님이 나갔어요$/))) return t('{name}님이 나갔어요', { name: m[1] })
   if ((m = s.match(/^(.+)님이 팀 참여를 요청했(?:어요|습니다)\.?$/))) return t('{name}님이 팀 참여를 요청했어요', { name: m[1] })
   if ((m = s.match(/^(.+)님이 일정 (추가|수정|삭제)을(?:\(를\))? 요청했(?:어요|습니다)\.?$/)))
     return t('{name}님이 일정 {verb}을 요청했어요', { name: m[1], verb: VERB[m[2]] })

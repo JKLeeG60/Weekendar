@@ -562,4 +562,19 @@ export const EN: Record<string, string | [string, string]> = {
 
   // ── 폰 팀 탭 제목 ──
   '주간예정사항': 'Weekly Schedule',
+
+  // ── 그룹 대화 ──
+  '개인 대화': 'Direct',
+  '개인 대화 목록': 'Direct messages',
+  '대화상대 초대': 'Invite',
+  '대화방 나가기': 'Leave chat',
+  '이 대화방에서 나갈까요? 나가면 대화 내용이 내 목록에서 사라져요.': 'Leave this chat? It will disappear from your list.',
+  '그룹 대화 · {n}명': ['Group · {n} person', 'Group · {n} people'],
+  '그룹 대화를 시작했어요': 'Group chat started',
+  '{n}명만 볼 수 있는 대화예요': ['Only {n} person can see this chat', 'Only these {n} people can see this chat'],
+  '초대할 사람을 고르세요': 'Choose people to invite',
+  '{n}명 초대하기': ['Invite {n} person', 'Invite {n} people'],
+  '{n}명과 그룹 대화 시작': ['Start a group chat with {n} person', 'Start a group chat with {n} people'],
+  '{name}님이 {names}님을 초대했어요': '{name} invited {names}',
+  '{name}님이 나갔어요': '{name} left',
 }

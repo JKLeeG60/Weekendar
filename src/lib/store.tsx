@@ -5,7 +5,7 @@
  * 실제 서비스에서는 DB 의 RLS 가 강제한다.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { chatCounts, dmPeer, dmThreads, parseMentions } from './chat'
+import { chatCounts, dmPeer, dmThreads, inviteNotice, leaveNotice, parseMentions, roomThreads, type RoomThread } from './chat'
 import type {
   Category,
   ChangeRequest,
@@ -153,7 +153,20 @@ function seed(): DB {
     [messages[3].id]: { u_leader: '🙏' },
   }
 
-  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, reactions, currentUserId: null }
+  // 그룹 대화방 예시: 김하늘 · 박서준 · 최유리 · 정다은
+  const roomId = uid()
+  const joined = ago(120)
+  const rooms = [{
+    id: roomId, teamId,
+    members: ['u_admin', 'u_leader', 'u_m3', 'u_m4'].map((userId) => ({ userId, joinedAt: joined, lastReadAt: userId === 'u_admin' ? ago(30) : ago(5) })),
+  }]
+  messages.push(
+    { ...msg('u_admin', inviteNotice('김하늘', ['박서준', '최유리', '정다은']), 120), roomId, system: true },
+    msg('u_leader', '목요일 고객사 발표 자료는 이 방에서 정리해요', 40, { roomId }),
+    msg('u_m4', '네, 초안 오늘 오후에 올릴게요', 8, { roomId }),
+  )
+
+  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, reactions, rooms, currentUserId: null }
 }
 
 function load(): DB {
@@ -240,6 +253,18 @@ export interface Store {
   /** 이 사람과의 1:1 대화 (오래된 것부터) */
   dmMessages: (peerId: string) => Message[]
   markDmRead: (peerId: string) => void
+  // 그룹 대화방
+  /** 내가 들어가 있는 대화방 (최근 대화 먼저) */
+  rooms: RoomThread[]
+  /** 이 방의 대화 (내가 들어온 뒤의 것만, 오래된 것부터) */
+  roomMessages: (roomId: string) => Message[]
+  /** 나 + 고른 사람(2명 이상)으로 새 방을 만들고 방 id 를 돌려준다 */
+  createRoom: (memberIds: string[]) => Promise<string | null>
+  /** 방에 사람 더하기 (들어온 사람은 그 뒤의 대화만 봄) */
+  inviteToRoom: (roomId: string, memberIds: string[]) => void
+  /** 방 나가기 ("○○님이 나갔어요"가 남음) */
+  leaveRoom: (roomId: string) => void
+  markRoomRead: (roomId: string) => void
   /** 내가 보낸 메시지의 읽음 기록 (사람 id → 읽은 시각). 남의 메시지는 빈 값 */
   getReadReceipts: (messageId: string) => Promise<Record<string, number>>
   /** 메시지 id → (사람 id → 이모지) */
@@ -251,7 +276,7 @@ export interface Store {
 }
 
 /** 보낼 때 덧붙이는 정보: 답장 대상, 전달 여부 */
-export interface SendOpts { replyTo?: string; forwarded?: boolean }
+export interface SendOpts { replyTo?: string; forwarded?: boolean; roomId?: string }
 
 export const Ctx = createContext<Store | null>(null)
 export const useStore = () => {
@@ -312,12 +337,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const inTeam = db.messages
       .filter((m) => m.teamId === myMember?.teamId && myMember?.role !== 'pending')
       .sort((a, b) => a.createdAt - b.createdAt)
-    const messages = inTeam.filter((m) => !m.toId)
+    const messages = inTeam.filter((m) => !m.toId && !m.roomId)
     // 1:1 대화: 내가 보냈거나 나에게 온 것만
     const meId = db.currentUserId
     const dms = inTeam.filter((m) => m.toId && (m.authorId === meId || m.toId === meId))
     const threads = dmThreads(dms, meId, db.dmReads ?? {})
-    const dmUnread = threads.reduce((a, x) => a + x.unread, 0)
+    // 그룹 대화방: 내가 들어간 방, 들어온 뒤의 대화만
+    const rooms = roomThreads(db.rooms ?? [], inTeam, meId, myMember?.teamId)
+    const roomMessages = (roomId: string) => {
+      const r = rooms.find((x) => x.id === roomId)
+      return r ? inTeam.filter((m) => m.roomId === roomId && m.createdAt >= r.joinedAt) : []
+    }
+    // 개인 대화 탭의 안 읽은 수 = 1:1 + 그룹
+    const dmUnread = threads.reduce((a, x) => a + x.unread, 0) + rooms.reduce((a, x) => a + x.unread, 0)
     const dmMessages = (peerId: string) => dms.filter((m) => dmPeer(m, meId) === peerId)
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(
       messages, db.currentUserId, db.chatReads[db.currentUserId ?? ''] ?? 0,
@@ -331,7 +363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       mode: 'demo', loading: false, loginGoogle: () => {},
-      messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages,
+      messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages,
       db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
@@ -564,15 +596,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if ((!text && !ref) || !myMember || !db.currentUserId) return
         const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
         // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
-        const { mentions, mentionAll } = toId || opts?.forwarded ? { mentions: [], mentionAll: false } : parseMentions(text, people)
+        const { mentions, mentionAll } = toId || opts?.roomId || opts?.forwarded ? { mentions: [], mentionAll: false } : parseMentions(text, people)
         const m: Message = {
           id: uid(), teamId: myMember.teamId, authorId: db.currentUserId, body: text,
           mentions: mentions.filter((id) => id !== db.currentUserId), mentionAll, ref, createdAt: Date.now(),
           ...(toId ? { toId } : {}),
+          ...(opts?.roomId ? { roomId: opts.roomId } : {}),
           ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
           ...(opts?.forwarded ? { forwarded: true } : {}),
         }
-        set((p) => toId
+        const rid = opts?.roomId
+        set((p) => rid
+          ? { ...p, messages: [...p.messages, m], rooms: (p.rooms ?? []).map((r) => (r.id === rid ? { ...r, members: r.members.map((x) => (x.userId === m.authorId ? { ...x, lastReadAt: m.createdAt } : x)) } : r)) }
+          : toId
           ? { ...p, messages: [...p.messages, m], dmReads: { ...p.dmReads, [`${m.authorId}>${toId}`]: m.createdAt } }
           : { ...p, messages: [...p.messages, m], chatReads: { ...p.chatReads, [m.authorId]: m.createdAt } })
       },
@@ -619,6 +655,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (!reads[m.id]?.[me]) reads[m.id] = { ...reads[m.id], [me]: now }
           })
           return { ...p, messageReads: reads, dmReads: { ...p.dmReads, [key]: Math.max(last, now) } }
+        })
+      },
+      // ── 그룹 대화방 (체험 모드: 브라우저에만 저장) ──
+      createRoom: async (ids) => {
+        const me = db.currentUserId
+        const others = [...new Set(ids)].filter((x) => x !== me)
+        if (!me || !myMember || others.length < 2) return null
+        const now = Date.now()
+        const id = uid()
+        const room = { id, teamId: myMember.teamId, members: [me, ...others].map((userId) => ({ userId, joinedAt: now, lastReadAt: now })) }
+        const notice: Message = { id: uid(), teamId: myMember.teamId, authorId: me, body: inviteNotice(userOf(me).name, others.map((x) => userOf(x).name)), mentions: [], mentionAll: false, createdAt: now, roomId: id, system: true }
+        set((p) => ({ ...p, rooms: [...(p.rooms ?? []), room], messages: [...p.messages, notice] }))
+        return id
+      },
+      inviteToRoom: (roomId, ids) => {
+        const me = db.currentUserId
+        const room = (db.rooms ?? []).find((r) => r.id === roomId)
+        if (!me || !myMember || !room) return
+        const fresh = [...new Set(ids)].filter((x) => !room.members.some((m) => m.userId === x))
+        if (!fresh.length) return
+        const now = Date.now()
+        const notice: Message = { id: uid(), teamId: myMember.teamId, authorId: me, body: inviteNotice(userOf(me).name, fresh.map((x) => userOf(x).name)), mentions: [], mentionAll: false, createdAt: now, roomId, system: true }
+        set((p) => ({
+          ...p,
+          rooms: (p.rooms ?? []).map((r) => (r.id === roomId ? { ...r, members: [...r.members, ...fresh.map((userId) => ({ userId, joinedAt: now, lastReadAt: now }))] } : r)),
+          messages: [...p.messages, notice],
+        }))
+      },
+      leaveRoom: (roomId) => {
+        const me = db.currentUserId
+        const room = (db.rooms ?? []).find((r) => r.id === roomId)
+        if (!me || !myMember || !room) return
+        const left = room.members.filter((m) => m.userId !== me)
+        // 마지막 사람이 나가면 방과 대화를 지운다
+        if (!left.length) {
+          set((p) => ({ ...p, rooms: (p.rooms ?? []).filter((r) => r.id !== roomId), messages: p.messages.filter((m) => m.roomId !== roomId) }))
+          return
+        }
+        const notice: Message = { id: uid(), teamId: myMember.teamId, authorId: me, body: leaveNotice(userOf(me).name), mentions: [], mentionAll: false, createdAt: Date.now(), roomId, system: true }
+        set((p) => ({ ...p, rooms: (p.rooms ?? []).map((r) => (r.id === roomId ? { ...r, members: left } : r)), messages: [...p.messages, notice] }))
+      },
+      markRoomRead: (roomId) => {
+        const me = db.currentUserId
+        const r = rooms.find((x) => x.id === roomId)
+        if (!me || !r || r.unread === 0) return
+        const now = Date.now()
+        const fresh = roomMessages(roomId).filter((m) => m.authorId !== me && !m.deleted && !m.system)
+        set((p) => {
+          const reads = { ...p.messageReads }
+          fresh.forEach((m) => { if (!reads[m.id]?.[me]) reads[m.id] = { ...reads[m.id], [me]: now } })
+          return { ...p, messageReads: reads, rooms: (p.rooms ?? []).map((x) => (x.id === roomId ? { ...x, members: x.members.map((y) => (y.userId === me ? { ...y, lastReadAt: now } : y)) } : x)) }
         })
       },
       getCalendarUrl: async () => null,

@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
-import { chatCounts, dmPeer, dmThreads, parseMentions } from './chat'
+import type { ChangeRequest, ChatRoom, DB, EventItem, Member, Message, Notice, Role, Todo } from './types'
+import { chatCounts, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { t as tr, useLang } from './i18n'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
@@ -48,6 +48,8 @@ const msgFrom = (r: any): Message => ({
   ...(r.recipient_id ? { toId: r.recipient_id } : {}),
   ...(r.reply_to ? { replyTo: r.reply_to } : {}),
   ...(r.forwarded ? { forwarded: true } : {}),
+  ...(r.room_id ? { roomId: r.room_id } : {}),
+  ...(r.system ? { system: true } : {}),
 })
 /** 같은 id는 새 값으로 바꾸고 시간순 정렬 */
 const mergeMsgs = (list: Message[], add: Message[]) => {
@@ -86,6 +88,15 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       // 1:1 대화 읽은 위치 (migration_015 전이면 비어 있음)
       supabase.from('dm_reads').select('*').eq('user_id', uid),
     ])
+    // 그룹 대화방: 내가 들어간 방의 사람들 (migration_020 전이면 비어 있음)
+    const rm = await supabase.from('chat_room_members').select('room_id, user_id, joined_at, last_read_at, chat_rooms(team_id)')
+    if (rm.error) console.warn('대화방을 불러오지 못했어요', rm.error.message)
+    const roomMap = new Map<string, ChatRoom>()
+    for (const x of (rm.data ?? []) as any[]) {
+      const r: ChatRoom = roomMap.get(x.room_id) ?? { id: x.room_id, teamId: x.chat_rooms?.team_id ?? '', members: [] }
+      r.members.push({ userId: x.user_id, joinedAt: Date.parse(x.joined_at), lastReadAt: Date.parse(x.last_read_at) })
+      roomMap.set(x.room_id, r)
+    }
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
     if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
@@ -109,6 +120,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
       messageReads: {},
       reactions,
+      rooms: [...roomMap.values()],
       dmReads: Object.fromEntries((dr.data ?? []).map((x: any) => [`${x.user_id}>${x.peer_id}`, Date.parse(x.last_read_at)])),
     })
   }, [])
@@ -155,6 +167,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     on('notices', `user_id=eq.${me}`)
     on('todos', `owner_id=eq.${me}`)
     on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
+    // 대화방에 초대되거나 누가 나가면 (서버 규칙상 내 방의 변화만 온다)
+    on('chat_room_members')
     if (teamId) {
       on('requests', `team_id=eq.${teamId}`)
       on('teams', `id=eq.${teamId}`)
@@ -211,11 +225,17 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const unreadCount = db.notices.filter((n) => n.userId === db.currentUserId && !n.read).length
     const me_id = db.currentUserId!
     const inTeam = db.messages.filter((m) => m.teamId === myMember?.teamId)
-    const messages = inTeam.filter((m) => !m.toId)
+    const messages = inTeam.filter((m) => !m.toId && !m.roomId)
     // 1:1 대화 (서버 규칙상 내가 보냈거나 나에게 온 것만 내려온다)
     const dms = inTeam.filter((m) => m.toId && (m.authorId === me_id || m.toId === me_id))
     const threads = dmThreads(dms, me_id, db.dmReads ?? {})
-    const dmUnread = threads.reduce((a, x) => a + x.unread, 0)
+    // 그룹 대화방 (서버 규칙상 내가 들어온 뒤의 메시지만 내려온다)
+    const rooms = roomThreads(db.rooms ?? [], inTeam, me_id, myMember?.teamId)
+    const roomMessages = (roomId: string) => {
+      const r = rooms.find((x) => x.id === roomId)
+      return r ? inTeam.filter((m) => m.roomId === roomId && m.createdAt >= r.joinedAt) : []
+    }
+    const dmUnread = threads.reduce((a, x) => a + x.unread, 0) + rooms.reduce((a, x) => a + x.unread, 0)
     const dmMessages = (peerId: string) => dms.filter((m) => dmPeer(m, me_id) === peerId)
     const lastRead = db.chatReads[me_id] ?? 0
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(messages, me_id, lastRead)
@@ -230,7 +250,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -353,16 +373,23 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         if ((!text && !ref) || !team) return
         const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
         // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
-        const { mentions, mentionAll } = toId || opts?.forwarded ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
+        const { mentions, mentionAll } = toId || opts?.roomId || opts?.forwarded ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
         const { data, error } = await supabase.from('messages').insert({
           team_id: team.id, author_id: me_id, body: text,
           mentions: mentions.filter((id) => id !== me_id), mention_all: mentionAll, ref: ref ?? null,
           ...(toId ? { recipient_id: toId } : {}),
           ...(opts?.replyTo ? { reply_to: opts.replyTo } : {}),
           ...(opts?.forwarded ? { forwarded: true } : {}),
+          ...(opts?.roomId ? { room_id: opts.roomId } : {}),
         }).select().single()
         if (error) { fail(error); return }
         const m = msgFrom(data)
+        if (opts?.roomId) {
+          const rid = opts.roomId
+          setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), rooms: (p.rooms ?? []).map((r) => (r.id === rid ? { ...r, members: r.members.map((x) => (x.userId === me_id ? { ...x, lastReadAt: m.createdAt } : x)) } : r)) }))
+          supabase.rpc('mark_room_read', { p_room: rid }).then(() => {})
+          return
+        }
         if (toId) {
           setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), dmReads: { ...p.dmReads, [`${me_id}>${toId}`]: m.createdAt } }))
           supabase.from('dm_reads').upsert({ user_id: me_id, peer_id: toId, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
@@ -400,6 +427,24 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const fresh = list.filter((m) => m.authorId !== me_id && !m.deleted && m.createdAt > read).map((m) => m.id)
         setDb((p) => ({ ...p, dmReads: { ...p.dmReads, [key]: at } }))
         supabase.from('dm_reads').upsert({ user_id: me_id, peer_id: peerId, last_read_at: new Date(at).toISOString() }).then(() => {})
+        if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
+      },
+      // ── 그룹 대화방 ──
+      createRoom: async (ids) => {
+        const { data, error } = await supabase.rpc('create_room', { p_members: ids })
+        if (error) { fail(error); return null }
+        await refresh()
+        return (data as string) ?? null
+      },
+      inviteToRoom: (roomId, ids) => run(() => supabase.rpc('invite_to_room', { p_room: roomId, p_members: ids })),
+      leaveRoom: (roomId) => run(() => supabase.rpc('leave_room', { p_room: roomId })),
+      markRoomRead: (roomId) => {
+        const r = rooms.find((x) => x.id === roomId)
+        if (!r || r.unread === 0) return
+        const fresh = roomMessages(roomId).filter((m) => m.authorId !== me_id && !m.deleted && !m.system && m.createdAt > (db.rooms?.find((x) => x.id === roomId)?.members.find((y) => y.userId === me_id)?.lastReadAt ?? 0)).map((m) => m.id)
+        const now = Date.now()
+        setDb((p) => ({ ...p, rooms: (p.rooms ?? []).map((x) => (x.id === roomId ? { ...x, members: x.members.map((y) => (y.userId === me_id ? { ...y, lastReadAt: now } : y)) } : x)) }))
+        supabase.rpc('mark_room_read', { p_room: roomId }).then(({ error }) => { if (error) console.warn(error.message) })
         if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
       },
       getCalendarUrl: async (reset) => {

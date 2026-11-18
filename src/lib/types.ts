@@ -129,6 +129,17 @@ export interface Message {
   replyTo?: string
   /** 다른 대화에서 전달한 메시지 */
   forwarded?: boolean
+  /** 그룹 대화방 id (있으면 그 방 사람만 봄) */
+  roomId?: string
+  /** 초대·나가기 같은 안내 (가운데 회색 글씨로 보여줌) */
+  system?: boolean
+}
+
+/** 그룹 대화방: 사람마다 들어온 시각(그 전 대화는 안 보임)과 마지막 읽은 시각 */
+export interface ChatRoom {
+  id: string
+  teamId: string
+  members: { userId: string; joinedAt: number; lastReadAt: number }[]
 }
 
 export interface DB {
@@ -148,6 +159,8 @@ export interface DB {
   dmReads?: Record<string, number>
   /** 이모지 반응: 메시지 id → (사람 id → 이모지) */
   reactions?: Record<string, Record<string, string>>
+  /** 그룹 대화방 (내가 들어가 있는 방) */
+  rooms?: ChatRoom[]
   currentUserId: string | null
 }
 
