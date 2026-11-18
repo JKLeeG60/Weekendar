@@ -978,6 +978,9 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 /* 홈 화면에 추가 */
 .menu-item.install-item { color: var(--accent); font-weight: 600; }
 .menu-item.install-item span { display: inline-flex; align-items: center; gap: 0.45rem; }
+/* 메뉴 아이콘과 글자의 세로 가운데를 맞춤 */
+.menu-item > span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.menu-item > span > svg { flex: none; }
 .menu-item.install-item small { color: var(--muted); font-weight: 400; font-size: 0.74rem; }
 .install-lead { margin: 0 0 0.6rem; }
 .install-steps { list-style: none; margin: 0 0 0.8rem; padding: 0; }
