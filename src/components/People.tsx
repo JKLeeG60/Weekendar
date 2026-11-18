@@ -265,12 +265,14 @@ function fmtShort(d: string) {
 
 /* ─────────── 메일 보내기 ─────────── */
 export function MailModal({ userId }: { userId: string }) {
-  const { userOf, team } = useStore()
+  const { userOf, team, me } = useStore()
   const { closeModal, showToast } = useUI()
   const u = userOf(userId)
   const subject = team ? `[${team.name}] ` : ''
   // Gmail 작성 화면 (받는 사람·제목을 미리 채움). 보내는 것은 사용자가 Gmail에서 직접
-  const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(u.email)}&su=${encodeURIComponent(subject)}`
+  // authuser: 지금 로그인한 계정으로 열기 (로그인이 필요하면 아이디가 미리 채워짐)
+  const who = me?.email ? `authuser=${encodeURIComponent(me.email)}&` : ''
+  const gmail = `https://mail.google.com/mail/?${who}view=cm&fs=1&to=${encodeURIComponent(u.email)}&su=${encodeURIComponent(subject)}`
   const mailto = `mailto:${u.email}?subject=${encodeURIComponent(subject)}`
   const copy = async () => {
     try {
