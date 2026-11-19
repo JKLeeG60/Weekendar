@@ -5,6 +5,7 @@ import { clearInvite, getInvite } from '../lib/invite'
 import { GoogleMark, Icon, Modal } from './ui'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legal'
 import { localize, Rich, t } from '../lib/i18n'
+import { LoginShowcase } from './LoginShowcase'
 
 export function Logo({ size = 44 }: { size?: number }) {
   // 점 5개 × 3줄 : 가운데 줄이 "이번 주"(월~금)
@@ -33,7 +34,7 @@ export function Logo({ size = 44 }: { size?: number }) {
 
 export function Login() {
   const { login, db, mode, loginGoogle } = useStore()
-  const { narrow, preview, setPreview } = useUI()
+  const { narrow, preview, setPreview, isMobile } = useUI()
   // 방금 탈퇴했으면 한 번만 안내
   const [bye] = useState(() => { try { const v = sessionStorage.getItem('weekendar-bye') === '1'; sessionStorage.removeItem('weekendar-bye'); return v } catch { return false } })
   const demo = [
@@ -42,8 +43,7 @@ export function Login() {
     { id: 'u_m3', label: `${t('팀원')} · 최유리` },
     { id: 'u_new', label: t('신규 사용자 (팀 없음)') },
   ]
-  return (
-    <div className="center-screen">
+  const card = (
       <div className="auth-card">
         <Logo size={64} />
         <h1 className="brand">Weekendar</h1>
@@ -87,6 +87,13 @@ export function Login() {
           <p className="fine">{t('현재는 브라우저에 저장되는 체험용 데이터입니다.')}</p>
         </div>}
       </div>
+  )
+  // 폰 화면: 지금처럼 카드 하나 / 데스크탑: 왼쪽 3/4 소개 슬라이드 + 오른쪽 1/4 로그인
+  if (isMobile) return <div className="center-screen">{card}</div>
+  return (
+    <div className="login-split">
+      <LoginShowcase />
+      <div className="login-side">{card}</div>
     </div>
   )
 }
