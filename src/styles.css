@@ -906,7 +906,7 @@ tr.mine td.today:not(.holiday) { background: var(--mine-bg); }
 .who-btn { text-align: left; border-radius: 0.6rem; transition: background 0.12s; }
 .who-btn:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
 th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25rem; }
-.m-who-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem; margin: -0.15rem; }
+.m-who-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem; margin: -0.15rem; text-align: left; }
 .bub-name.who-btn { padding: 0 0.2rem; margin-left: -0.2rem; }
 
 /* 누른 자리 옆에 뜨는 작은 창 */
