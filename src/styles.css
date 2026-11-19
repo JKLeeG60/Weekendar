@@ -347,7 +347,7 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 .member-row .btn.small.danger { flex: none; width: auto; }
 
 /* 토스트 */
-.toast { position: fixed; left: 50%; bottom: 1.8rem; transform: translateX(-50%); background: rgba(30, 30, 32, 0.92); color: #fff; padding: 0.7rem 1.2rem; border-radius: 99px; font-size: 0.93rem; font-weight: 500; z-index: 80; box-shadow: var(--shadow); animation: pop 0.2s; backdrop-filter: blur(10px); }
+.toast { position: fixed; left: 50%; bottom: 1.8rem; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2rem); background: rgba(30, 30, 32, 0.92); color: #fff; padding: 0.7rem 1.2rem; border-radius: 99px; font-size: 0.93rem; font-weight: 500; z-index: 80; box-shadow: var(--shadow); animation: pop 0.2s; backdrop-filter: blur(10px); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 .toast { animation-name: toastin; }
@@ -1048,7 +1048,7 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 
 /* 안내 + 되돌리기 */
 .toast.with-action { display: flex; align-items: center; gap: 0.9rem; padding-right: 0.6rem; }
-.toast-btn { color: #64b5ff; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
+.toast-btn { color: #64b5ff; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
 .toast-btn:hover { background: rgba(255, 255, 255, 0.1); }
 
 /* 아이폰: 길게 누를 때 글자 선택·복사 메뉴가 뜨지 않게 (길게 눌러 끌기용) */
