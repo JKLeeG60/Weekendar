@@ -12,6 +12,8 @@ export interface User {
   shortcuts?: Record<string, string>
   /** 동의한 약관 버전 (0 또는 없음 = 아직 동의 안 함) */
   termsVersion?: number
+  /** "이번 주 시작" 카드를 마지막으로 보여준 주의 월요일 (같은 주에는 다시 띄우지 않음) */
+  weekCardSeen?: string
 }
 
 export interface Team {
@@ -110,6 +112,15 @@ export interface Todo {
   priority: boolean
 }
 
+/** 이번 주 목표: 할 일과 따로, 한 주에 하나, 나만 보임 (week = 그 주의 월요일) */
+export interface WeekGoal {
+  id: string
+  ownerId: string
+  week: string
+  text: string
+  done: boolean
+}
+
 export interface Notice {
   id: string
   userId: string
@@ -170,6 +181,8 @@ export interface DB {
   /** 팀장 일정 변경에 대한 팀원 확인 기록 */
   confirms?: EventConfirm[]
   todos: Todo[]
+  /** 이번 주 목표 (없으면 빈 목록) */
+  goals?: WeekGoal[]
   notices: Notice[]
   messages: Message[]
   /** 사람별 대화 마지막 읽은 시각(ms) */

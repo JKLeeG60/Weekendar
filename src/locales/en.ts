@@ -691,4 +691,13 @@ export const EN: Record<string, string | [string, string]> = {
   '보기': 'View',
   '동의하고 시작': 'Agree and start',
   '팀에서 먼저 나간 뒤 탈퇴할 수 있어요': 'Leave your team first, then delete your account',
+  '나만 보여요': "Only you can see this",
+  '이번 주 목표': "This week's goal",
+  '이번 주 목표 추가': "Add this week's goal",
+  '눌러서 고치기': "Click to edit",
+  '목표': "Goal",
+  '새로운 한 주가 시작됐어요': "A new week has begun",
+  '이번 주 시작하기': "Start the week",
+  '예: 신규 기능 시안 확정하기': "e.g. Finalize the new feature mockup",
+  '지난주 목표 가져오기': "Bring over last week's goal",
 }

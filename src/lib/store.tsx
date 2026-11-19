@@ -274,6 +274,12 @@ export interface Store {
   moveTodo: (id: string, date: string) => void
   /** 지운 할 일 되살리기 (되돌리기) */
   restoreTodo: (t: Omit<Todo, 'id' | 'ownerId'>) => void
+  // 이번 주 목표 (할 일과 따로, 한 주에 하나, 나만 보임)
+  /** week(그 주의 월요일)의 목표를 정한다. 이미 있으면 글만 바꾸고, 빈 글이면 지운다 */
+  setGoal: (week: string, text: string) => void
+  toggleGoal: (id: string) => void
+  /** "이번 주 시작" 카드를 그 주에 보여줬다고 기록 */
+  finishWeekCard: (week: string) => void
   // 알림
   markAllRead: () => void
   // 팀 대화
@@ -426,6 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           users: p.users.filter((u) => u.id !== id),
           events: p.events.filter((e) => e.ownerId !== id),
           todos: p.todos.filter((x) => x.ownerId !== id),
+          goals: (p.goals ?? []).filter((g) => g.ownerId !== id),
           notices: p.notices.filter((n) => n.userId !== id),
           messages: p.messages.filter((m) => m.authorId !== id),
           requests: p.requests.filter((r) => r.requesterId !== id && r.leaderId !== id),
@@ -657,6 +664,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeTodo: (id) => set((p) => ({ ...p, todos: p.todos.filter((t) => t.id !== id) })),
       moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, date } : t)) })),
       restoreTodo: (t) => set((p) => ({ ...p, todos: [...p.todos, { ...t, id: uid(), ownerId: p.currentUserId! }] })),
+      setGoal: (week, text) =>
+        set((p) => {
+          const me = p.currentUserId
+          if (!me) return p
+          const body = text.trim().slice(0, 100)
+          const rest = (p.goals ?? []).filter((g) => !(g.ownerId === me && g.week === week))
+          const old = (p.goals ?? []).find((g) => g.ownerId === me && g.week === week)
+          // 빈 글이면 지우고, 글만 바뀌었으면 체크 상태는 그대로 둔다
+          return { ...p, goals: body ? [...rest, { id: old?.id ?? uid(), ownerId: me, week, text: body, done: old?.done ?? false }] : rest }
+        }),
+      toggleGoal: (id) =>
+        set((p) => ({ ...p, goals: (p.goals ?? []).map((g) => (g.id === id && g.ownerId === p.currentUserId ? { ...g, done: !g.done } : g)) })),
+      finishWeekCard: (week) =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, weekCardSeen: week } : u)) })),
 
       markAllRead: () =>
         set((p) => ({

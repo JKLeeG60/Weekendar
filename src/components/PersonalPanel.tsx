@@ -6,6 +6,7 @@ import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
 import type { Occurrence } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
+import { WeekGoalSection } from './WeekGoals'
 /** 할 일 목록 안에서는 변수 이름 t(할 일)와 겹치므로 tr 로 부른다 */
 const tr = t
 import { MiniCalendar } from './MiniCalendar'
@@ -106,6 +107,7 @@ export function Todos() {
 
   return (
     <section className="panel-half todo">
+      <WeekGoalSection />
       <div className="panel-head">
         <h3 className="section-label big">{t('할 일')}</h3>
         <span className="count">{t('{n}개 남음', { n: left })}</span>

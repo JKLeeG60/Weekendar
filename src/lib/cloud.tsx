@@ -2,12 +2,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, Todo } from './types'
+import type { ChangeRequest, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, Todo, WeekGoal } from './types'
 import { chatCounts, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { localize, t as tr, useLang } from './i18n'
 import { TERMS_VERSION } from './legal'
 
-const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
+const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], goals: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
 /* ─ 행 ↔ 앱 모델 변환 ─ */
 const evFrom = (r: any): EventItem => ({
@@ -105,6 +105,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const cf = await supabase.from('event_confirms').select('event_id, user_id, changed_at')
     if (cf.error) console.warn('확인 기록을 불러오지 못했어요', cf.error.message)
     const confirms: EventConfirm[] = ((cf.data ?? []) as any[]).map((x) => ({ eventId: x.event_id, userId: x.user_id, changedAt: Date.parse(x.changed_at) }))
+    // 이번 주 목표 (migration_025 전이면 비어 있음)
+    const gl = await supabase.from('week_goals').select('id, owner_id, week, title, done')
+    if (gl.error) console.warn('이번 주 목표를 불러오지 못했어요', gl.error.message)
+    const goals: WeekGoal[] = ((gl.data ?? []) as any[]).map((x) => ({ id: x.id, ownerId: x.owner_id, week: x.week, text: x.title, done: !!x.done }))
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
     if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
@@ -117,7 +121,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0 })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
@@ -125,6 +129,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       confirms,
       notices: (n.data ?? []).map(noticeFrom),
       todos: (td.data ?? []).map(todoFrom),
+      goals,
       messages: (ms.data ?? []).map(msgFrom).reverse(),
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
       messageReads: {},
@@ -176,6 +181,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     on('event_confirms')
     on('notices', `user_id=eq.${me}`)
     on('todos', `owner_id=eq.${me}`)
+    on('week_goals', `owner_id=eq.${me}`)
     on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
     // 대화방에 초대되거나 누가 나가면 (서버 규칙상 내 방의 변화만 온다)
     on('chat_room_members')
@@ -276,6 +282,33 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, tutorialSeen: true } : u)) }))
         supabase.from('profiles').update({ tutorial_seen: true }).eq('id', me.id).then(({ error }) => {
           if (error) console.warn('안내 확인 표시를 저장하지 못했어요', error.message)
+        })
+      },
+
+      // 이번 주 목표: 주마다 한 개. 빈 글이면 삭제, 있으면 덮어쓰기(달성 여부는 유지)
+      setGoal: (week, text) => {
+        const body = text.trim().slice(0, 100)
+        const old = (db.goals ?? []).find((g) => g.ownerId === me_id && g.week === week)
+        if (!body && !old) return
+        setDb((p) => {
+          const rest = (p.goals ?? []).filter((g) => !(g.ownerId === me_id && g.week === week))
+          return { ...p, goals: body ? [...rest, { id: old?.id ?? 'tmp-' + week, ownerId: me_id, week, text: body, done: old?.done ?? false }] : rest }
+        })
+        if (!body) run(() => supabase.from('week_goals').delete().eq('owner_id', me_id).eq('week', week))
+        else run(() => supabase.from('week_goals').upsert({ owner_id: me_id, week, title: body, done: old?.done ?? false }, { onConflict: 'owner_id,week' }))
+      },
+      toggleGoal: (id) => {
+        const g = (db.goals ?? []).find((x) => x.id === id && x.ownerId === me_id)
+        if (!g) return
+        setDb((p) => ({ ...p, goals: (p.goals ?? []).map((x) => (x.id === id ? { ...x, done: !x.done } : x)) }))
+        run(() => supabase.from('week_goals').update({ done: !g.done }).eq('owner_id', me_id).eq('week', g.week))
+      },
+      // 월요일 카드를 봤다고 기록 (실패해도 앱 사용에는 영향 없음)
+      finishWeekCard: (week) => {
+        if (me?.weekCardSeen === week) return
+        setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me_id ? { ...u, weekCardSeen: week } : u)) }))
+        supabase.from('profiles').update({ week_card_seen: week }).eq('id', me_id).then(({ error }) => {
+          if (error) console.warn('월요일 카드 확인 표시를 저장하지 못했어요', error.message)
         })
       },
 
