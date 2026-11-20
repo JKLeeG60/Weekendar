@@ -34,7 +34,7 @@ export function Logo({ size = 44 }: { size?: number }) {
 
 export function Login() {
   const { login, db, mode, loginGoogle } = useStore()
-  const { narrow, preview, setPreview, isMobile } = useUI()
+  const { isMobile } = useUI()
   // 방금 탈퇴했으면 한 번만 안내
   const [bye] = useState(() => { try { const v = sessionStorage.getItem('weekendar-bye') === '1'; sessionStorage.removeItem('weekendar-bye'); return v } catch { return false } })
   const demo = [
@@ -59,11 +59,6 @@ export function Login() {
           <GoogleMark />
           {t('Google로 계속하기')}
         </button>
-        {mode === 'cloud' && !narrow && (
-          <button className="link-btn preview-link" onClick={() => setPreview(!preview)}>
-            {preview ? t('데스크탑 화면으로 보기') : t('폰 화면으로 미리보기')}
-          </button>
-        )}
         {mode === 'cloud' && <p className="fine"><Rich text={t('Google 계정으로 로그인하면 팀을 만들거나 <mbr>초대 코드로 참여할 수 있어요.')} /></p>}
         <p className="legal-links">
           <a href={TERMS_URL} target="_blank" rel="noopener">{t('이용약관')}</a>
@@ -79,11 +74,6 @@ export function Login() {
               </button>
             ))}
           </div>
-          {!narrow && (
-            <button className="link-btn preview-link" onClick={() => setPreview(!preview)}>
-              {preview ? t('데스크탑 화면으로 보기') : t('폰 화면으로 미리보기')}
-            </button>
-          )}
           <p className="fine">{t('현재는 브라우저에 저장되는 체험용 데이터입니다.')}</p>
         </div>}
       </div>

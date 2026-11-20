@@ -9,12 +9,12 @@ import { startInstall, useInstallable } from './People'
 
 /**
  * 설정: 흩어져 있던 설정을 아이폰 "설정" 앱처럼 묶음 목록으로 모은 창
- * - 화면(화면 모드·언어·폰 화면 미리보기), 할 일(넘기기), 알림과 앱, 도움말, 팀 나가기
+ * - 화면(화면 모드·언어), 할 일(넘기기), 알림과 앱, 도움말, 팀 나가기
  * - 휴대폰 알림·캘린더 등은 설정 위에 겹쳐 열어서, 닫으면 설정으로 돌아온다
  */
 export function SettingsModal() {
   const { me, myMember, team, setTodoCarry } = useStore()
-  const { closeModal, openModal, openLayer, showToast, themePref, setThemePref, narrow, preview, setPreview } = useUI()
+  const { closeModal, openModal, openLayer, showToast, themePref, setThemePref, narrow } = useUI()
   const { pref, setPref } = useLang()
   const installable = useInstallable()
   const member = myMember && myMember.role !== 'pending'
@@ -38,11 +38,6 @@ export function SettingsModal() {
             ))}
           </div>
         </Row>
-        {!narrow && (
-          <Row icon="phone" color="#8e8e93" label={t('폰 화면 미리보기')}>
-            <Switch on={preview} onChange={(v) => { setPreview(v); closeModal() }} label={t('폰 화면 미리보기')} />
-          </Row>
-        )}
       </Group>
 
       {!narrow && (
