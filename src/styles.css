@@ -1194,6 +1194,8 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 /* 월간 일정: 빈 칸을 누르면 일정 추가 */
 .mo-cell.addable { cursor: pointer; }
 .mo-cell.addable:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+/* 겹친 창을 감싸는 상자는 화면 배치(격자)에 끼지 않는다 — 끼면 팀 표 높이가 줄어든다 */
+.layer { display: contents; }
 /* 월간 일정 위에 겹친 창: 뒤의 월간 일정이 또렷하게 보이도록 배경을 흐리게 하지 않는다 */
 .layer .modal::backdrop { background: rgba(0, 0, 0, 0.18); backdrop-filter: none; -webkit-backdrop-filter: none; }
 

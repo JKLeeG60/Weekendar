@@ -4,7 +4,7 @@ import { useUI } from '../lib/ui'
 import { dowHeads, fmtMonthDay, holidayLabel, holidayName, monthGrid, monthTitle, parse, todayStr } from '../lib/date'
 import { isMultiDay, occurrencesOn } from '../lib/events'
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../lib/install'
-import { CATEGORY_LABEL, type Category, type EventItem, type Occurrence } from '../lib/types'
+import { CATEGORY_LABEL, type EventItem, type Occurrence } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { Avatar, Icon, Modal } from './ui'
 
@@ -93,7 +93,6 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
     setPick(today)
   }
   // 쓰인 카테고리만 아래 설명에
-  const cats = [...new Set(evs.filter((e) => days.some((d) => occurrencesOn([e], d).length)).map((e) => e.category))] as Category[]
 
   // 일정을 누르면 월간 일정은 그대로 두고 그 위에 상세를 보여 준다
   const openOcc = (o: Occurrence) => openLayer({ type: 'detail', occ: o })
@@ -249,11 +248,6 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
           })
         })}
       </div>
-      {cats.length > 0 && (
-        <div className="mo-legend">
-          {cats.map((c) => <span key={c} data-cat={c}>{t(CATEGORY_LABEL[c])}</span>)}
-        </div>
-      )}
     </Modal>
   )
 }
