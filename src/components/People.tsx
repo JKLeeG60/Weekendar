@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { markMonthTip, shouldShowMonthTip } from './Tutorial'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { dowHeads, fmtMonthDay, holidayLabel, holidayName, monthGrid, monthTitle, parse, todayStr } from '../lib/date'
@@ -66,6 +67,12 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
   const { db, me, myMember, userOf, tableMembers } = useStore()
   const { closeModal, openLayer, setSelected, selected, isMobile } = useUI()
   const today = todayStr()
+  // 처음 월간 일정을 열면 사용법을 한 번 보여준다
+  useEffect(() => {
+    if (!me || !shouldShowMonthTip(me.id)) return
+    markMonthTip(me.id)
+    openLayer({ type: 'monthTip' })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [ym, setYm] = useState(() => {
     const d = parse(firstDate ?? selected)
     return { y: d.getFullYear(), m: d.getMonth() }
@@ -117,10 +124,6 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
       <strong>{monthTitle(ym.y, ym.m)}</strong>
       <button className="icon-btn" onClick={() => move(1)} aria-label={t('다음 달')}><Icon name="chevR" /></button>
       <button className="btn small ghost" onClick={goToday}>{t('오늘')}</button>
-      <span className="mo-note">
-        {mine ? t('나만 보기 일정도 함께 보여요') : t('팀에 공유한 일정만 보여요')}
-        {!isMobile && ' · ' + (canAdd ? t('빈 칸을 누르면 일정 추가, 날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요') : t('날짜 숫자를 누르면 그 주 팀 표로, 일정을 누르면 상세를 볼 수 있어요'))}
-      </span>
     </div>
   )
   const title = (
@@ -156,14 +159,15 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
       <Modal title={title} onClose={closeModal} className="month-modal">
         {head}
         <div className="mo-mgrid">
-          {dowHeads().map((d, i) => <span key={i} className={'mo-w' + (i === 0 ? ' sun' : '')}>{d}</span>)}
+          {dowHeads().map((d, i) => <span key={i} className={'mo-w' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '')}>{d}</span>)}
           {days.map((d) => {
             const occ = occurrencesOn(evs, d)
             const red = parse(d).getDay() === 0 || !!holidayName(d)
+            const blue = !red && parse(d).getDay() === 6 // 토요일 (공휴일이면 빨강 우선)
             return (
               <button
                 key={d}
-                className={'mo-d' + (inMonth(d) ? '' : ' out') + (red ? ' red' : '') + (d === today ? ' today' : '') + (d === pick ? ' sel' : '')}
+                className={'mo-d' + (inMonth(d) ? '' : ' out') + (red ? ' red' : '') + (blue ? ' blue' : '') + (d === today ? ' today' : '') + (d === pick ? ' sel' : '')}
                 onClick={() => setPick(d)}
               >
                 <span className="n">{parse(d).getDate()}</span>
@@ -198,13 +202,14 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
     <Modal title={title} onClose={closeModal} width={1040} className="month-modal">
       {head}
       <div className="mo-grid">
-        {dowHeads().map((d, i) => <span key={i} className={'mo-w' + (i === 0 ? ' sun' : '')}>{d}</span>)}
+        {dowHeads().map((d, i) => <span key={i} className={'mo-w' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '')}>{d}</span>)}
         {weeks.map((week) => {
           const bars = barsOfWeek(spans, week)
           const lanes = bars.reduce((a, b) => Math.max(a, b.lane + 1), 0)
           return week.map((d, di) => {
             const occ = occurrencesOn(timed, d)
             const red = di === 0 || !!holidayName(d)
+            const blue = !red && di === 6 // 토요일 (공휴일이면 빨강 우선)
             const room = Math.max(1, 3 - lanes)
             return (
               <div
@@ -214,7 +219,7 @@ export function MonthModal({ userId: firstUser, date: firstDate }: { userId: str
                 onClick={canAdd ? (e) => { if (!(e.target as HTMLElement).closest('button')) add(d) } : undefined}
                 title={canAdd ? t('{date}에 {what}', { date: fmtMonthDay(d), what: addLabel }) : undefined}
               >
-                <button className={'mo-num' + (red ? ' red' : '') + (d === today ? ' today' : '')} onClick={() => goWeek(d)} title={t('그 주 팀 표로 이동')}>
+                <button className={'mo-num' + (red ? ' red' : '') + (blue ? ' blue' : '') + (d === today ? ' today' : '')} onClick={() => goWeek(d)} title={t('그 주 팀 표로 이동')}>
                   {parse(d).getDate() === 1 || !inMonth(d) ? fmtShort(d) : parse(d).getDate()}
                 </button>
                 {holidayName(d) && <small className="mo-hol">{holidayLabel(d)}</small>}

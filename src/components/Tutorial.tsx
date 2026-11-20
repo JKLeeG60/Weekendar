@@ -16,6 +16,13 @@ interface Step {
   body: string
 }
 
+/** 월간 일정 사용법 (데스크탑과 휴대폰은 조작이 달라 문구를 나눈다) */
+const monthBody = (mobile: boolean) =>
+  mobile
+    ? t('<b>날짜</b>를 누르면 아래에 그날 일정이 보이고, <b>일정</b>을 누르면 자세히 볼 수 있어요.<br>내 달력에는 <b>나만 보기</b> 일정도 함께 보이고, 팀원 달력에는 팀에 공유한 일정만 보여요.')
+    : t('<b>빈 칸</b>을 누르면 그날 일정을 추가하고, <b>날짜 숫자</b>를 누르면 그 주 팀 표로 가요. <b>일정</b>을 누르면 자세히 볼 수 있어요.<br>내 달력에는 <b>나만 보기</b> 일정도 함께 보이고, 팀원 달력에는 팀에 공유한 일정만 보여요.')
+const monthStep = (mobile: boolean): Step => ({ art: '📅', title: t('월간 일정도 볼 수 있어요'), body: t('위쪽 <b>달력 아이콘</b>이나 팀원 이름을 누르면 한 달 일정을 볼 수 있어요.') + '<br>' + monthBody(mobile) })
+
 const adminSteps = (): Step[] => [
   { art: '🔗', title: t('초대 링크로 팀원을 불러요'), body: t('프로필 옆 <b>팀 관리</b>에서 초대 링크를 복사해 카톡이나 메일로 보내세요.<br>팀원이 들어오면 <b>승인</b>해 주세요.') },
   { art: '👑', title: t('직급과 팀장을 정해요'), body: t('<b>팀 관리</b>에서 팀원의 직급을 입력하고 팀장을 지정할 수 있어요.<br>팀장의 일정은 팀원이 바로 바꿀 수 없고, 요청하면 팀장이 수락해야 반영돼요.') },
@@ -32,9 +39,9 @@ const memberSteps = (): Step[] => [
 
 export function TutorialModal() {
   const { isAdmin, finishTutorial } = useStore()
-  const { closeModal } = useUI()
+  const { closeModal, isMobile } = useUI()
   const [i, setI] = useState(0)
-  const steps = isAdmin ? adminSteps() : memberSteps()
+  const steps = [...(isAdmin ? adminSteps() : memberSteps()), monthStep(isMobile)]
   const s = steps[i]
   const last = i === steps.length - 1
 
@@ -81,4 +88,29 @@ export function useAutoTutorial() {
     done.current = true
     openModal({ type: 'tutorial' })
   }, [me, myMember, modal, openModal])
+}
+
+/** 월간 일정 사용법: 처음 월간 일정을 열 때 한 번 (봤음 기록은 이 브라우저에 저장) */
+const monthTipKey = (userId: string) => 'weekendar-tip-month:' + userId
+export function shouldShowMonthTip(userId: string) {
+  try { return localStorage.getItem(monthTipKey(userId)) !== '1' } catch { return false }
+}
+export function markMonthTip(userId: string) {
+  try { localStorage.setItem(monthTipKey(userId), '1') } catch { /* 무시 */ }
+}
+
+export function MonthTipModal() {
+  const { closeModal, isMobile } = useUI()
+  return (
+    <Modal
+      title={t('월간 일정 사용법')}
+      onClose={closeModal}
+      width={420}
+      className="tutorial"
+      footer={<button className="btn primary" onClick={closeModal} data-autofocus>{t('확인')}</button>}
+    >
+      <div className="tut-art" aria-hidden="true">📅</div>
+      <p className="tut-text"><Rich text={monthBody(isMobile)} /></p>
+    </Modal>
+  )
 }

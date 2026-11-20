@@ -700,4 +700,9 @@ export const EN: Record<string, string | [string, string]> = {
   '이번 주 시작하기': "Start the week",
   '예: 신규 기능 시안 확정하기': "e.g. Finalize the new feature mockup",
   '지난주 목표 가져오기': "Bring over last week's goal",
+  '월간 일정 사용법': 'Using the monthly calendar',
+  '월간 일정도 볼 수 있어요': 'See a whole month at a glance',
+  '위쪽 <b>달력 아이콘</b>이나 팀원 이름을 누르면 한 달 일정을 볼 수 있어요.': 'Tap the <b>calendar icon</b> at the top or a teammate’s name to see their month.',
+  '<b>날짜</b>를 누르면 아래에 그날 일정이 보이고, <b>일정</b>을 누르면 자세히 볼 수 있어요.<br>내 달력에는 <b>나만 보기</b> 일정도 함께 보이고, 팀원 달력에는 팀에 공유한 일정만 보여요.': 'Tap a <b>date</b> to see that day’s events below, and tap an <b>event</b> for details.<br>Your calendar also shows <b>private</b> events; teammates’ calendars show only shared ones.',
+  '<b>빈 칸</b>을 누르면 그날 일정을 추가하고, <b>날짜 숫자</b>를 누르면 그 주 팀 표로 가요. <b>일정</b>을 누르면 자세히 볼 수 있어요.<br>내 달력에는 <b>나만 보기</b> 일정도 함께 보이고, 팀원 달력에는 팀에 공유한 일정만 보여요.': 'Click an <b>empty cell</b> to add an event, or a <b>date number</b> to jump to that week. Click an <b>event</b> for details.<br>Your calendar also shows <b>private</b> events; teammates’ calendars show only shared ones.',
 }

@@ -1448,3 +1448,7 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 
 .goal-carry { display: block; margin: 0.45rem 0 0 0.1rem; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
 .goal-carry:hover { text-decoration: underline; }
+/* 월간 일정: 토요일은 파란색 (일요일·공휴일은 빨간색) */
+.mo-w.sat { color: var(--accent); }
+.mo-num.blue:not(.today) { color: var(--accent); }
+.mo-d.blue:not(.today) .n { color: var(--accent); }

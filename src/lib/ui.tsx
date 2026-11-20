@@ -20,6 +20,7 @@ export type ModalState =
   | { type: 'mail'; userId: string }
   | { type: 'install' }
   | { type: 'tutorial' }
+  | { type: 'monthTip' }
   | { type: 'weekstart' }
   | { type: 'settings' }
   /** 빠른 입력 (Space) */

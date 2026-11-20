@@ -14,7 +14,7 @@ import {
 } from '../lib/types'
 import { Avatar, Icon, Modal, Switch } from './ui'
 import { InstallModal, MailModal, MemberMenu, MonthModal } from './People'
-import { TutorialModal } from './Tutorial'
+import { MonthTipModal, TutorialModal } from './Tutorial'
 import { WeekStartModal } from './WeekGoals'
 import { SettingsModal } from './Settings'
 import { QuickAddModal } from './QuickAdd'
@@ -61,6 +61,7 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'mail': return <MailModal userId={modal.userId} />
     case 'install': return <InstallModal />
     case 'tutorial': return <TutorialModal />
+    case 'monthTip': return <MonthTipModal />
     case 'weekstart': return <WeekStartModal />
     case 'settings': return <SettingsModal />
     case 'quick': return <QuickAddModal />
