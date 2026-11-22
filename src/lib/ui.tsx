@@ -60,6 +60,12 @@ interface UI {
   setDmPeer: (id: string | null) => void
   /** 이 사람과의 1:1 대화창 열기 */
   openDM: (userId: string) => void
+  /** 검색 창이 열려 있는지 */
+  searchOpen: boolean
+  setSearchOpen: (v: boolean) => void
+  /** 대화창을 열면 이 메시지로 이동해서 반짝인다 (검색 결과에서) */
+  chatJump: string | null
+  setChatJump: (id: string | null) => void
   /** 실제로 좁은 화면인지 */
   narrow: boolean
   /** 데스크탑에서 폰 화면 미리보기 중인지 */
@@ -112,6 +118,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatTab, setChatTab] = useState<'team' | 'dm'>('team')
   const [dmPeer, setDmPeer] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [chatJump, setChatJump] = useState<string | null>(null)
   const openDM = (userId: string) => {
     setModal(null)
     setChatTab('dm')
@@ -205,6 +213,10 @@ export function UIProvider({ children }: { children: ReactNode }) {
         togglePanel: () => setPanelOpen((v) => !v),
         chatOpen,
         setChatOpen,
+        searchOpen,
+        setSearchOpen,
+        chatJump,
+        setChatJump,
         narrow,
         preview,
         setPreview,

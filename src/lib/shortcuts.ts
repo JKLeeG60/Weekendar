@@ -7,7 +7,7 @@
 export type ShortcutId =
   | 'quickAdd' | 'newEvent' | 'newTodo'
   | 'prevWeek' | 'nextWeek' | 'today' | 'prevDay' | 'nextDay'
-  | 'chat' | 'month' | 'notices' | 'panel' | 'settings' | 'help'
+  | 'chat' | 'month' | 'notices' | 'panel' | 'settings' | 'help' | 'search'
 
 export const SHORTCUT_GROUPS: { label: string; items: { id: ShortcutId; label: string }[] }[] = [
   { label: '만들기', items: [
@@ -23,6 +23,7 @@ export const SHORTCUT_GROUPS: { label: string; items: { id: ShortcutId; label: s
     { id: 'nextDay', label: '다음날' },
   ] },
   { label: '열기', items: [
+    { id: 'search', label: '검색' },
     { id: 'chat', label: '대화' },
     { id: 'month', label: '월간 일정' },
     { id: 'notices', label: '알림' },
@@ -35,7 +36,7 @@ export const SHORTCUT_GROUPS: { label: string; items: { id: ShortcutId; label: s
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
   quickAdd: 'Space', newEvent: 'KeyN', newTodo: 'KeyD',
   prevWeek: 'ArrowLeft', nextWeek: 'ArrowRight', today: 'KeyT', prevDay: 'BracketLeft', nextDay: 'BracketRight',
-  chat: 'KeyC', month: 'KeyM', notices: 'KeyA', panel: 'KeyP', settings: 'Comma', help: 'Shift+Slash',
+  chat: 'KeyC', month: 'KeyM', notices: 'KeyA', panel: 'KeyP', settings: 'Comma', help: 'Shift+Slash', search: 'Slash',
 }
 
 /** 저장된 내 단축키 + 기본값 */

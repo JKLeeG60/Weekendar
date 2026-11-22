@@ -360,6 +360,15 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
     setMenu(null)
   }
 
+  // 검색 결과에서 왔으면 그 메시지로 이동 (불러오는 중이면 메시지가 생길 때까지 기다린다)
+  const { chatJump, setChatJump } = useUI()
+  useEffect(() => {
+    if (!chatJump || !messages.some((m) => m.id === chatJump)) return
+    const id = chatJump
+    const tm = window.setTimeout(() => { setChatJump(null); jump(id) }, 120)
+    return () => window.clearTimeout(tm)
+  }, [chatJump, messages]) // eslint-disable-line react-hooks/exhaustive-deps
+
   /** 답장 인용을 누르면 원본 메시지로 이동해서 잠깐 반짝인다 */
   function jump(id: string) {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-mid="${id}"]`)

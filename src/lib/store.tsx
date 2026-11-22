@@ -284,6 +284,10 @@ export interface Store {
   saveMemo: (date: string, body: string) => Promise<boolean>
   /** 내 메모 전체에서 글자 찾기 (최근 날짜부터 최대 50개) */
   findMemos: (q: string) => Promise<{ date: string; body: string }[]>
+  /** 내가 볼 수 있는 대화(팀·1:1·대화방)에서 글자 찾기 (최근 것부터 최대 50개, 지운 것·안내 글 제외) */
+  findMessages: (q: string) => Promise<Message[]>
+  /** 검색 결과로 이동할 때: 오래돼서 아직 안 불러온 메시지면 그 뒤 대화까지 불러온다 */
+  revealMessage: (m: Message) => Promise<void>
   /** "이번 주 시작" 카드를 그 주에 보여줬다고 기록 */
   finishWeekCard: (week: string) => void
   // 알림
@@ -694,6 +698,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .slice(0, 50)
           .map((m) => ({ date: m.date, body: m.body }))
       },
+      findMessages: async (q) => {
+        const s = q.trim().toLowerCase()
+        if (!s) return []
+        return [...messages, ...dms, ...rooms.flatMap((r) => roomMessages(r.id))]
+          .filter((m) => !m.deleted && !m.system && m.body.toLowerCase().includes(s))
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 50)
+      },
+      // 체험 모드는 대화를 모두 갖고 있어 따로 불러올 것이 없다
+      revealMessage: async () => {},
       saveMemo: async (date, body) => {
         set((p) => {
           const me = p.currentUserId

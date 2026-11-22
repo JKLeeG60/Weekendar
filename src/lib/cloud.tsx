@@ -299,6 +299,29 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.from('memos').select('date, body').eq('owner_id', me_id).ilike('body', pat).order('date', { ascending: false }).limit(50)
         return ((data ?? []) as { date: string; body: string }[]).map((m) => ({ date: m.date, body: m.body }))
       },
+      findMessages: async (q) => {
+        const s = q.trim()
+        if (!s || !myMember?.teamId) return []
+        const pat = '%' + s.replace(/[\\%_]/g, (c) => '\\' + c) + '%'
+        // 서버 규칙(RLS)이 내가 볼 수 있는 대화(팀·내 1:1·내가 들어간 방)만 돌려준다
+        const { data } = await supabase.from('messages').select('*').eq('team_id', myMember.teamId).is('deleted_at', null).ilike('body', pat).order('created_at', { ascending: false }).limit(60)
+        return ((data ?? []) as any[]).map(msgFrom).filter((m) => {
+          if (m.system) return false
+          if (!m.roomId) return true
+          const r = rooms.find((x) => x.id === m.roomId)
+          return !!r && m.createdAt >= r.joinedAt
+        }).slice(0, 50)
+      },
+      revealMessage: async (m) => {
+        if (db.messages.some((x) => x.id === m.id) || !myMember?.teamId) return
+        // 처음 불러온 가장 오래된 메시지 앞까지, 찾은 메시지부터 이어서 불러온다
+        const oldest = db.messages[0]?.createdAt ?? Date.now()
+        const { data } = await supabase.from('messages').select('*').eq('team_id', myMember.teamId)
+          .gte('created_at', new Date(m.createdAt).toISOString()).lt('created_at', new Date(oldest).toISOString())
+          .order('created_at', { ascending: true }).limit(1000)
+        const add = [m, ...((data ?? []) as any[]).map(msgFrom)]
+        setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, add) }))
+      },
       saveMemo: async (date, body) => {
         if (!me_id) return false
         const text = body.slice(0, 20000)

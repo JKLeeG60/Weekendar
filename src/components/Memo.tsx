@@ -120,6 +120,12 @@ export function MemoDock() {
 
   const show = () => { window.clearTimeout(closeTimer.current); setMounted(true); requestAnimationFrame(() => setOpen(true)) }
   const hide = () => { setOpen(false); closeTimer.current = window.setTimeout(() => setMounted(false), 320) }
+  // 검색 결과에서 메모를 누르면 그날 메모 창을 연다
+  useEffect(() => {
+    const h = () => show()
+    window.addEventListener('wk:memo-open', h)
+    return () => window.removeEventListener('wk:memo-open', h)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Esc 로 닫기
   useEffect(() => {
     if (!open) return

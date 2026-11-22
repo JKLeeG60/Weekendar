@@ -5,6 +5,7 @@ import { addDays, parse } from '../lib/date'
 import { Header } from './Header'
 import { TeamTable } from './TeamTable'
 import { MonthView } from './People'
+import { SearchSheet } from './Search'
 import { PersonalPanel } from './PersonalPanel'
 import { Modals } from './Modals'
 import { MobileMain } from './Mobile'
@@ -22,7 +23,7 @@ import { useLayout, clampRight, RIGHT_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
 
 export function Main() {
-  const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen, monthView, setMonthView } = useUI()
+  const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
   // 끌어서 바꾸는 오른쪽 칸 폭 (이 브라우저에 기억)
   const lay = useLayout()
   const appRef = useRef<HTMLDivElement>(null)
@@ -56,7 +57,7 @@ export function Main() {
     const h = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       // 창이 떠 있거나 글을 쓰는 중이면 무시
-      if (modal || e.isComposing || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable) return
+      if (modal || searchOpen || e.isComposing || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable) return
       // 월간 보기에서 Esc: 주간 팀 표로 (메모 창이 열려 있으면 메모 창이 먼저 닫힌다)
       if (e.key === 'Escape' && monthView && !document.querySelector('.memo-sheet.open')) { setMonthView(null); return }
       const combo = comboOf(e)
@@ -90,12 +91,26 @@ export function Main() {
         panel: () => togglePanel(),
         settings: () => openModal({ type: 'settings' }),
         help: () => openModal({ type: 'shortcuts' }),
+        search: () => setSearchOpen(true),
       }
       run[id]()
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me, monthView, setMonthView])
+  }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me, monthView, setMonthView, searchOpen, setSearchOpen])
+
+  // ⌘K (윈도우는 Ctrl+K): 어디서든 검색 열기·닫기 (글을 쓰는 중이어도)
+  useEffect(() => {
+    if (isMobile) return
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
+        e.preventDefault()
+        setSearchOpen(!searchOpen)
+      }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [isMobile, searchOpen, setSearchOpen])
 
   if (isMobile) return <MobileMain />
 
@@ -123,6 +138,7 @@ export function Main() {
         )}
         <PersonalPanel />
       </div>
+      {searchOpen && <SearchSheet />}
       <Modals />
       {toast && <Toast />}
       <DayDropStrip />

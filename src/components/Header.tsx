@@ -10,7 +10,7 @@ import { ChatButton } from './Chat'
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
   const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
-  const { selected, setSelected, panelOpen, togglePanel, openModal, monthView, setMonthView } = useUI()
+  const { selected, setSelected, panelOpen, togglePanel, openModal, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   // 단축키(알림)로 알림 목록 열고 닫기
   useEffect(() => {
@@ -57,6 +57,8 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
       </div>
       <div className="tools">
         <div className="toolgroup">
+        {/* 검색 (데스크탑) */}
+        {mobileTitle === undefined && <button className={'icon-btn' + (searchOpen ? ' on' : '')} onClick={() => setSearchOpen(true)} aria-label={t('검색')} title={t('검색 (⌘K)')}><Icon name="search" /></button>}
         <ChatButton />
         {/* 내 월간 일정 */}
         <button className={'icon-btn' + (monthView ? ' on' : '')} onClick={() => (monthView ? setMonthView(null) : me && openModal({ type: 'month', userId: me.id }))} aria-label={t('내 월간 일정')} title={monthView ? t('주간 팀 표로') : t('내 월간 일정')}>
