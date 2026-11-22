@@ -186,7 +186,7 @@ export function TeamChoice() {
             </>
           }
         >
-          <p className="leave-text"><Rich text={t('내 일정·할 일·대화와 알림·구글 캘린더 연결 정보가 <b>모두 지워지고</b> 되돌릴 수 없어요.')} /></p>
+          <p className="leave-text"><Rich text={t('내 일정·할 일·메모·대화와 알림·구글 캘린더 연결 정보가 <b>모두 지워지고</b> 되돌릴 수 없어요.')} /></p>
           {byeErr && <p className="error">{byeErr}</p>}
         </Modal>
       )}

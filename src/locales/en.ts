@@ -680,7 +680,7 @@ export const EN: Record<string, string | [string, string]> = {
   'Weekendar 탈퇴': 'Delete Weekendar account',
   'Weekendar에서 탈퇴할까요?': 'Delete your Weekendar account?',
   '탈퇴하기': 'Delete account',
-  '내 일정·할 일·대화와 알림·구글 캘린더 연결 정보가 <b>모두 지워지고</b> 되돌릴 수 없어요.': 'Your events, to-dos, messages, notifications and Google Calendar connection will be <b>permanently deleted</b>.',
+  '내 일정·할 일·메모·대화와 알림·구글 캘린더 연결 정보가 <b>모두 지워지고</b> 되돌릴 수 없어요.': 'Your events, to-dos, notes, messages, notifications and Google Calendar connection will be <b>permanently deleted</b>.',
   '탈퇴가 끝났어요. 그동안 이용해 주셔서 고마워요.': 'Your account has been deleted. Thanks for using Weekendar.',
   '약관에 동의해주세요': 'Please accept the terms',
   'Weekendar를 시작하려면 <mbr>아래 내용에 동의가 필요해요.': 'To start using Weekendar, <mbr>please agree to the following.',
