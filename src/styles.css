@@ -1521,3 +1521,24 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .memo-kbbar { position: fixed; left: 0; right: 0; z-index: 40; padding: 0.3rem 0.4rem; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-top: 0.5px solid var(--line); }
 .memo-kbbar .memo-tools { margin: 0; background: transparent; justify-content: space-between; }
 .m-tabs.five { grid-template-columns: repeat(5, 1fr); }
+
+/* ───────── 끌어서 칸 크기 조절 (데스크탑) ───────── */
+.panel-col { position: relative; }
+.rz { position: relative; z-index: 20; touch-action: none; outline: none; }
+.rz i { position: absolute; border-radius: 3px; background: transparent; transition: background 0.15s; }
+/* 좌우: 오른쪽 칸 왼쪽 끝 */
+.rz-col { position: absolute; top: 0; bottom: 0; left: 0; width: 10px; cursor: col-resize; }
+.rz-col i { top: 0; bottom: 0; left: 0; width: 3px; }
+/* 위아래: 일정과 할 일 사이 빈틈 (flex 간격을 그대로 쓰도록 위아래로 겹친다) */
+.rz-row { flex: none; height: 0.9rem; margin: -0.9rem 0; cursor: row-resize; }
+.rz-row i { left: 50%; top: 50%; width: 2.2rem; height: 4px; transform: translate(-50%, -50%); background: var(--line); }
+.rz:hover i, .rz:focus-visible i, .rz-dragging .rz i { background: var(--accent); }
+.rz-row:hover i, .rz-row:focus-visible i, .rz-dragging-row .rz-row i { left: 1.2rem; right: 1.2rem; width: auto; transform: translateY(-50%); }
+/* 끄는 동안: 글자 선택·애니메이션 막기, 커서 고정 */
+.rz-dragging { user-select: none; -webkit-user-select: none; }
+.rz-dragging-col, .rz-dragging-col * { cursor: col-resize !important; }
+.rz-dragging-row, .rz-dragging-row * { cursor: row-resize !important; }
+.rz-dragging .app { transition: none; }
+/* 일정·할 일 높이 비율 */
+.panel.memo-host > .panel-half:nth-of-type(1) { flex: var(--top, 50) 1 0; }
+.panel.memo-host > .panel-half:nth-of-type(2) { flex: calc(100 - var(--top, 50)) 1 0; }

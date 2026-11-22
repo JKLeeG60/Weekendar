@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStore, initialDate } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { addDays } from '../lib/date'
@@ -17,9 +17,14 @@ import { useAutoTutorial } from './Tutorial'
 import { useAutoWeekStart } from './WeekGoals'
 import { comboOf, resolveShortcuts, type ShortcutId } from '../lib/shortcuts'
 import { finishGcalConnect } from '../lib/gcal'
+import { useLayout, clampRight, RIGHT_DEFAULT } from '../lib/layout'
+import { Resizer } from './Resizer'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen } = useUI()
+  // 끌어서 바꾸는 오른쪽 칸 폭 (이 브라우저에 기억)
+  const lay = useLayout()
+  const appRef = useRef<HTMLDivElement>(null)
   const { myMember, team, me, mode } = useStore()
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {
@@ -84,12 +89,27 @@ export function Main() {
   if (isMobile) return <MobileMain />
 
   return (
-    <div className={'app' + (panelOpen ? '' : ' panel-closed')} style={{ gridTemplateColumns: panelOpen ? '2fr 1fr' : '1fr 0fr' }}>
+    <div ref={appRef} className={'app' + (panelOpen ? '' : ' panel-closed')} style={{ gridTemplateColumns: panelOpen ? `${100 - lay.right}fr ${lay.right}fr` : '1fr 0fr' }}>
       <main className="team">
         <Header />
         {myMember && <TeamTable />}
       </main>
       <div className="panel-col">
+        {panelOpen && (
+          <Resizer
+            dir="col"
+            label={t('오른쪽 칸 폭')}
+            value={lay.right}
+            min={20}
+            max={45}
+            onMove={(x, done) => {
+              const r = appRef.current?.getBoundingClientRect()
+              if (r) lay.set({ right: clampRight(((r.right - x) / r.width) * 100) }, done)
+            }}
+            onStep={(d) => lay.set({ right: clampRight(lay.right - d) })}
+            onReset={() => lay.set({ right: RIGHT_DEFAULT })}
+          />
+        )}
         <PersonalPanel />
       </div>
       <Modals />

@@ -728,4 +728,8 @@ export const EN: Record<string, string | [string, string]> = {
   '링크': 'Link',
   '링크 지우기': 'Remove link',
   '완료': 'Done',
+  '오른쪽 칸 폭': 'Side panel width',
+  '일정과 할 일 높이': 'Events and to-dos height',
+  '끌어서 폭 조절 · 더블클릭하면 기본 크기': 'Drag to resize · double-click to reset',
+  '끌어서 높이 조절 · 더블클릭하면 반반': 'Drag to resize · double-click to split evenly',
 }

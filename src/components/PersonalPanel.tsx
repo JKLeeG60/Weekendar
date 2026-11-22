@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useLayout, clampTop, TOP_DEFAULT } from '../lib/layout'
+import { Resizer } from './Resizer'
 import { popup } from '../lib/bus'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
@@ -85,9 +87,28 @@ export function DayAgenda() {
 }
 
 export function PersonalPanel() {
+  // 일정과 할 일 사이를 끌어서 높이 비율을 바꾼다 (이 브라우저에 기억)
+  const lay = useLayout()
+  const ref = useRef<HTMLElement>(null)
+  const toTop = (y: number) => {
+    const halves = ref.current?.querySelectorAll<HTMLElement>(':scope > .panel-half')
+    if (!halves || halves.length < 2) return lay.top
+    const a = halves[0].getBoundingClientRect(), b = halves[1].getBoundingClientRect()
+    return clampTop(((y - a.top) / (b.bottom - a.top)) * 100)
+  }
   return (
-    <aside className="panel memo-host">
+    <aside ref={ref} className="panel memo-host" style={{ '--top': lay.top } as React.CSSProperties}>
       <DayAgenda />
+      <Resizer
+        dir="row"
+        label={t('일정과 할 일 높이')}
+        value={lay.top}
+        min={25}
+        max={75}
+        onMove={(y, done) => lay.set({ top: toTop(y) }, done)}
+        onStep={(d) => lay.set({ top: clampTop(lay.top + d) })}
+        onReset={() => lay.set({ top: TOP_DEFAULT })}
+      />
       <Todos />
       <MemoDock />
     </aside>
