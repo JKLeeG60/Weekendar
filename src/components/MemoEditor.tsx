@@ -320,7 +320,9 @@ function MemoToolbar({ editor, source, onSource, onDone }: { editor: Editor; sou
       <B on={s.b} label={t('굵게')} keys="⌘B" onClick={() => c().toggleBold().run()} cls="tx b">B</B>
       <B on={s.i} label={t('기울임')} keys="⌘I" onClick={() => c().toggleItalic().run()} cls="tx i">I</B>
       <B on={s.st} label={t('취소선')} onClick={() => c().toggleStrike().run()} cls="tx s">S</B>
-      <B on={s.hl} label={t('형광펜')} keys="==" onClick={() => c().toggleHighlight().run()} cls="tx hl">H</B>
+      <B on={s.hl} label={t('형광펜')} keys="==" onClick={() => c().toggleHighlight().run()} cls="hl">
+        {I(<><path d="M14.5 4.5l5 5L11 18H6v-5z" /><path d="M12 7l5 5" /><path className="hl-line" d="M4 21h16" /></>)}
+      </B>
       <i className="mt-sep" />
       <B on={s.ul} label={t('목록')} onClick={() => c().toggleBulletList().run()}>
         {I(<><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></>)}

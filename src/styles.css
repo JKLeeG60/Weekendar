@@ -1548,7 +1548,9 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .memo-find { flex: none; color: var(--muted); }
 .memo-tab .panel-head { display: flex; align-items: center; justify-content: space-between; }
 /* 도구 줄 추가 버튼 */
-.mt-btn.hl { background-image: linear-gradient(transparent 58%, color-mix(in srgb, #ffd60a 70%, transparent) 58%); background-repeat: no-repeat; background-size: 60% 100%; background-position: center; }
+/* 형광펜 버튼: 선 아이콘 + 아래 얇은 노란 밑줄 */
+.mt-btn.hl .hl-line { stroke: #f5c400; stroke-width: 2.4; }
+.mt-btn.hl:disabled .hl-line { stroke: currentColor; }
 .mt-btn:disabled { opacity: 0.35; pointer-events: none; }
 .mt-table { display: inline-flex; align-items: center; gap: 0.15rem; flex: none; }
 .mt-chip { flex: none; font-size: 0.75rem; font-weight: 600; color: var(--muted); background: var(--surface); border-radius: 0.45rem; padding: 0.22rem 0.45rem; box-shadow: 0 0 0 1px var(--line-soft); white-space: nowrap; }
