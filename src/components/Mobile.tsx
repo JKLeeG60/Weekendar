@@ -14,6 +14,7 @@ import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
 import { AbsencePill } from './AbsencePill'
+import { SearchSheet } from './Search'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
 import { useDayDrag } from '../lib/dayDrag'
 
@@ -36,7 +37,13 @@ export function MobileMain() {
   useEffect(() => {
     if (chatOpen) setTab('chat')
   }, [chatOpen])
-  const { selected } = useUI()
+  // 검색 결과를 누르면 그 탭으로
+  useEffect(() => {
+    const h = (e: Event) => setTab((e as CustomEvent<Tab>).detail)
+    window.addEventListener('wk:mtab', h)
+    return () => window.removeEventListener('wk:mtab', h)
+  }, [])
+  const { selected, searchOpen } = useUI()
   const carry = me?.todoCarry !== false
   const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && (carry ? t.date <= selected : t.date === selected)).length
 
@@ -69,6 +76,7 @@ export function MobileMain() {
           </button>
         ))}
       </nav>
+      {searchOpen && <SearchSheet />}
       <Modals />
       {toast && <Toast />}
       <DayDropStrip />
@@ -220,7 +228,7 @@ function MobileTeam() {
                               onDelete={mine ? () => act.removeEvent(en.ev!.baseId) : undefined}
                               drag={mine ? { label: en.ev!.title, onDrop: (to) => act.moveEvent(en.ev!.baseId, day, to) } : undefined}
                             >
-                            <button className="m-item" data-cat={en.ev!.category} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
+                            <button className="m-item" data-cat={en.ev!.category} data-base={en.ev!.baseId} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
                               {isMultiDay(en.ev!)
                                 ? <span className="m-time allday-time">{t('종일')}</span>
                                 : <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>}

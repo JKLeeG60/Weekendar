@@ -785,7 +785,6 @@ export const EN: Record<string, string | [string, string]> = {
   '다른 팀원 {n}명': '{n} more teammates',
   '더 보기': 'More',
   '검색': 'Search',
-  '검색 (⌘K)': 'Search (⌘K)',
   '검색어': 'Search text',
   '일정, 할 일, 메모, 채팅 검색': 'Search events, to-dos, notes, chats',
   '찾을 글자를 입력하세요': 'Type something to search',
@@ -798,4 +797,5 @@ export const EN: Record<string, string | [string, string]> = {
   '{name}님과의 대화': 'Chat with {name}',
   '대화방': 'Group chat',
   '지우기': 'Clear',
+  '검색 (⌘F)': 'Search (⌘F)',
 }

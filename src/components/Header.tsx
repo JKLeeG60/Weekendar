@@ -57,8 +57,8 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
       </div>
       <div className="tools">
         <div className="toolgroup">
-        {/* 검색 (데스크탑) */}
-        {mobileTitle === undefined && <button className={'icon-btn' + (searchOpen ? ' on' : '')} onClick={() => setSearchOpen(true)} aria-label={t('검색')} title={t('검색 (⌘K)')}><Icon name="search" /></button>}
+        {/* 검색 (데스크탑 ⌘F, 휴대폰은 달력 아이콘 왼쪽) */}
+        <button className={'icon-btn' + (searchOpen ? ' on' : '')} onClick={() => setSearchOpen(true)} aria-label={t('검색')} title={t('검색 (⌘F)')}><Icon name="search" /></button>
         <ChatButton />
         {/* 내 월간 일정 */}
         <button className={'icon-btn' + (monthView ? ' on' : '')} onClick={() => (monthView ? setMonthView(null) : me && openModal({ type: 'month', userId: me.id }))} aria-label={t('내 월간 일정')} title={monthView ? t('주간 팀 표로') : t('내 월간 일정')}>

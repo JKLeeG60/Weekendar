@@ -5,7 +5,8 @@ import { t, getLang } from '../lib/i18n'
 import { addDays, dowLabel, parse, todayStr } from '../lib/date'
 import { occurrencesOn } from '../lib/events'
 import type { EventItem, Message, Occurrence } from '../lib/types'
-import { Icon } from './ui'
+import { Avatar, Icon } from './ui'
+import { flashTarget, highlightText } from '../lib/findMark'
 
 type Kind = 'event' | 'todo' | 'memo' | 'chat'
 type Row =
@@ -36,10 +37,11 @@ const dateOf = (ms: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** 반복 일정은 오늘부터 가장 가까운 날(없으면 처음 날)을 보여 준다 */
+/** 반복 일정은 가장 최근에 있었던 날(오늘 포함)을, 아직 시작 전이면 첫날을 보여 준다 */
 function pickOcc(e: EventItem, today: string): Occurrence {
-  if (e.repeat !== 'none') {
-    for (let i = 0, d = e.date > today ? e.date : today; i < 400; i++, d = addDays(d, 1)) {
+  if (e.repeat !== 'none' && e.date < today) {
+    const last = e.until && e.until < today ? e.until : today
+    for (let i = 0, d = last; i < 400 && d >= e.date; i++, d = addDays(d, -1)) {
       const o = occurrencesOn([e], d)[0]
       if (o) return o
     }
@@ -71,10 +73,10 @@ function Mark({ text, q }: { text: string; q: string }) {
   return <>{out}</>
 }
 
-/** 위쪽 돋보기(⌘K, /)로 여는 검색 창: 일정·할 일·메모·채팅을 한 번에 찾는다 */
+/** 위쪽 돋보기(⌘F, /)로 여는 검색 창 (휴대폰은 전체 화면): 일정·할 일·메모·채팅을 한 번에 찾는다 */
 export function SearchSheet() {
   const { db, me, tableMembers, userOf, rooms, findMemos, findMessages, revealMessage } = useStore()
-  const { setSearchOpen, setSelected, openModal, setMonthView, panelOpen, togglePanel, setChatOpen, setChatTab, setDmPeer, setChatJump } = useUI()
+  const { setSearchOpen, setSelected, setMonthView, panelOpen, togglePanel, setChatOpen, setChatTab, setDmPeer, setChatJump, isMobile } = useUI()
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Kind | 'all'>('all')
   const [more, setMore] = useState<Kind | null>(null)
@@ -116,11 +118,10 @@ export function SearchSheet() {
       .filter((e) => (e.ownerId === me.id || (e.shared && team.has(e.ownerId))) && (e.title.toLowerCase().includes(k) || e.place.toLowerCase().includes(k)))
       .map((e) => {
         const occ = pickOcc(e, today)
-        return { kind: 'event' as const, key: 'e' + e.id, date: occ.date, occ, owner: e.ownerId === me.id ? t('나') : userOf(e.ownerId).name, inTitle: e.title.toLowerCase().includes(k) }
+        return { kind: 'event' as const, key: 'e' + e.id, date: occ.date, occ, owner: e.ownerId === me.id ? t('나') : userOf(e.ownerId).name }
       })
-      // 제목에 들어 있는 일정을 먼저, 장소에만 들어 있는 일정은 뒤로 (각각 최근 날짜부터)
-      .sort((a, b) => Number(b.inTitle) - Number(a.inTitle) || b.date.localeCompare(a.date))
-      .map(({ inTitle: _, ...r }) => r)
+      // 모든 칸: 가장 최근 날짜가 위로 (같은 날이면 늦은 시각이 위로)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.occ.start.localeCompare(a.occ.start))
     // 할 일: 내 것만
     out.todo = db.todos
       .filter((x) => x.ownerId === me.id && x.text.toLowerCase().includes(k))
@@ -153,19 +154,36 @@ export function SearchSheet() {
     listRef.current?.querySelector<HTMLElement>('.sr-row.sel')?.scrollIntoView({ block: 'nearest' })
   }, [cur])
 
+  /** 휴대폰: 아래 탭 바꾸기 */
+  const tabTo = (tab: 'team' | 'todo' | 'memo') => window.dispatchEvent(new CustomEvent('wk:mtab', { detail: tab }))
+
+  /** 결과를 누르면 그 자리로 가서 깜빡여 보여 준다 */
   function go(r: Row) {
     close()
     setMonthView(null)
     if (r.kind === 'event') {
       setSelected(r.date)
-      openModal({ type: 'detail', occ: r.occ })
+      if (isMobile) {
+        tabTo('team')
+        void flashTarget(`.m-item[data-base="${r.occ.baseId}"]`)
+      } else {
+        if (!panelOpen) togglePanel()
+        // 팀 표에 있으면 팀 표에서, 나만 보기 일정이면 오른쪽 내 일정에서
+        void flashTarget(`.chip[data-base="${r.occ.baseId}"][data-date="${r.date}"]`).then((ok) => { if (!ok) void flashTarget(`.panel-col [data-base="${r.occ.baseId}"]`) })
+      }
     } else if (r.kind === 'todo') {
       setSelected(r.date)
-      if (!panelOpen) togglePanel()
+      if (isMobile) tabTo('todo')
+      else if (!panelOpen) togglePanel()
+      void flashTarget(`[data-tid="${r.key.slice(1)}"]`)
     } else if (r.kind === 'memo') {
       setSelected(r.date)
-      if (!panelOpen) togglePanel()
-      window.setTimeout(() => window.dispatchEvent(new Event('wk:memo-open')), 80)
+      if (isMobile) tabTo('memo')
+      else {
+        if (!panelOpen) togglePanel()
+        window.setTimeout(() => window.dispatchEvent(new Event('wk:memo-open')), 80)
+      }
+      highlightText('.ProseMirror', s)
     } else {
       const m = r.m
       if (m.toId) { setChatTab('dm'); setDmPeer(m.authorId === me?.id ? m.toId : m.authorId) }
@@ -187,9 +205,10 @@ export function SearchSheet() {
 
   let idx = -1
   return (
-    <div className="sr-wrap" onKeyDown={onKey}>
+    <div className={'sr-wrap' + (isMobile ? ' mob' : '')} onKeyDown={onKey}>
       <div className="sr-dim" onClick={close} />
       <div className="sr" role="dialog" aria-modal="true" aria-label={t('검색')}>
+        <div className="sr-top">
         <div className="sr-in">
           <Icon name="search" size={20} />
           {/* 한글 입력이 끊기지 않도록 입력은 그대로 두고, 찾기만 잠깐 늦춘다 */}
@@ -201,8 +220,10 @@ export function SearchSheet() {
             aria-label={t('검색어')}
             spellCheck={false}
           />
-          {q && <button className="sr-clear" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label={t('지우기')}><Icon name="x" size={14} /></button>}
-          <kbd className="sr-esc" onClick={close}>esc</kbd>
+          {q && <button className="sr-clear" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label={t('지우기')}><Icon name="x" size={12} /></button>}
+          {isMobile ? null : <kbd className="sr-esc" onClick={close}>esc</kbd>}
+        </div>
+        {isMobile && <button className="sr-cancel" onClick={close}>{t('취소')}</button>}
         </div>
         {s && (
           <div className="sr-chips" role="tablist">
@@ -225,7 +246,31 @@ export function SearchSheet() {
                   <button onClick={() => setMore(more === sec.kind ? null : sec.kind)}>{more === sec.kind ? t('접기') : t('모두 보기')}</button>
                 )}
               </div>
-              {sec.list.map((r) => {
+              {isMobile ? (
+                <div className="sr-card">
+                  {sec.list.map((r) => (
+                    <button key={r.key} className={'sr-mrow' + (r.kind === 'todo' && r.done ? ' dn' : '')} onClick={() => go(r)}>
+                      {r.kind === 'event' && <span className="sr-dot" data-cat={r.occ.category} />}
+                      {r.kind === 'todo' && <span className={'sr-chk' + (r.done ? ' done' : '')} />}
+                      {r.kind === 'chat' && <Avatar name={userOf(r.m.authorId).name} size={28} />}
+                      <span className="sr-mt">
+                        <span className="sr-t">
+                          {r.kind === 'event' && <Mark text={r.occ.title} q={s} />}
+                          {r.kind === 'todo' && <Mark text={r.text} q={s} />}
+                          {r.kind === 'memo' && <Mark text={r.snip} q={s} />}
+                          {r.kind === 'chat' && <>“<Mark text={r.m.body} q={s} />”</>}
+                        </span>
+                        <small>
+                          {r.kind === 'event' && [shortDate(r.date), r.owner, r.occ.place, r.occ.repeat !== 'none' ? t('반복') : ''].filter(Boolean).join(' · ')}
+                          {(r.kind === 'todo' || r.kind === 'memo') && shortDate(r.date)}
+                          {r.kind === 'chat' && [r.who, r.where, shortDate(r.date)].join(' · ')}
+                        </small>
+                      </span>
+                      <Icon name="chevR" size={14} />
+                    </button>
+                  ))}
+                </div>
+              ) : sec.list.map((r) => {
                 idx++
                 const i = idx
                 return (
@@ -251,11 +296,11 @@ export function SearchSheet() {
             </section>
           ))}
         </div>
-        <div className="sr-foot">
+        {!isMobile && <div className="sr-foot">
           <span><kbd>↑</kbd><kbd>↓</kbd>{t('이동')}</span>
           <span><kbd>↵</kbd>{t('열기')}</span>
-          <span><kbd>⌘K</kbd>{t('어디서나 검색')}</span>
-        </div>
+          <span><kbd>⌘F</kbd>{t('어디서나 검색')}</span>
+        </div>}
       </div>
     </div>
   )

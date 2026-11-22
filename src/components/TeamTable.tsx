@@ -232,6 +232,8 @@ export function TeamTable() {
                               {...dragProps(o, d)}
                               className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '')}
                               data-cat={o.category}
+                              data-base={o.baseId}
+                              data-date={d}
                               title={`${o.start}–${o.end} ${o.title}${o.place ? ' · ' + o.place : ''}`}
                               onClick={(ev) => {
                                 ev.stopPropagation()

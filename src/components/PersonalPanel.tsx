@@ -57,7 +57,7 @@ export function DayAgenda() {
             <span className="allday-label">{t('종일')}</span>
             <div className="allday-list">
               {allDay.map((o) => (
-                <button key={o.id} className="allday-item" data-cat={o.category} onClick={() => openModal({ type: 'detail', occ: o })}>
+                <button key={o.id} className="allday-item" data-cat={o.category} data-base={o.baseId} onClick={() => openModal({ type: 'detail', occ: o })}>
                   <b>{o.title}</b><small>{spanLabel(o)}</small>
                 </button>
               ))}
@@ -157,7 +157,7 @@ export function Todos() {
         )}
         <ul className="todos">
           {list.map((t) => (
-            <li key={t.id} className="todo-li">
+            <li key={t.id} className="todo-li" data-tid={t.id}>
             <GestureRow
               className={'todo-item' + (t.done ? ' done' : '')}
               onDelete={() => act.removeTodo(t)}
@@ -400,6 +400,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay }
               key={o.id}
               className={'tl-event' + (o.shared ? ' shared' : '') + (compact ? ' compact' : '') + (live ? ' lifted' : '') + (drag?.id === o.id && !drag.active ? ' holding' : '')}
               data-cat={o.category}
+              data-base={o.baseId}
               style={{
                 top: `${topOf(ss)}rem`,
                 height: `${h}rem`,

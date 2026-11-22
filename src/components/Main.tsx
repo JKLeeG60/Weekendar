@@ -99,13 +99,14 @@ export function Main() {
     return () => window.removeEventListener('keydown', h)
   }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me, monthView, setMonthView, searchOpen, setSearchOpen])
 
-  // ⌘K (윈도우는 Ctrl+K): 어디서든 검색 열기·닫기 (글을 쓰는 중이어도)
+  // ⌘F (윈도우는 Ctrl+F): 브라우저 찾기 대신 Weekendar 검색 (이미 열려 있으면 입력칸 선택)
   useEffect(() => {
     if (isMobile) return
     const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyF') {
         e.preventDefault()
-        setSearchOpen(!searchOpen)
+        if (searchOpen) document.querySelector<HTMLInputElement>('.sr-in input')?.select()
+        else setSearchOpen(true)
       }
     }
     window.addEventListener('keydown', h)
