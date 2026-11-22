@@ -278,6 +278,10 @@ export interface Store {
   /** week(그 주의 월요일)의 목표를 정한다. 이미 있으면 글만 바꾸고, 빈 글이면 지운다 */
   setGoal: (week: string, text: string) => void
   toggleGoal: (id: string) => void
+  /** 그날 메모 불러오기 (마크다운 글, 없으면 빈 글) */
+  loadMemo: (date: string) => Promise<string>
+  /** 그날 메모 저장 (빈 글이면 지움). 실패하면 false */
+  saveMemo: (date: string, body: string) => Promise<boolean>
   /** "이번 주 시작" 카드를 그 주에 보여줬다고 기록 */
   finishWeekCard: (week: string) => void
   // 알림
@@ -678,6 +682,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set((p) => ({ ...p, goals: (p.goals ?? []).map((g) => (g.id === id && g.ownerId === p.currentUserId ? { ...g, done: !g.done } : g)) })),
       finishWeekCard: (week) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, weekCardSeen: week } : u)) })),
+      loadMemo: async (date) => (db.memos ?? []).find((m) => m.ownerId === db.currentUserId && m.date === date)?.body ?? '',
+      saveMemo: async (date, body) => {
+        set((p) => {
+          const me = p.currentUserId
+          if (!me) return p
+          const rest = (p.memos ?? []).filter((m) => !(m.ownerId === me && m.date === date))
+          return { ...p, memos: body.trim() ? [...rest, { ownerId: me, date, body: body.slice(0, 20000) }] : rest }
+        })
+        return true
+      },
 
       markAllRead: () =>
         set((p) => ({

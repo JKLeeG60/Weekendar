@@ -7,6 +7,7 @@ import { addDays, fmtHead, todayStr } from '../lib/date'
 import type { Occurrence } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { WeekGoalSection } from './WeekGoals'
+import { MemoDock } from './Memo'
 /** 할 일 목록 안에서는 변수 이름 t(할 일)와 겹치므로 tr 로 부른다 */
 const tr = t
 import { MiniCalendar } from './MiniCalendar'
@@ -85,9 +86,10 @@ export function DayAgenda() {
 
 export function PersonalPanel() {
   return (
-    <aside className="panel">
+    <aside className="panel memo-host">
       <DayAgenda />
       <Todos />
+      <MemoDock />
     </aside>
   )
 }

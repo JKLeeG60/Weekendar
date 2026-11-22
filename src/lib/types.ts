@@ -112,6 +112,13 @@ export interface Todo {
   priority: boolean
 }
 
+/** 날짜별 메모 (마크다운, 나만 보임) */
+export interface Memo {
+  ownerId: string
+  date: string
+  body: string
+}
+
 /** 이번 주 목표: 할 일과 따로, 한 주에 하나, 나만 보임 (week = 그 주의 월요일) */
 export interface WeekGoal {
   id: string
@@ -183,6 +190,7 @@ export interface DB {
   todos: Todo[]
   /** 이번 주 목표 (없으면 빈 목록) */
   goals?: WeekGoal[]
+  memos?: Memo[]
   notices: Notice[]
   messages: Message[]
   /** 사람별 대화 마지막 읽은 시각(ms) */

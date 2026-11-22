@@ -29,14 +29,14 @@
 - `src/lib/cloud.tsx` — **실서비스** 저장소(Supabase). `store.tsx` 와 같은 인터페이스를 구현.
   → 기능을 추가할 때는 **두 저장소를 모두** 고쳐야 한다.
 - `src/lib/` — `types.ts`(데이터 타입), `events.ts`(반복·여러 날 일정 계산), `date.ts`(날짜·한국 공휴일), `ui.tsx`(화면 상태·모달·테마), `push.ts`(PWA·푸쉬), `invite.ts`, `ics.ts`, `chat.ts`
-- `src/components/` — `TeamTable`(팀 주간표), `PersonalPanel`(내 일정·할 일), `Modals`(입력·상세·팀 관리 등), `Header`, `Mobile`(모바일 4탭), `Chat`, `Notifications`, `Onboarding`(로그인·팀 선택)
+- `src/components/` — `TeamTable`(팀 주간표), `PersonalPanel`(내 일정·할 일), `Memo`·`MemoEditor`(날짜별 메모, 편집기는 Tiptap·지연 로딩), `Modals`(입력·상세·팀 관리 등), `Header`, `Mobile`(모바일 5탭), `Chat`, `Notifications`, `Onboarding`(로그인·팀 선택)
 - `public/` — `sw.js`(서비스워커), `manifest.webmanifest`, `icons/`, `og-image.png`, `privacy.html`·`terms.html`·`legal.css`(약관 페이지 — 내용을 바꿔 다시 동의받으려면 `src/lib/legal.ts` 의 `TERMS_VERSION` 을 올림)
 - `supabase/` — `schema.sql`(전체) + `migration_NNN.sql`(변경분)
 
 ## DB 변경 규칙
 - DB를 바꿀 때는 새 `supabase/migration_NNN.sql` 을 만들고, 같은 내용을 `schema.sql` 끝에도 덧붙인다.
 - SQL은 **사용자가 Supabase SQL Editor에서 직접 실행**한다. 실행 전에 앱이 배포되면 오류가 나므로 **SQL 실행 → 커밋** 순서로 안내한다.
-- 실행한 마이그레이션: 002, 003, 005~009, 011~025 (004는 없음, 010은 건너뜀 — 구글 캘린더는 022로 대체)
+- 실행한 마이그레이션: 002, 003, 005~009, 011~026 (004는 없음, 010은 건너뜀 — 구글 캘린더는 022로 대체)
 
 ## 주의할 점
 - 한국 공휴일 규칙이 `src/lib/date.ts` 와 `api/push.ts` **두 곳**에 있다. 공휴일을 바꾸면 둘 다 고친다.

@@ -285,6 +285,21 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      // 메모: 화면에 띄울 때 그날 것만 불러오고, 저장은 덮어쓰기 (빈 글이면 지움)
+      loadMemo: async (date) => {
+        if (!me_id) return ''
+        const { data } = await supabase.from('memos').select('body').eq('owner_id', me_id).eq('date', date).maybeSingle()
+        return (data as { body?: string } | null)?.body ?? ''
+      },
+      saveMemo: async (date, body) => {
+        if (!me_id) return false
+        const text = body.slice(0, 20000)
+        const { error } = text.trim()
+          ? await supabase.from('memos').upsert({ owner_id: me_id, date, body: text, updated_at: new Date().toISOString() }, { onConflict: 'owner_id,date' })
+          : await supabase.from('memos').delete().eq('owner_id', me_id).eq('date', date)
+        return !error
+      },
+
       // 이번 주 목표: 주마다 한 개. 빈 글이면 삭제, 있으면 덮어쓰기(달성 여부는 유지)
       setGoal: (week, text) => {
         const body = text.trim().slice(0, 100)

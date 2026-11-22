@@ -7,6 +7,7 @@ import { getLang, t } from '../lib/i18n'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Header } from './Header'
 import { DayAgenda, Todos } from './PersonalPanel'
+import { MemoTab } from './Memo'
 import { Modals } from './Modals'
 import { NoticeToasts } from './NoticeToasts'
 import { ChatPanel } from './Chat'
@@ -16,10 +17,10 @@ import { AbsencePill } from './AbsencePill'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
 import { useDayDrag } from '../lib/dayDrag'
 
-type Tab = 'team' | 'me' | 'todo' | 'chat'
+type Tab = 'team' | 'me' | 'todo' | 'memo' | 'chat'
 
 /** 좁은 화면용 레이아웃: 하단 탭 + 요일 탭 중심의 팀 일정 */
-const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo: '할 일', chat: '대화' }
+const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo: '할 일', memo: '메모', chat: '대화' }
 
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
@@ -47,13 +48,15 @@ export function MobileMain() {
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}
         {tab === 'todo' && <Todos />}
+        {tab === 'memo' && <MemoTab />}
         {tab === 'chat' && <ChatPanel />}
       </div>
-      <nav className="m-tabs" aria-label={t('화면 전환')}>
+      <nav className="m-tabs five" aria-label={t('화면 전환')}>
         {([
           ['team', '팀 주간표', 'cal'],
           ['me', '내 일정', 'person'],
           ['todo', '할 일', 'list'],
+          ['memo', '메모', 'note'],
           ['chat', '대화', 'chat'],
         ] as const).map(([k, label, icon]) => (
           <button key={k} className={'m-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)} aria-current={tab === k}>
