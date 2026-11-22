@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useStore, initialDate } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { addDays } from '../lib/date'
+import { addDays, parse } from '../lib/date'
 import { Header } from './Header'
 import { TeamTable } from './TeamTable'
+import { MonthView } from './People'
 import { PersonalPanel } from './PersonalPanel'
 import { Modals } from './Modals'
 import { MobileMain } from './Mobile'
@@ -21,7 +22,7 @@ import { useLayout, clampRight, RIGHT_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
 
 export function Main() {
-  const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen } = useUI()
+  const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen, monthView, setMonthView } = useUI()
   // 끌어서 바꾸는 오른쪽 칸 폭 (이 브라우저에 기억)
   const lay = useLayout()
   const appRef = useRef<HTMLDivElement>(null)
@@ -56,11 +57,19 @@ export function Main() {
       const el = e.target as HTMLElement
       // 창이 떠 있거나 글을 쓰는 중이면 무시
       if (modal || e.isComposing || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable) return
+      // 월간 보기에서 Esc: 주간 팀 표로 (메모 창이 열려 있으면 메모 창이 먼저 닫힌다)
+      if (e.key === 'Escape' && monthView && !document.querySelector('.memo-sheet.open')) { setMonthView(null); return }
       const combo = comboOf(e)
       if (!combo) return
       const id = (Object.keys(keys) as ShortcutId[]).find((k) => keys[k] === combo)
       if (!id) return
       e.preventDefault()
+      const moveMonth = (n: number) => {
+        if (!monthView) return
+        const d = parse(monthView.date ?? selected)
+        const { y, m } = monthView.ym ?? { y: d.getFullYear(), m: d.getMonth() }
+        setMonthView({ ...monthView, ym: { y: m + n < 0 ? y - 1 : m + n > 11 ? y + 1 : y, m: (m + n + 12) % 12 } })
+      }
       const run: Record<ShortcutId, () => void> = {
         quickAdd: () => openModal({ type: 'quick' }),
         newEvent: () => openModal({ type: 'event', date: selected }),
@@ -68,13 +77,15 @@ export function Main() {
           if (!panelOpen) togglePanel()
           window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-todo-input]')?.focus(), 60)
         },
-        prevWeek: () => setSelected(addDays(selected, -7)),
-        nextWeek: () => setSelected(addDays(selected, 7)),
-        today: () => setSelected(initialDate()),
+        // 월간 보기에서는 ← → 가 달을, T 가 이번 달을 바꾼다
+        prevWeek: () => (monthView ? moveMonth(-1) : setSelected(addDays(selected, -7))),
+        nextWeek: () => (monthView ? moveMonth(1) : setSelected(addDays(selected, 7))),
+        today: () => { if (monthView) { const n = new Date(); setMonthView({ ...monthView, ym: { y: n.getFullYear(), m: n.getMonth() } }) } else setSelected(initialDate()) },
         prevDay: () => setSelected(addDays(selected, -1)),
         nextDay: () => setSelected(addDays(selected, 1)),
         chat: () => setChatOpen(!chatOpen),
-        month: () => me && openModal({ type: 'month', userId: me.id }),
+        // M: 주간 ↔ 월간 보기 전환
+        month: () => { if (monthView) setMonthView(null); else if (me) openModal({ type: 'month', userId: me.id }) },
         notices: () => window.dispatchEvent(new Event('wk:notices')),
         panel: () => togglePanel(),
         settings: () => openModal({ type: 'settings' }),
@@ -84,7 +95,7 @@ export function Main() {
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me])
+  }, [selected, modal, setSelected, openModal, isMobile, keys, panelOpen, togglePanel, chatOpen, setChatOpen, me, monthView, setMonthView])
 
   if (isMobile) return <MobileMain />
 
@@ -92,7 +103,7 @@ export function Main() {
     <div ref={appRef} className={'app' + (panelOpen ? '' : ' panel-closed')} style={{ gridTemplateColumns: panelOpen ? `${100 - lay.right}fr ${lay.right}fr` : '1fr 0fr' }}>
       <main className="team">
         <Header />
-        {myMember && <TeamTable />}
+        {myMember && (monthView ? <MonthView key={monthView.userId + (monthView.date ?? '')} userId={monthView.userId} date={monthView.date} /> : <TeamTable />)}
       </main>
       <div className="panel-col">
         {panelOpen && (

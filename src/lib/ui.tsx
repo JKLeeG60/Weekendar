@@ -67,6 +67,9 @@ interface UI {
   setPreview: (v: boolean) => void
   /** 모바일 레이아웃을 쓸지 (좁은 화면이거나 미리보기) */
   isMobile: boolean
+  /** 데스크탑: 팀 표 자리에 보이는 월간 보기 (null 이면 주간 팀 표) */
+  monthView: { userId: string; date?: string; ym?: { y: number; m: number } } | null
+  setMonthView: (v: { userId: string; date?: string; ym?: { y: number; m: number } } | null) => void
 }
 
 export type ThemePref = 'system' | 'light' | 'dark'
@@ -98,6 +101,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('date') ?? initialDate())
   const [modal, setModal] = useState<ModalState>(null)
   const [layer, setLayer] = useState<ModalState>(null)
+  const [monthView, setMonthView] = useState<{ userId: string; date?: string; ym?: { y: number; m: number } } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [toastAction, setToastAction] = useState<{ label: string; run: () => void } | null>(null)
   const showToast = (t: string, action?: { label: string; run: () => void }) => {
@@ -176,7 +180,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
         setSelected,
         modal,
         // 겹친 창이 있으면 그 창 안에서 여는 것은 겹친 창을 바꾼다
-        openModal: (m) => (layer ? setLayer(m) : setModal(m)),
+        // 데스크탑의 월간 일정은 창 대신 팀 표 자리에서 월간 보기로 연다
+        openModal: (m) => {
+          if (m?.type === 'month' && !isMobile) { setLayer(null); setModal(null); setMonthView({ userId: m.userId, date: m.date }); return }
+          if (layer) setLayer(m); else setModal(m)
+        },
         layer,
         openLayer: setLayer,
         chatTab,
@@ -201,6 +209,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         preview,
         setPreview,
         isMobile,
+        monthView,
+        setMonthView,
       }}
     >
       {children}
