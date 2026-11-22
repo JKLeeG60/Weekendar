@@ -282,6 +282,8 @@ export interface Store {
   loadMemo: (date: string) => Promise<string>
   /** 그날 메모 저장 (빈 글이면 지움). 실패하면 false */
   saveMemo: (date: string, body: string) => Promise<boolean>
+  /** 내 메모 전체에서 글자 찾기 (최근 날짜부터 최대 50개) */
+  findMemos: (q: string) => Promise<{ date: string; body: string }[]>
   /** "이번 주 시작" 카드를 그 주에 보여줬다고 기록 */
   finishWeekCard: (week: string) => void
   // 알림
@@ -683,6 +685,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishWeekCard: (week) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, weekCardSeen: week } : u)) })),
       loadMemo: async (date) => (db.memos ?? []).find((m) => m.ownerId === db.currentUserId && m.date === date)?.body ?? '',
+      findMemos: async (q) => {
+        const s = q.trim().toLowerCase()
+        if (!s) return []
+        return (db.memos ?? [])
+          .filter((m) => m.ownerId === db.currentUserId && m.body.toLowerCase().includes(s))
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .slice(0, 50)
+          .map((m) => ({ date: m.date, body: m.body }))
+      },
       saveMemo: async (date, body) => {
         set((p) => {
           const me = p.currentUserId

@@ -291,6 +291,14 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.from('memos').select('body').eq('owner_id', me_id).eq('date', date).maybeSingle()
         return (data as { body?: string } | null)?.body ?? ''
       },
+      findMemos: async (q) => {
+        const s = q.trim()
+        if (!me_id || !s) return []
+        // ilike 의 특수 문자(% _ \)는 글자 그대로 찾도록 막는다
+        const pat = '%' + s.replace(/[\\%_]/g, (c) => '\\' + c) + '%'
+        const { data } = await supabase.from('memos').select('date, body').eq('owner_id', me_id).ilike('body', pat).order('date', { ascending: false }).limit(50)
+        return ((data ?? []) as { date: string; body: string }[]).map((m) => ({ date: m.date, body: m.body }))
+      },
       saveMemo: async (date, body) => {
         if (!me_id) return false
         const text = body.slice(0, 20000)
