@@ -1,7 +1,7 @@
 // Weekendar 서비스워커
 // 1) 화면 파일을 저장해 두어 인터넷이 잠깐 끊겨도 앱이 바로 열리게 함
 // 2) 앱이 닫혀 있어도 서버가 보낸 푸쉬 알림을 받아 휴대폰 알림으로 띄움
-const CACHE = 'weekendar-v2' // 아이콘 교체 때 v1→v2: 옛 저장본(옛 로고)을 지우고 새로 받게 함
+const CACHE = 'weekendar-v3' // 아이콘 교체 때 버전을 올린다 (v2→v3: '7' 아이콘). 옛 저장본(옛 로고)을 지우고 새로 받게 함
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icons/icon-192.png'])))
