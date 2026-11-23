@@ -33,9 +33,13 @@ export function Modal({
     if (!d.open) d.showModal()
     // 누른 자리 옆에 띄우되 화면 밖으로 나가지 않게
     if (at) {
-      const r = d.getBoundingClientRect()
+      // 크기는 열리는 효과(살짝 작게 시작)의 영향을 받지 않는 offset 값으로 잰다
+      const r = { width: d.offsetWidth, height: d.offsetHeight }
       d.style.left = Math.max(8, Math.min(at.x + 8, innerWidth - r.width - 8)) + 'px'
-      d.style.top = Math.max(8, Math.min(at.y + 8, innerHeight - r.height - 8)) + 'px'
+      const top = Math.max(8, Math.min(at.y + 8, innerHeight - r.height - 8))
+      d.style.top = top + 'px'
+      // 말풍선 꼬리: 누른 자리 높이에 맞춘다 (휴대폰 팀원 메뉴)
+      d.style.setProperty('--tail-y', Math.max(14, Math.min(at.y + 30 - top, r.height - 22)) + 'px')
     }
     // 초점을 줄 입력칸이 없으면 창 자체에 초점 (첫 버튼에 파란 초점 테두리가 생기지 않게)
     if (want) want.focus()

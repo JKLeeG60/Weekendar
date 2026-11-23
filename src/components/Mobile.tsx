@@ -188,7 +188,17 @@ function MobileTeam() {
                 <section key={m.userId} className={'m-card' + (mine ? ' mine' : '')}>
                   <header>
                     {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
-                    <button className={'m-who-btn' + (mine ? '' : ' who-btn')} onClick={() => { if (!mine) openModal({ type: 'member', userId: m.userId }) }}>
+                    <button className={'m-who-btn' + (mine ? '' : ' who-btn')} onClick={(e) => {
+                      if (mine) return
+                      // 이름 오른쪽에 말풍선 메뉴 (꼬리가 이름 가운데를 가리킨다)
+                      const r = e.currentTarget.getBoundingClientRect()
+                      // 이름·직급 글자가 끝나는 자리 (칸 너비가 아니라 실제 글자 끝)
+                      const who = e.currentTarget.querySelector('.m-who')
+                      const rg = document.createRange()
+                      if (who) rg.selectNodeContents(who)
+                      const end = who ? rg.getBoundingClientRect().right : r.right
+                      openModal({ type: 'member', userId: m.userId, x: end + 6, y: r.top + r.height / 2 - 30 })
+                    }}>
                       <Avatar name={u.name} size={34} />
                       <div className="m-who">
                         <strong>

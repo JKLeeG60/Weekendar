@@ -1737,3 +1737,12 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .sr-mt .sr-t { font-size: 0.97rem; }
 .sr-mt small { color: var(--muted); font-size: 0.76rem; margin-top: 0.12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sr-mrow.dn .sr-t { color: var(--muted); text-decoration: line-through; }
+
+/* 휴대폰 팀원 메뉴: 아래에서 올라오는 창 대신 이름 오른쪽 말풍선 (뒤 화면 흐림 없음) */
+[data-mobile='true'] .modal.at { margin: 0; width: 15.5rem !important; max-width: calc(100vw - 16px); border-radius: 0.95rem; border-bottom: 1px solid var(--line-soft); animation: bubble 0.16s ease; transform-origin: left var(--tail-y, 24px); box-shadow: 0 14px 36px rgba(0,0,0,0.16), 0 0 0 1px var(--line-soft); }
+[data-mobile='true'] .modal.at::backdrop { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+[data-mobile='true'] .modal.at::before { content: ''; position: absolute; left: -6px; top: var(--tail-y, 24px); width: 12px; height: 12px; background: var(--surface); transform: translateY(-50%) rotate(45deg); box-shadow: -1px 1px 0 var(--line-soft); border-radius: 2px; }
+@keyframes bubble { from { opacity: 0; transform: scale(0.92); } }
+[data-mobile='true'] .modal.at .mm-who { justify-content: flex-start; }
+[data-mobile='true'] .modal.at .mm-item { justify-content: flex-start; font-size: 1rem; padding: 0.72rem 0.8rem; color: var(--text); border-top: 0; border-radius: 0.6rem; }
+[data-mobile='true'] .modal.at .mm-item:active { background: var(--mine-bg); }
