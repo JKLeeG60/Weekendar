@@ -447,7 +447,8 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
 
 /* 개인 일정/To-do 탭은 한 화면을 가득 채운다 */
 .m-app .panel-half { box-shadow: 0 0 0 1px var(--line-soft); }
-.m-app .datebtn { font-size: 1.2rem; min-width: 9rem; }
+/* 휴대폰: 날짜는 메모 탭과 같은 크기·간격 */
+.m-app .datebtn { font-size: 0.95rem; min-width: 0; padding: 0.2rem 0.35rem; }
 
 /* 팝업은 아래에서 올라오는 바텀 시트 */
 [data-mobile='true'] .modal { margin: auto auto 0; width: 100% !important; max-width: none; max-height: 90%; border-radius: 1.3rem 1.3rem 0 0; animation: sheet 0.22s ease; border-bottom: 0; }
