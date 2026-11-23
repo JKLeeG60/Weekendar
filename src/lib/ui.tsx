@@ -136,7 +136,10 @@ export function UIProvider({ children }: { children: ReactNode }) {
     mq.addEventListener('change', h)
     // 폰의 "데스크톱 사이트" 모드: 화면 폭을 넓게 잡아 데스크탑 화면 전체가 보이게 한다.
     const meta = document.querySelector('meta[name=viewport]')
-    if (meta) meta.setAttribute('content', desktopSiteRequested() && !isNarrow() ? 'width=1280' : 'width=device-width, initial-scale=1.0')
+    // 아이폰·아이패드: 입력칸(메모·검색·채팅)을 누를 때 화면이 저절로 확대되지 않게 maximum-scale=1.
+    // iOS는 이 값이 있어도 두 손가락 확대는 그대로 허용한다. (안드로이드는 손가락 확대까지 막히므로 넣지 않음)
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    if (meta) meta.setAttribute('content', desktopSiteRequested() && !isNarrow() ? 'width=1280' : 'width=device-width, initial-scale=1.0' + (ios ? ', maximum-scale=1' : ''))
     return () => mq.removeEventListener('change', h)
   }, [])
 
