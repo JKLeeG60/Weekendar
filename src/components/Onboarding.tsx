@@ -8,26 +8,22 @@ import { localize, Rich, t } from '../lib/i18n'
 import { LoginShowcase } from './LoginShowcase'
 
 export function Logo({ size = 44 }: { size?: number }) {
-  // 점 5개 × 3줄 : 가운데 줄이 "이번 주"(월~금)
+  // 앱 아이콘과 같은 모양: 흰 바탕에 파란 '7'(날짜)과 일정 줄 3개
   return (
     <svg width={size} height={size} viewBox="0 0 1024 1024" aria-hidden>
       <defs>
-        <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#4DA3FF" />
-          <stop offset="1" stopColor="#0A63E0" />
-        </linearGradient>
-        <linearGradient id="lg-shine" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity=".28" />
-          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
+        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#F1F1F6" />
         </linearGradient>
       </defs>
       <rect width="1024" height="1024" rx="230" fill="url(#lg)" />
-      <rect width="1024" height="1024" rx="230" fill="url(#lg-shine)" />
-      {[0, 1, 2].map((r) =>
-        [0, 1, 2, 3, 4].map((c) => (
-          <circle key={`${r}${c}`} cx={192 + c * 160} cy={312 + r * 200} r={r === 1 ? 68 : 46} fill="#fff" fillOpacity={r === 1 ? 1 : 0.38} />
-        )),
-      )}
+      {/* 밝은 배경에서도 테두리가 보이게 옅은 선 */}
+      <rect x="4" y="4" width="1016" height="1016" rx="226" fill="none" stroke="#000" strokeOpacity=".08" strokeWidth="8" />
+      <polygon points="140.4,263.9 481.4,263.9 481.4,316.3 257.0,760.1 186.8,760.1 410.2,320.2 140.4,320.2" fill="#007AFF" />
+      {[263.9, 489.3, 715.6].map((y) => (
+        <rect key={y} x="580.2" y={y} width="303.4" height="43.5" rx="21.7" fill="#A3A9B9" />
+      ))}
     </svg>
   )
 }
