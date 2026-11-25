@@ -150,12 +150,14 @@ export function Todos() {
   const [hint, setHint] = useState<{ id: string; zone: 'before' | 'after' | 'into' } | null>(null)
   const zoneOf = (e: React.DragEvent, target: Todo): 'before' | 'after' | 'into' => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const y = (e.clientY - r.top) / r.height
+    const y = e.clientY - r.top
+    // 위·아래 끝 8px 만 '사이에 놓기', 나머지는 '하위로 넣기' (가운데만 되면 너무 좁아 순서만 바뀌기 쉽다)
+    const edge = Math.min(8, r.height * 0.25)
     const d = db.todos.find((x) => x.id === dragId)
     // 하위로 넣을 수 있는 경우: 대상이 맨 위 단계, 끄는 것은 하위가 없는 것 (한 단계까지)
     const canInto = !!d && !target.parentId && target.id !== d.id && !db.todos.some((x) => x.parentId === d.id)
-    if (canInto && y > 0.28 && y < 0.72) return 'into'
-    return y < 0.5 ? 'before' : 'after'
+    if (canInto && y > edge && y < r.height - edge) return 'into'
+    return y < r.height / 2 ? 'before' : 'after'
   }
   function drop(target: Todo, zone: 'before' | 'after' | 'into') {
     const d = db.todos.find((x) => x.id === dragId)
