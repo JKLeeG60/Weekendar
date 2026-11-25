@@ -148,9 +148,9 @@ export function Todos() {
   // ── 끌어 놓기: 할 일 위에 놓으면 그 하위로, 위·아래 가장자리에 놓으면 순서만 ──
   const [dragId, setDragId] = useState<string | null>(null)
   const [hint, setHint] = useState<{ id: string; zone: 'before' | 'after' | 'into' } | null>(null)
-  const zoneOf = (e: React.DragEvent, target: Todo): 'before' | 'after' | 'into' => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const y = e.clientY - r.top
+  const zoneOf = (el: HTMLElement, clientY: number, target: Todo): 'before' | 'after' | 'into' => {
+    const r = el.getBoundingClientRect()
+    const y = clientY - r.top
     // 위·아래 끝 8px 만 '사이에 놓기', 나머지는 '하위로 넣기' (가운데만 되면 너무 좁아 순서만 바뀌기 쉽다)
     const edge = Math.min(8, r.height * 0.25)
     const d = db.todos.find((x) => x.id === dragId)
@@ -158,6 +158,14 @@ export function Todos() {
     const canInto = !!d && !target.parentId && target.id !== d.id && !db.todos.some((x) => x.parentId === d.id)
     if (canInto && y > edge && y < r.height - edge) return 'into'
     return y < r.height / 2 ? 'before' : 'after'
+  }
+  /** 손가락 아래의 할 일과 놓을 자리 (휴대폰에서 꾹 눌러 끌 때) */
+  const fingerOver = (x: number, y: number) => {
+    const li = document.elementFromPoint(x, y)?.closest('.todos .todo-li') as HTMLElement | null
+    const target = li && list.find((v) => v.id === li.dataset.tid)
+    if (!li || !target || target.id === dragId) { if (hint) setHint(null); return }
+    const zone = zoneOf(li, y, target)
+    if (hint?.id !== target.id || hint.zone !== zone) setHint({ id: target.id, zone })
   }
   function drop(target: Todo, zone: 'before' | 'after' | 'into') {
     const d = db.todos.find((x) => x.id === dragId)
@@ -229,14 +237,14 @@ export function Todos() {
               onDragOver={(e) => {
                 if (!dragId || !e.dataTransfer.types.includes('text/weekendar-todo')) return
                 e.preventDefault()
-                const z = zoneOf(e, t)
+                const z = zoneOf(e.currentTarget, e.clientY, t)
                 if (hint?.id !== t.id || hint.zone !== z) setHint({ id: t.id, zone: z })
               }}
               onDragLeave={(e) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setHint((x) => (x?.id === t.id ? null : x)) }}
               onDrop={(e) => {
                 if (!dragId) return
                 e.preventDefault()
-                drop(t, zoneOf(e, t))
+                drop(t, zoneOf(e.currentTarget, e.clientY, t))
                 setHint(null)
                 setDragId(null)
                 endDayDrag(false)
@@ -246,7 +254,19 @@ export function Todos() {
             <GestureRow
               className={'todo-item' + (t.done ? ' done' : '')}
               onDelete={() => act.removeTodo(t)}
-              drag={!t.done ? { label: t.text, onDrop: (d) => act.moveTodo(t.id, d) } : undefined}
+              drag={!t.done ? {
+                label: t.text,
+                onDrop: (d) => act.moveTodo(t.id, d),
+                // 휴대폰: 꾹 눌러 끌다가 다른 할 일 위에 놓으면 하위로, 사이에 놓으면 순서 바꾸기
+                onStart: () => setDragId(t.id),
+                onMove: fingerOver,
+                onEnd: (dropped) => {
+                  const target = hint && list.find((x) => x.id === hint.id)
+                  if (dropped && target) drop(target, hint.zone)
+                  setHint(null)
+                  setDragId(null)
+                },
+              } : undefined}
               bodyProps={{
                 draggable: !t.done && !isMobile,
                 onDragStart: (e) => {

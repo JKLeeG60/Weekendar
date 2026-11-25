@@ -1061,6 +1061,9 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .dd-ghost.below { transform: translateX(-50%); }
 /* 날짜 위에 올라가면 복사본을 옅게 해서 놓을 날짜가 보이게 */
 .dd-clone { transition: opacity 0.14s ease; }
+/* 휴대폰: 다른 할 일 위를 지날 때는 끄는 줄을 손가락 위로 띄워, 아래 할 일과 놓을 자리가 보이게 */
+body:has(.todos .todo-li.drop-into, .todos .todo-li.drop-before, .todos .todo-li.drop-after) .dd-clone { transform: translateY(calc(-100% - 0.75rem)) scale(0.97) rotate(-1.5deg); }
+.dd-clone { transition: opacity 0.14s ease, transform 0.16s ease; }
 .dd-clone.over { opacity: 0; }
 
 /* 월간 일정 제목 옆: 팀원 사진을 눌러 바꿔 보기 */

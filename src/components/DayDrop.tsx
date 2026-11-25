@@ -150,8 +150,16 @@ export function GestureRow({
   /** 안쪽 줄에 붙일 속성 (PC 할 일의 브라우저 기본 끌기 등) */
   bodyProps?: HTMLAttributes<HTMLDivElement> & { draggable?: boolean }
   onDelete?: () => void
-  /** 길게 눌러 끌기 (손가락): label = 표시 이름, onDrop = 놓은 날짜 */
-  drag?: { label: string; onDrop: (day: string) => void }
+  /** 길게 눌러 끌기 (손가락): label = 표시 이름, onDrop = 놓은 날짜
+   *  onStart / onMove / onEnd: 날짜가 아닌 곳(할 일 목록 안)에 놓는 것도 처리할 때 */
+  drag?: {
+    label: string
+    onDrop: (day: string) => void
+    onStart?: () => void
+    onMove?: (x: number, y: number) => void
+    /** 손을 뗐을 때. dropped = 날짜 위가 아닌 곳에 놓았는지 (취소·날짜로 옮김이면 false) */
+    onEnd?: (dropped: boolean) => void
+  }
 }) {
   const [x, setX] = useState(0)
   const [lifted, setLifted] = useState(false)
@@ -187,6 +195,7 @@ export function GestureRow({
             setX(0)
             navigator.vibrate?.(10)
             startDayDrag({ label: drag.label, onDrop: drag.onDrop, x: clientX, y: clientY, source: rowRef.current?.querySelector('.swipe-body') })
+            drag.onStart?.()
           }, 420)
         }
       }}
@@ -194,7 +203,7 @@ export function GestureRow({
         const s = g.current
         if (!s) return
         const dx = e.clientX - s.x0, dy = e.clientY - s.y0
-        if (s.mode === 'drag') { moveDayDrag(e.clientX, e.clientY); return }
+        if (s.mode === 'drag') { moveDayDrag(e.clientX, e.clientY); drag?.onMove?.(e.clientX, e.clientY); return }
         if (s.mode === 'idle') {
           if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) && onDelete) {
             s.mode = 'swipe'
@@ -217,7 +226,8 @@ export function GestureRow({
         if (!s) return
         if (s.mode === 'drag') {
           setLifted(false)
-          endDayDrag()
+          const toDay = endDayDrag()
+          drag?.onEnd?.(!toDay)
           suppress.current = true
         } else if (s.mode === 'swipe') {
           setX((v) => (v <= -TRASH_W / 2 ? -TRASH_W : 0))
@@ -227,7 +237,7 @@ export function GestureRow({
       }}
       onPointerCancel={() => {
         stopTimer()
-        if (g.current?.mode === 'drag') { setLifted(false); endDayDrag(false) }
+        if (g.current?.mode === 'drag') { setLifted(false); endDayDrag(false); drag?.onEnd?.(false) }
         g.current = null
         setX((v) => (v <= -TRASH_W / 2 ? -TRASH_W : 0))
       }}
