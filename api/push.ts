@@ -98,10 +98,10 @@ async function onMessage(id: string) {
     const mem = await db(`chat_room_members?room_id=eq.${m.room_id}&select=user_id`)
     const to = (mem || []).map((x: any) => x.user_id).filter((u: string) => u !== m.author_id)
     const who = await nameOf(m.author_id)
-    const text = String(m.body || '').slice(0, 140)
+    const text = m.sticker ? '' : String(m.body || '').slice(0, 140)
     return sendTo(to, (lang) => ({
       title: L(lang, `${who}님의 그룹 메시지`, `Group message from ${who}`),
-      body: text || L(lang, '일정을 공유했어요', 'Shared an event'),
+      body: text || (m.sticker ? L(lang, '(이모티콘)', '(Sticker)') : L(lang, '일정을 공유했어요', 'Shared an event')),
       tag: 'room-' + m.room_id,
       url: '/',
     }))
@@ -109,10 +109,10 @@ async function onMessage(id: string) {
   // 1:1 대화: 받는 사람에게만
   if (m.recipient_id) {
     const who = await nameOf(m.author_id)
-    const text = String(m.body || '').slice(0, 140)
+    const text = m.sticker ? '' : String(m.body || '').slice(0, 140)
     return sendTo([m.recipient_id], (lang) => ({
       title: L(lang, `${who}님의 1:1 메시지`, `Message from ${who}`),
-      body: text || L(lang, '일정을 공유했어요', 'Shared an event'),
+      body: text || (m.sticker ? L(lang, '(이모티콘)', '(Sticker)') : L(lang, '일정을 공유했어요', 'Shared an event')),
       tag: 'dm-' + m.author_id,
       url: '/',
     }))
@@ -124,10 +124,10 @@ async function onMessage(id: string) {
   }
   to = to.filter((u) => u !== m.author_id)
   const who = await nameOf(m.author_id)
-  const text = String(m.body || '').slice(0, 140)
+  const text = m.sticker ? '' : String(m.body || '').slice(0, 140)
   return sendTo(to, (lang) => ({
     title: L(lang, `${who}님이 불렀어요`, `${who} mentioned you`),
-    body: text || L(lang, '일정을 공유했어요', 'Shared an event'),
+    body: text || (m.sticker ? L(lang, '(이모티콘)', '(Sticker)') : L(lang, '일정을 공유했어요', 'Shared an event')),
     tag: 'msg-' + id,
     url: '/',
   }))

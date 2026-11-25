@@ -354,7 +354,7 @@ export interface Store {
 }
 
 /** 보낼 때 덧붙이는 정보: 답장 대상, 전달 여부 */
-export interface SendOpts { replyTo?: string; forwarded?: boolean; roomId?: string }
+export interface SendOpts { replyTo?: string; forwarded?: boolean; roomId?: string; sticker?: string }
 
 export const Ctx = createContext<Store | null>(null)
 export const useStore = () => {
@@ -794,7 +794,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       sendMessage: (body, ref, toId, opts) => {
         const text = body.trim()
-        if ((!text && !ref) || !myMember || !db.currentUserId) return
+        if ((!text && !ref && !opts?.sticker) || !myMember || !db.currentUserId) return
         const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
         // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
         const { mentions, mentionAll } = toId || opts?.roomId || opts?.forwarded ? { mentions: [], mentionAll: false } : parseMentions(text, people)
@@ -805,6 +805,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(opts?.roomId ? { roomId: opts.roomId } : {}),
           ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
           ...(opts?.forwarded ? { forwarded: true } : {}),
+          ...(opts?.sticker ? { sticker: opts.sticker } : {}),
         }
         const rid = opts?.roomId
         set((p) => rid

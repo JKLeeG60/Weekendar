@@ -53,6 +53,7 @@ const msgFrom = (r: any): Message => ({
   ...(r.recipient_id ? { toId: r.recipient_id } : {}),
   ...(r.reply_to ? { replyTo: r.reply_to } : {}),
   ...(r.forwarded ? { forwarded: true } : {}),
+  ...(r.sticker && !r.deleted_at ? { sticker: r.sticker } : {}),
   ...(r.room_id ? { roomId: r.room_id } : {}),
   ...(r.system ? { system: true } : {}),
 })
@@ -559,7 +560,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
 
       sendMessage: async (body, ref, toId, opts) => {
         const text = body.trim()
-        if ((!text && !ref) || !team) return
+        if ((!text && !ref && !opts?.sticker) || !team) return
         const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
         // 1:1 대화·전달한 메시지에서는 @호출을 쓰지 않는다
         const { mentions, mentionAll } = toId || opts?.roomId || opts?.forwarded ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
@@ -570,6 +571,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
           ...(opts?.replyTo ? { reply_to: opts.replyTo } : {}),
           ...(opts?.forwarded ? { forwarded: true } : {}),
           ...(opts?.roomId ? { room_id: opts.roomId } : {}),
+          ...(opts?.sticker ? { sticker: opts.sticker } : {}),
         }).select().single()
         if (error) { fail(error); return }
         const m = msgFrom(data)

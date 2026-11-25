@@ -853,4 +853,6 @@ export const EN: Record<string, string | [string, string]> = {
   '하위 할 일 펼치기': 'Show subtasks',
   '하위 할 일 접기': 'Hide subtasks',
   '하위 할 일로': 'Make subtask',
+  '(이모티콘)': '(Sticker)',
+  '이모티콘': 'Stickers',
 }

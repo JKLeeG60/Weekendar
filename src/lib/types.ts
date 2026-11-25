@@ -194,6 +194,8 @@ export interface Message {
   replyTo?: string
   /** 다른 대화에서 전달한 메시지 */
   forwarded?: boolean
+  /** 이모티콘 메시지: '묶음/이름' (예: 'weeki/good') */
+  sticker?: string
   /** 그룹 대화방 id (있으면 그 방 사람만 봄) */
   roomId?: string
   /** 초대·나가기 같은 안내 (가운데 회색 글씨로 보여줌) */

@@ -8,6 +8,7 @@ import { ALL, ALL_EN, chatScope, mentionsMe, splitMentions, timeLabel } from '..
 import { getLang, localize, t } from '../lib/i18n'
 import type { ChatPin, ChatRef, Message, ScheduledMessage } from '../lib/types'
 import { Avatar, Icon } from './ui'
+import { STICKER_PACKS, stickerLabel, stickerUrl } from '../lib/stickers'
 
 /** 자주 쓰는 반응 이모지 */
 const QUICK = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -16,6 +17,7 @@ const QUICK = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 const snippet = (m: Message | undefined) =>
   !m ? t('원본 메시지를 찾을 수 없어요')
     : m.deleted ? t('삭제된 메시지예요')
+    : m.sticker ? t('(이모티콘)')
     : m.body ? m.body.split('\n')[0]
     : m.ref ? t('일정을 공유했어요') + ' · ' + m.ref.title
     : ''
@@ -226,7 +228,7 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
     ...dmThreads.map((th) => ({ kind: 'dm' as const, at: th.last.createdAt, th })),
     ...rooms.map((r) => ({ kind: 'room' as const, at: r.last?.createdAt ?? r.joinedAt, r })),
   ].sort((a, b) => b.at - a.at)
-  const lastText = (m: Message) => m.system ? localize(m.body) : m.deleted ? t('삭제된 메시지예요') : m.body || (m.ref ? t('일정을 공유했어요') : '')
+  const lastText = (m: Message) => m.system ? localize(m.body) : m.deleted ? t('삭제된 메시지예요') : m.sticker ? t('(이모티콘)') : m.body || (m.ref ? t('일정을 공유했어요') : '')
   const talked = new Set(dmThreads.map((x) => x.peerId))
   const others = tableMembers.filter((m) => m.userId !== me?.id && !talked.has(m.userId))
   const sub = (id: string) => {
@@ -322,6 +324,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
   const [pickIdx, setPickIdx] = useState(0)
   const [ref, setRef] = useState<ChatRef | null>(null)
   const [attachOpen, setAttachOpen] = useState(false)
+  const [stickerOpen, setStickerOpen] = useState(false)
   const composing = useRef(false)
   const nextCaret = useRef<number | null>(null)
 
@@ -383,6 +386,13 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
     setCaret(0)
     setRef(null)
     setReplyTo(null)
+  }
+
+  /** 이모티콘 보내기: 누르면 바로 보낸다 (답장 중이면 답장으로) */
+  function sendSticker(code: string) {
+    sendMessage('', undefined, peer, { sticker: code, ...(replyTo ? { replyTo: replyTo.id } : {}), ...(room ? { roomId: room } : {}) })
+    setReplyTo(null)
+    setStickerOpen(false)
   }
 
   /** 반응 달기: 같은 이모지를 다시 고르면 취소, 다른 이모지면 바꾼다 (1개만) */
@@ -565,7 +575,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           m={forward}
           targets={tableMembers.filter((x) => x.userId !== me?.id).map((x) => ({ id: x.userId, name: userOf(x.userId).name, sub: x.role === 'leader' ? t('팀장') : x.title }))}
           onSend={(toId) => {
-            sendMessage(forward.body, forward.ref, toId ?? undefined, { forwarded: true })
+            sendMessage(forward.body, forward.ref, toId ?? undefined, { forwarded: true, ...(forward.sticker ? { sticker: forward.sticker } : {}) })
             setForward(null)
             showToast(toId ? t('{name}님에게 전달했어요', { name: userOf(toId).name }) : t('팀 대화로 전달했어요'))
           }}
@@ -593,6 +603,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
             ))}
           </div>
         )}
+        {stickerOpen && <StickerPick onPick={sendSticker} onClose={() => setStickerOpen(false)} />}
         {attachOpen && (
           <>
             <div className="popover-scrim" onMouseDown={() => setAttachOpen(false)} />
@@ -649,6 +660,9 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
             onCompositionEnd={(e) => { composing.current = false; setCaret((e.target as HTMLTextAreaElement).selectionStart) }}
             aria-label={t('메시지 입력')}
           />
+          <button className={'icon-btn stk-btn' + (stickerOpen ? ' on' : '')} onClick={() => setStickerOpen((v) => !v)} aria-label={t('이모티콘')} aria-expanded={stickerOpen} title={t('이모티콘')}>
+            <Icon name="smile" size={20} />
+          </button>
           <button
             className="send-btn"
             onClick={send}
@@ -786,7 +800,7 @@ function Bubble(props: {
         <div className="bub-line">
           <div
             ref={bubRef}
-            className={'bub' + (m.deleted ? ' deleted' : '') + (live ? ' holdable' : '') + (pressed ? ' pressed' : '')}
+            className={'bub' + (m.deleted ? ' deleted' : '') + (m.sticker && !m.deleted ? ' stk' : '') + (live ? ' holdable' : '') + (pressed ? ' pressed' : '')}
             title={live ? t('길게 누르거나 오른쪽 클릭하면 메뉴가 열려요') : undefined}
             {...hold}
           >
@@ -799,6 +813,7 @@ function Bubble(props: {
                     <span>{quote.text}</span>
                   </button>
                 )}
+                {m.sticker && <img className="stk-img" src={stickerUrl(m.sticker)} alt={stickerLabel(m.sticker) || t('이모티콘')} draggable={false} />}
                 {m.body && splitMentions(m.body, names).map((p, i) => (p.mention ? <span key={i} className="mn">{p.text}</span> : <Fragment key={i}>{p.text}</Fragment>))}
                 {m.ref && <RefCard r={m.ref} onClick={() => props.onRef(m.ref!)} />}
               </>
@@ -1458,5 +1473,33 @@ function PinBar({ pin, by, canJump, onJump, onUnpin }: { pin: ChatPin; by: strin
         </>
       )}
     </div>
+  )
+}
+
+/** 이모티콘 고르기 판 (입력칸 위). 누르면 바로 보낸다 */
+function StickerPick({ onPick, onClose }: { onPick: (code: string) => void; onClose: () => void }) {
+  useEsc(onClose)
+  const [packId, setPackId] = useState(STICKER_PACKS[0].id)
+  const pack = STICKER_PACKS.find((p) => p.id === packId) ?? STICKER_PACKS[0]
+  return (
+    <>
+      <div className="popover-scrim" onMouseDown={onClose} />
+      <div className="stk-pick" role="dialog" aria-label={t('이모티콘')}>
+        <div className="stk-grid">
+          {pack.items.map((x) => (
+            <button key={x.id} onClick={() => onPick(pack.id + '/' + x.id)} title={x.label} aria-label={x.label}>
+              <img src={stickerUrl(pack.id + '/' + x.id)} alt="" draggable={false} />
+            </button>
+          ))}
+        </div>
+        <div className="stk-tabs">
+          {STICKER_PACKS.map((p) => (
+            <button key={p.id} className={p.id === pack.id ? 'on' : ''} onClick={() => setPackId(p.id)} title={p.name} aria-label={p.name}>
+              <img src={stickerUrl(p.id + '/' + p.icon)} alt="" draggable={false} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
