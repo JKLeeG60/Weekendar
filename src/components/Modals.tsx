@@ -243,6 +243,7 @@ function EventDetail({ occ }: { occ: Occurrence }) {
     <Modal
       title={occ.title}
       big
+      className="no-blur"
       onClose={closeModal}
       footer={
         mine ? (

@@ -312,6 +312,20 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [menu, setMenu] = useState<{ m: Message; x: number; y: number; rect: DOMRect } | null>(null)
   const [tray, setTray] = useState<string | null>(null)
+  // 반응 선택창: 바깥을 누르거나 Esc 를 누르면 닫는다
+  useEffect(() => {
+    if (!tray) return
+    const down = (e: PointerEvent) => {
+      const el = e.target as Element | null
+      if (!el?.closest('.rx-tray, .rx-btn')) setTray(null)
+    }
+    const key = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setTray(null) }
+    }
+    document.addEventListener('pointerdown', down, true)
+    window.addEventListener('keydown', key, true)
+    return () => { document.removeEventListener('pointerdown', down, true); window.removeEventListener('keydown', key, true) }
+  }, [tray])
   const [picker, setPicker] = useState<string | null>(null)
   const [whoRx, setWhoRx] = useState<{ id: string; emoji: string; rect: DOMRect } | null>(null)
   const [forward, setForward] = useState<Message | null>(null)

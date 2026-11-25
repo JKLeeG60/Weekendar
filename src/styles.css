@@ -287,6 +287,8 @@ tr.mine td.today { background: color-mix(in srgb, var(--mine-bg) 60%, var(--toda
   /* 어두운 배경 위에서 쓸어도 뒤 화면이 같이 스크롤되지 않게 */
   overflow: hidden; overscroll-behavior: contain;
 }
+/* 일정 상세: 뒤 화면을 흐리게 하지 않고 살짝 어둡게만 */
+.modal.no-blur::backdrop { background: rgba(0, 0, 0, 0.22); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .modal { padding: 0; color: var(--text); overflow: visible; max-width: 94vw; max-height: 90vh; max-height: 90dvh; background: var(--surface); border-radius: 1.3rem; box-shadow: var(--shadow); display: flex; flex-direction: column; animation: pop 0.18s; border: 1px solid var(--line-soft); }
 .modal:not([open]) { display: none; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.3rem 0.6rem; }
