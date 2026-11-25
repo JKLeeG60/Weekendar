@@ -23,7 +23,7 @@ import type {
   Todo,
   User,
 } from './types'
-import { addDays, isWeekend, mondayOf, todayStr } from './date'
+import { addDays, isWeekend, mondayOf, toStr, todayStr } from './date'
 import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
@@ -293,6 +293,10 @@ export interface Store {
   findMessages: (q: string) => Promise<Message[]>
   /** 검색 결과로 이동할 때: 오래돼서 아직 안 불러온 메시지면 그 뒤 대화까지 불러온다 */
   revealMessage: (m: Message) => Promise<void>
+  /** 대화 달력: 그 대화(scope)의 from~to 기간 날짜별 메시지 수 { 'YYYY-MM-DD': n } */
+  chatDays: (scope: string, from: string, to: string) => Promise<Record<string, number>>
+  /** 대화 달력: 그날 첫 메시지를 불러오고 그 id 를 돌려준다 (없으면 null) */
+  revealDay: (scope: string, day: string) => Promise<string | null>
   /** "이번 주 시작" 카드를 그 주에 보여줬다고 기록 */
   finishWeekCard: (week: string) => void
   // 알림
@@ -776,6 +780,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       // 체험 모드는 대화를 모두 갖고 있어 따로 불러올 것이 없다
       revealMessage: async () => {},
+      chatDays: async (scope, from, to) => {
+        const me = db.currentUserId
+        const out: Record<string, number> = {}
+        if (!me) return out
+        for (const m of db.messages) {
+          if (m.deleted || m.system || m.teamId !== myMember?.teamId) continue
+          if (chatScope(me, m) !== scope) continue
+          const k = toStr(new Date(m.createdAt))
+          if (k >= from && k <= to) out[k] = (out[k] ?? 0) + 1
+        }
+        return out
+      },
+      revealDay: async (scope, day) => {
+        const me = db.currentUserId
+        if (!me) return null
+        const m = db.messages.find((x) => !x.deleted && !x.system && x.teamId === myMember?.teamId && chatScope(me, x) === scope && toStr(new Date(x.createdAt)) === day)
+        return m?.id ?? null
+      },
       saveMemo: async (date, body) => {
         set((p) => {
           const me = p.currentUserId

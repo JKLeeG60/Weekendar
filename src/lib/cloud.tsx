@@ -347,6 +347,43 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const add = [m, ...((data ?? []) as any[]).map(msgFrom)]
         setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, add) }))
       },
+      chatDays: async (scope, from, to) => {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul'
+        const { data, error } = await supabase.rpc('chat_day_counts', { p_scope: scope, p_from: from, p_to: to, p_tz: tz })
+        if (error || !data) return {}
+        const out: Record<string, number> = {}
+        for (const r of data as { day: string; n: number }[]) out[r.day] = r.n
+        return out
+      },
+      revealDay: async (scope, day) => {
+        if (!myMember?.teamId) return null
+        // 그날(내 시간대 0시~24시) 그 대화의 첫 메시지
+        const [y, mo, d] = day.split('-').map(Number)
+        const start = new Date(y, mo - 1, d).toISOString()
+        const end = new Date(y, mo - 1, d + 1).toISOString()
+        let q = supabase.from('messages').select('*').eq('team_id', myMember.teamId).is('deleted_at', null).eq('system', false)
+          .gte('created_at', start).lt('created_at', end)
+        if (scope === 'team') q = q.is('room_id', null).is('recipient_id', null)
+        else if (scope.startsWith('room:')) q = q.eq('room_id', scope.slice(5))
+        else {
+          const [, a, b] = scope.split(':')
+          q = q.is('room_id', null).or(`and(author_id.eq.${a},recipient_id.eq.${b}),and(author_id.eq.${b},recipient_id.eq.${a})`)
+        }
+        const { data } = await q.order('created_at', { ascending: true }).limit(1)
+        const row = (data as any[] | null)?.[0]
+        if (!row) return null
+        const m = msgFrom(row)
+        if (!db.messages.some((x) => x.id === m.id)) {
+          // 그 메시지부터 지금 불러온 가장 오래된 메시지 앞까지 이어서 불러온다
+          const oldest = db.messages[0]?.createdAt ?? Date.now()
+          const { data: more } = await supabase.from('messages').select('*').eq('team_id', myMember.teamId)
+            .gte('created_at', new Date(m.createdAt).toISOString()).lt('created_at', new Date(oldest).toISOString())
+            .order('created_at', { ascending: true }).limit(1000)
+          const add = [m, ...((more ?? []) as any[]).map(msgFrom)]
+          setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, add) }))
+        }
+        return m.id
+      },
       saveMemo: async (date, body) => {
         if (!me_id) return false
         const text = body.slice(0, 20000)

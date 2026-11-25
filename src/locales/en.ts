@@ -855,4 +855,10 @@ export const EN: Record<string, string | [string, string]> = {
   '하위 할 일로': 'Make subtask',
   '(이모티콘)': '(Sticker)',
   '이모티콘': 'Stickers',
+  '대화 달력': 'Chat calendar',
+  '그날 대화를 찾을 수 없어요': "Couldn't find messages from that day",
+  '{date} · 대화 {n}개': '{date} · {n} messages',
+  '날짜를 누르면 그날 대화로 이동해요': 'Tap a date to jump to that day',
+  '적음': 'Fewer',
+  '많음': 'More',
 }

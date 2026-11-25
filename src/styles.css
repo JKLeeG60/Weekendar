@@ -1271,6 +1271,45 @@ body:has(.todos .todo-li.drop-into, .todos .todo-li.drop-before, .todos .todo-li
 .group-av > span { position: absolute; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
 .group-av > span .avatar { display: grid; }
 .chat-head .dm-tool { flex: none; color: var(--accent); }
+/* 대화 달력 */
+.chat-head .chat-cal-btn { margin-left: auto; color: var(--muted); border-radius: 0.6rem; }
+.chat-head .dm-who ~ .chat-cal-btn { margin-left: 0; }
+.chat-head .chat-cal-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.chat-head .chat-cal-btn + .chat-close { margin-left: 0.15rem; }
+.ccal { position: absolute; top: 3.5rem; left: 0.7rem; right: 0.7rem; z-index: 61; background: var(--surface); border-radius: 1rem; box-shadow: 0 14px 36px rgba(0,0,0,0.16), 0 0 0 1px var(--line-soft); padding: 0.8rem 0.8rem 0.65rem; animation: pop 0.16s; }
+.ccal-head { display: flex; align-items: center; gap: 0.1rem; margin-bottom: 0.4rem; }
+.ccal-head strong { flex: 1; font-size: 0.98rem; letter-spacing: -0.02em; }
+.ccal-head .icon-btn { width: 1.9rem; height: 1.9rem; color: var(--accent); }
+.ccal-head .icon-btn:disabled { color: var(--line); }
+.ccal-dow, .ccal-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.ccal-dow span { font-size: 0.68rem; color: var(--muted); font-weight: 600; padding: 0.2rem 0 0.3rem; }
+.ccal-dow span:first-child { color: var(--red); }
+.ccal-grid { transition: opacity 0.15s ease; }
+.ccal-grid.loading { opacity: 0.4; }
+.ccal-d { justify-self: center; width: 2rem; height: 2rem; margin: 0.12rem 0; border-radius: 50%; display: grid; place-items: center; font-size: 0.86rem; font-variant-numeric: tabular-nums; position: relative; }
+.ccal-d.none { color: color-mix(in srgb, var(--muted) 38%, transparent); }
+.ccal-d.other { visibility: hidden; }
+.ccal-d.l1 { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
+.ccal-d.l2 { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--accent); font-weight: 700; }
+.ccal-d.l3 { background: var(--accent); color: #fff; font-weight: 700; }
+.ccal-d.today { box-shadow: inset 0 0 0 1.5px var(--red); }
+button.ccal-d { cursor: pointer; transition: transform 0.12s ease; }
+button.ccal-d:hover { transform: scale(1.08); }
+button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
+@keyframes ccal-busy { to { opacity: 0.45; } }
+/* 날짜 위에 올리면 "11월 18일 · 대화 14개" */
+@media (hover: hover) {
+  button.ccal-d:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 0.35rem); left: 50%; transform: translateX(-50%); white-space: nowrap; background: #1c1c1e; color: #fff; font-size: 0.72rem; font-weight: 500; padding: 0.28rem 0.55rem; border-radius: 0.45rem; pointer-events: none; z-index: 2; }
+}
+.ccal-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.45rem; padding-top: 0.5rem; border-top: 1px solid var(--line-soft); font-size: 0.72rem; color: var(--muted); }
+.ccal-legend { display: flex; align-items: center; gap: 0.22rem; flex: none; }
+.ccal-legend i { width: 0.7rem; height: 0.7rem; border-radius: 50%; display: inline-block; }
+.ccal-legend .l1 { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.ccal-legend .l2 { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.ccal-legend .l3 { background: var(--accent); }
+.chat-day[data-day] { scroll-margin-top: 0.6rem; }
+.chat-day.flash { animation: chatday-flash 1.8s ease; }
+@keyframes chatday-flash { 0%, 60% { background: var(--accent); color: #fff; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 20%, transparent); } 100% { } }
 .chat-head .dm-who { flex: 1; min-width: 0; }
 .chat-head .dm-who strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-sys { align-self: center; max-width: 85%; text-align: center; font-size: 0.74rem; color: var(--muted); background: color-mix(in srgb, var(--text) 5%, transparent); padding: 0.25rem 0.75rem; border-radius: 0.8rem; margin: 0.3rem 0; line-height: 1.4; }

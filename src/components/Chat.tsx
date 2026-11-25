@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
-import { addDays, fmtHead, fmtLong, fmtMonthDay, todayStr, weekDays } from '../lib/date'
+import { addDays, dowHeads, fmtHead, fmtLong, fmtMonthDay, monthGrid, monthTitle, todayStr, weekDays } from '../lib/date'
 import { ALL, ALL_EN, chatScope, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
 import { getLang, localize, t } from '../lib/i18n'
 import type { ChatPin, ChatRef, Message, ScheduledMessage } from '../lib/types'
@@ -138,6 +138,15 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
   const room = roomId ? rooms.find((r) => r.id === roomId) : undefined
   const roomOthers = room ? room.memberIds.filter((x) => x !== me?.id) : []
   const [invite, setInvite] = useState(false)
+  // 대화 달력: 지금 보고 있는 대화(팀 / 1:1 / 그룹방)
+  const [calOpen, setCalOpen] = useState(false)
+  const calScope = !me ? null : chatTab === 'team' ? 'team' : room ? 'room:' + room.id : peer ? chatScope(me.id, { toId: peer, authorId: me.id }) : null
+  useEffect(() => setCalOpen(false), [calScope])
+  const calBtn = calScope && (
+    <button className={'icon-btn dm-tool chat-cal-btn' + (calOpen ? ' on' : '')} onClick={() => setCalOpen((v) => !v)} aria-label={t('대화 달력')} aria-expanded={calOpen} title={t('대화 달력')}>
+      <Icon name="calClock" size={18} />
+    </button>
+  )
   // 방이 없어지면(나가기 등) 목록으로
   useEffect(() => { if (roomId && !room) setDmPeer(null) }, [roomId, room, setDmPeer])
   return (
@@ -188,6 +197,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
             )}
           </>
         )}
+        {calBtn}
         {onClose && (
           <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
             <Icon name="x" size={16} />
@@ -203,6 +213,7 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
         </button>
       </div>
       {chatTab === 'team' ? <ChatBody key="team" /> : room ? <ChatBody key={sel!} room={room.id} /> : peer ? <ChatBody key={peer} peer={peer} /> : <DmList onPick={setDmPeer} />}
+      {calOpen && calScope && <ChatCalendar scope={calScope} onClose={() => setCalOpen(false)} />}
       {invite && (peer || room) && (
         <InviteSheet
           locked={room ? room.memberIds.filter((x) => x !== me?.id) : [peer!]}
@@ -421,9 +432,12 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
   // 검색 결과에서 왔으면 그 메시지로 이동 (불러오는 중이면 메시지가 생길 때까지 기다린다)
   const { chatJump, setChatJump } = useUI()
   useEffect(() => {
-    if (!chatJump || !messages.some((m) => m.id === chatJump)) return
-    const id = chatJump
-    const tm = window.setTimeout(() => { setChatJump(null); jump(id) }, 120)
+    if (!chatJump) return
+    // 대화 달력에서 왔으면 'day:날짜:메시지id' → 그날 날짜 표시로 이동
+    const dayJump = chatJump.startsWith('day:') ? { day: chatJump.slice(4, 14), id: chatJump.slice(15) } : null
+    const id = dayJump ? dayJump.id : chatJump
+    if (!messages.some((m) => m.id === id)) return
+    const tm = window.setTimeout(() => { setChatJump(null); if (dayJump) jumpDay(dayJump.day, id); else jump(id) }, 120)
     return () => window.clearTimeout(tm)
   }, [chatJump, messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -436,6 +450,17 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
     void el.offsetWidth // 애니메이션을 처음부터 다시
     el.classList.add('flash')
     window.setTimeout(() => el.classList.remove('flash'), 1700)
+  }
+
+  /** 대화 달력: 그날 날짜 표시를 맨 위로 올리고 잠깐 반짝인다 */
+  function jumpDay(day: string, id: string) {
+    const el = listRef.current?.querySelector<HTMLElement>(`.chat-day[data-day="${day}"]`)
+    if (!el) { jump(id); return }
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    el.classList.remove('flash')
+    void el.offsetWidth
+    el.classList.add('flash')
+    window.setTimeout(() => el.classList.remove('flash'), 1800)
   }
 
   function startReply(m: Message) {
@@ -505,13 +530,13 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           // 초대·나가기 안내는 가운데 회색 글씨
           if (m.system) return (
             <Fragment key={m.id}>
-              {newDay && <span className="chat-day">{fmtLong(dayKey(m.createdAt))}</span>}
+              {newDay && <span className="chat-day" data-day={dayKey(m.createdAt)}>{fmtLong(dayKey(m.createdAt))}</span>}
               <span className="chat-sys">{localize(m.body)}</span>
             </Fragment>
           )
           return (
             <Fragment key={m.id}>
-              {newDay && <span className="chat-day">{fmtLong(dayKey(m.createdAt))}</span>}
+              {newDay && <span className="chat-day" data-day={dayKey(m.createdAt)}>{fmtLong(dayKey(m.createdAt))}</span>}
               <Bubble
                 m={m}
                 mine={m.authorId === me?.id}
@@ -1512,6 +1537,72 @@ function StickerPick({ onPick, onClose }: { onPick: (code: string) => void; onCl
               <img src={stickerUrl(p.id + '/' + p.icon)} alt="" draggable={false} />
             </button>
           ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** 대화 달력: 대화가 있었던 날은 파랗게(많을수록 진하게), 없던 날은 연한 회색. 누르면 그날 대화로 이동 */
+function ChatCalendar({ scope, onClose }: { scope: string; onClose: () => void }) {
+  const { chatDays, revealDay } = useStore()
+  const { setChatJump, showToast } = useUI()
+  useEsc(onClose)
+  const today = todayStr()
+  const [ym, setYm] = useState(() => today.slice(0, 7))
+  const [counts, setCounts] = useState<Record<string, number> | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const y = Number(ym.slice(0, 4)), mo = Number(ym.slice(5, 7)) - 1
+  const grid = useMemo(() => monthGrid(y, mo), [y, mo])
+  // 6주 중 이번 달이 없는 마지막 줄은 뺀다
+  const cells = grid.slice(0, grid[35].slice(0, 7) === ym ? 42 : 35)
+  useEffect(() => {
+    let live = true
+    setCounts(null)
+    chatDays(scope, cells[0], cells[cells.length - 1]).then((c) => { if (live) setCounts(c) })
+    return () => { live = false }
+  }, [scope, ym]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shift = (n: number) => {
+    const d = new Date(y, mo + n, 1)
+    setYm(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  const level = (n: number) => (n >= 10 ? 3 : n >= 5 ? 2 : 1)
+  async function pick(day: string) {
+    if (busy) return
+    setBusy(day)
+    const id = await revealDay(scope, day)
+    setBusy(null)
+    if (!id) { showToast(t('그날 대화를 찾을 수 없어요')); return }
+    setChatJump(`day:${day}:${id}`)
+    onClose()
+  }
+  return (
+    <>
+      <div className="popover-scrim" onMouseDown={onClose} />
+      <div className="ccal" role="dialog" aria-label={t('대화 달력')}>
+        <div className="ccal-head">
+          <strong>{monthTitle(y, mo)}</strong>
+          <button className="icon-btn" onClick={() => shift(-1)} aria-label={t('이전 달')}><Icon name="chevL" size={16} /></button>
+          <button className="icon-btn" onClick={() => shift(1)} disabled={ym >= today.slice(0, 7)} aria-label={t('다음 달')}><Icon name="chevR" size={16} /></button>
+        </div>
+        <div className="ccal-dow">{dowHeads().map((d, i) => <span key={i}>{d}</span>)}</div>
+        <div className={'ccal-grid' + (counts ? '' : ' loading')}>
+          {cells.map((d) => {
+            const n = counts?.[d] ?? 0
+            const other = d.slice(0, 7) !== ym
+            const label = t('{date} · 대화 {n}개', { date: fmtMonthDay(d), n })
+            return n > 0 && !other ? (
+              <button key={d} className={'ccal-d l' + level(n) + (d === today ? ' today' : '') + (busy === d ? ' busy' : '')} onClick={() => pick(d)} data-tip={label} aria-label={label}>
+                {Number(d.slice(8))}
+              </button>
+            ) : (
+              <span key={d} className={'ccal-d none' + (other ? ' other' : '') + (d === today ? ' today' : '')}>{Number(d.slice(8))}</span>
+            )
+          })}
+        </div>
+        <div className="ccal-foot">
+          <span>{t('날짜를 누르면 그날 대화로 이동해요')}</span>
+          <span className="ccal-legend" aria-hidden>{t('적음')}<i className="l1" /><i className="l2" /><i className="l3" />{t('많음')}</span>
         </div>
       </div>
     </>

@@ -133,6 +133,7 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   copy: <path d="M9 9h11v11H9zM5 15V4h11" />,
   cal: <path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4" />,
+  calClock: <path d="M20 11V7a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h5M4 10h16M8 3v4M16 3v4M17 22a5 5 0 100-10 5 5 0 000 10zM17 15v2.2l1.5 1" />,
   person: <path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20a8 8 0 0116 0" />,
   list: <path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />,
   note: <path d="M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h5" />,
