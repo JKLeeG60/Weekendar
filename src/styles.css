@@ -1824,3 +1824,28 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .share-txt small, .menu-item.two small { white-space: nowrap; }
 .share-txt, .menu-item.two > span > span { text-align: left !important; align-items: flex-start !important; }
 .share-item, .menu-item.two { text-align: left; }
+
+/* ───────── 할 일 하위 단계 (한 단계까지) ───────── */
+/* 하위 할 일: 선 없이 두 칸 들여쓰기 (미리 알림처럼) */
+.todo-li.child { padding-left: 2.35rem; }
+.todo-li.child .check { width: 1.05rem; height: 1.05rem; }
+.todo-li.child .todo-text { font-size: 0.93rem; }
+/* 하위 할 일 연결선: 상위 체크 가운데에서 내려와 둥글게 꺾임 */
+.todo-tree { --tree: color-mix(in srgb, var(--muted) 38%, var(--surface)); position: absolute; left: 0.975rem; top: 0; bottom: 0; width: 0.95rem; pointer-events: none; z-index: 2; }
+.todo-tree::before { content: ''; position: absolute; left: 0; top: -0.35rem; height: calc(50% + 0.35rem); width: 100%; border-left: 1.5px solid var(--tree); border-bottom: 1.5px solid var(--tree); border-bottom-left-radius: 0.55rem; }
+.todo-li.child:not(.last) .todo-tree::after { content: ''; position: absolute; left: 0; top: 50%; bottom: 0; border-left: 1.5px solid var(--tree); }
+/* 상위 할 일 옆: 완료 개수 + 접기 */
+.todo-fold { display: inline-flex; align-items: center; gap: 0.15rem; margin-left: 0.45rem; padding: 0.05rem 0.35rem 0.05rem 0.45rem; border-radius: 99px; background: var(--surface-2); color: var(--muted); font-size: 0.72rem; font-weight: 600; vertical-align: 0.08rem; text-decoration: none; }
+.todo-fold svg { transition: transform 0.18s ease; }
+.todo-fold.folded svg { transform: rotate(-90deg); }
+.todo-fold:hover { color: var(--text); }
+.todo-item.done .todo-fold { text-decoration: none; }
+/* 끌어 놓을 자리 표시 */
+.todo-li { position: relative; }
+.todo-li.drag-src { opacity: 0.35; }
+.todo-li.drop-into .todo-item { background: color-mix(in srgb, var(--accent) 11%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--accent); border-radius: 0.6rem; }
+.todo-li.drop-before::before, .todo-li.drop-after::after { content: ''; position: absolute; left: 0.4rem; right: 0.4rem; height: 2.5px; border-radius: 2px; background: var(--accent); z-index: 3; pointer-events: none; }
+.todo-li.drop-before::before { top: -1.5px; }
+.todo-li.drop-after::after { bottom: -1.5px; }
+.todo-li.child.drop-before::before, .todo-li.child.drop-after::after { left: 2.35rem; }
+.todo-into { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 700; color: var(--accent); }

@@ -846,4 +846,11 @@ export const EN: Record<string, string | [string, string]> = {
   '인쇄': 'Print',
   '공유하기': 'Share',
   '이미지·PDF로 보내기': 'Send as image or PDF',
+  '하위 할 일 {n}개도 함께 지워져요. 지울까요?': 'This will also delete {n} subtasks. Delete?',
+  "하위 할 일이 있는 할 일은 다른 할 일의 하위로 넣을 수 없어요": "A to-do with subtasks can't become a subtask",
+  '‘{name}’의 하위 할 일로 넣었어요': 'Moved under “{name}”',
+  '다른 할 일 위에 놓으면 하위 할 일, 사이에 놓으면 순서 바꾸기 · 타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요': 'Drop on a to-do to make a subtask, between to reorder · on the timeline for an event, on a date to move it',
+  '하위 할 일 펼치기': 'Show subtasks',
+  '하위 할 일 접기': 'Hide subtasks',
+  '하위 할 일로': 'Make subtask',
 }

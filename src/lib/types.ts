@@ -110,6 +110,10 @@ export interface Todo {
   date: string
   done: boolean
   priority: boolean
+  /** 상위 할 일 (한 단계까지) */
+  parentId?: string
+  /** 목록 안 순서 (작을수록 위). 없으면 예전 순서(중요 → 만든 순) */
+  position?: number
 }
 
 /** 날짜별 메모 (마크다운, 나만 보임) */

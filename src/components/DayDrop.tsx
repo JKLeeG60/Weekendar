@@ -43,9 +43,12 @@ export function useEventActions() {
   }
 
   const removeTodoUndo = (todo: Todo) => {
+    // 하위 할 일이 있으면 함께 지워진다고 먼저 묻는다. 되돌리기는 하위까지 함께
+    const kids = db.todos.filter((x) => x.parentId === todo.id)
+    if (kids.length && !window.confirm(t('하위 할 일 {n}개도 함께 지워져요. 지울까요?', { n: kids.length }))) return
     removeTodo(todo.id)
-    const { id: _id, ownerId: _owner, ...rest } = todo
-    showToast(t('할 일을 삭제했어요.'), { label: t('되돌리기'), run: () => restoreTodo(rest) })
+    const strip = ({ id: _id, ownerId: _owner, parentId: _p, ...rest }: Todo) => rest
+    showToast(t('할 일을 삭제했어요.'), { label: t('되돌리기'), run: () => restoreTodo(strip(todo), kids.map(strip)) })
   }
 
   return { moveEvent, removeEvent, moveTodo: moveTodoTo, removeTodo: removeTodoUndo }

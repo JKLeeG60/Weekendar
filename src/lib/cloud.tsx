@@ -36,6 +36,7 @@ const evTo = (e: Partial<EventItem>) => {
 }
 const todoFrom = (r: any): Todo => ({
   id: r.id, ownerId: r.owner_id, text: r.title, date: r.date, done: r.done, priority: r.priority,
+  ...(r.parent_id ? { parentId: r.parent_id } : {}), ...(r.position != null ? { position: r.position } : {}),
 })
 const reqFrom = (r: any): ChangeRequest => ({
   id: r.id, requesterId: r.requester_id, leaderId: r.leader_id, type: r.type,
@@ -497,26 +498,64 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
 
       addTodo: (text, date, priority = false) => run(() => supabase.from('todos').insert({ owner_id: me_id, title: text, date, ...(priority ? { priority: true } : {}) })) as unknown as void,
       // 체크/중요 표시는 즉시 반영하고 서버에 저장
+      // 상위 할 일을 끝내면 하위 할 일도 모두 끝낸다
       toggleTodo: (id) => {
         const t = db.todos.find((x) => x.id === id); if (!t) return
-        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id ? { ...x, done: !x.done } : x)) }))
-        run(() => supabase.from('todos').update({ done: !t.done }).eq('id', id))
+        const done = !t.done
+        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id || (done && x.parentId === id) ? { ...x, done } : x)) }))
+        run(async () => {
+          const r = await supabase.from('todos').update({ done }).eq('id', id)
+          if (r.error || !done || !db.todos.some((x) => x.parentId === id)) return r
+          return supabase.from('todos').update({ done: true }).eq('parent_id', id)
+        })
       },
       togglePriority: (id) => {
         const t = db.todos.find((x) => x.id === id); if (!t) return
         setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id ? { ...x, priority: !x.priority } : x)) }))
         run(() => supabase.from('todos').update({ priority: !t.priority }).eq('id', id))
       },
+      // 하위 할 일은 서버에서 함께 지워진다 (on delete cascade)
       removeTodo: (id) => {
-        setDb((p) => ({ ...p, todos: p.todos.filter((x) => x.id !== id) }))
+        setDb((p) => ({ ...p, todos: p.todos.filter((x) => x.id !== id && x.parentId !== id) }))
         run(() => supabase.from('todos').delete().eq('id', id))
       },
+      // 하위 할 일도 함께 옮긴다
       moveTodo: (id, date) => {
-        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id ? { ...x, date } : x)) }))
-        run(() => supabase.from('todos').update({ date }).eq('id', id))
+        const kids = db.todos.some((x) => x.parentId === id)
+        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id || x.parentId === id ? { ...x, date } : x)) }))
+        run(async () => {
+          const r = await supabase.from('todos').update({ date }).eq('id', id)
+          if (r.error || !kids) return r
+          return supabase.from('todos').update({ date }).eq('parent_id', id)
+        })
       },
-      restoreTodo: (t) =>
-        run(() => supabase.from('todos').insert({ owner_id: me_id, title: t.text, date: t.date, done: t.done, priority: t.priority })) as unknown as void,
+      restoreTodo: (t, children = []) =>
+        run(async () => {
+          const row = (x: Omit<Todo, 'id' | 'ownerId'>) => ({ owner_id: me_id, title: x.text, date: x.date, done: x.done, priority: x.priority, ...(x.position != null ? { position: x.position } : {}) })
+          const r = await supabase.from('todos').insert(row(t)).select('id').single()
+          if (r.error || !children.length) return r
+          return supabase.from('todos').insert(children.map((c) => ({ ...row(c), parent_id: r.data.id })))
+        }) as unknown as void,
+      arrangeTodos: (updates) => {
+        setDb((p) => ({
+          ...p,
+          todos: p.todos.map((t) => {
+            const u = updates.find((x) => x.id === t.id)
+            if (!u) return t
+            const { parentId: _old, ...rest } = t
+            return { ...rest, ...(u.parentId ? { parentId: u.parentId } : {}), position: u.position }
+          }),
+        }))
+        // 상위에서 빠지는 것을 먼저 저장해야 '한 단계까지' 검사에 걸리지 않는다
+        const order = [...updates].sort((a, b) => Number(!!a.parentId) - Number(!!b.parentId))
+        run(async () => {
+          for (const u of order) {
+            const r = await supabase.from('todos').update({ parent_id: u.parentId, position: u.position }).eq('id', u.id)
+            if (r.error) return r
+          }
+          return { error: null }
+        })
+      },
 
       sendMessage: async (body, ref, toId, opts) => {
         const text = body.trim()

@@ -6,7 +6,7 @@ import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
-import type { Occurrence } from '../lib/types'
+import type { Occurrence, Todo } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { WeekGoalSection } from './WeekGoals'
 import { MemoDock } from './Memo'
@@ -115,18 +115,75 @@ export function PersonalPanel() {
   )
 }
 
+/** 접어 둔 상위 할 일 (나에게만, 이 기기에) */
+const FOLD_KEY = 'weekendar-todo-fold'
+const readFold = (): string[] => { try { return JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]') } catch { return [] } }
+
 export function Todos() {
-  const { db, me, addTodo, toggleTodo, togglePriority } = useStore()
-  const { selected, openModal, isMobile } = useUI()
+  const { db, me, addTodo, toggleTodo, togglePriority, arrangeTodos } = useStore()
+  const { selected, openModal, isMobile, showToast } = useUI()
   const act = useEventActions()
   const [text, setText] = useState('')
   const carry = me?.todoCarry !== false
+  const [fold, setFold] = useState<string[]>(readFold)
+  const toggleFold = (id: string) => {
+    const next = fold.includes(id) ? fold.filter((x) => x !== id) : [...fold, id]
+    setFold(next)
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(next)) } catch { /* 저장 못 해도 화면에서는 접힘 */ }
+  }
 
+  // 순서: 직접 정한 순서(position)가 먼저, 아직 안 정한 것은 예전처럼 중요 → 만든 순
+  const idx = new Map(db.todos.map((x, i) => [x.id, i]))
+  const key = (x: Todo) => x.position ?? 100000 + (x.priority ? 0 : 50000) + (idx.get(x.id) ?? 0)
+  const byOrder = (a: Todo, b: Todo) => Number(a.done) - Number(b.done) || key(a) - key(b)
   const list = db.todos
     // 넘기기 설정이 켜져 있으면 지난 날의 못 끝낸 할 일도 함께 보여준다
     .filter((t) => t.ownerId === me?.id && (t.date === selected || (carry && t.date < selected && !t.done)))
-    .sort((a, b) => Number(a.done) - Number(b.done) || Number(b.priority) - Number(a.priority))
+  const shown = new Set(list.map((x) => x.id))
+  // 상위가 안 보이는 하위 할 일은 맨 위 단계에 보여 준다
+  const top = list.filter((x) => !x.parentId || !shown.has(x.parentId)).sort(byOrder)
+  const kidsOf = (id: string) => list.filter((x) => x.parentId === id && shown.has(id)).sort(byOrder)
   const left = list.filter((t) => !t.done).length
+
+  // ── 끌어 놓기: 할 일 위에 놓으면 그 하위로, 위·아래 가장자리에 놓으면 순서만 ──
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [hint, setHint] = useState<{ id: string; zone: 'before' | 'after' | 'into' } | null>(null)
+  const zoneOf = (e: React.DragEvent, target: Todo): 'before' | 'after' | 'into' => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = (e.clientY - r.top) / r.height
+    const d = db.todos.find((x) => x.id === dragId)
+    // 하위로 넣을 수 있는 경우: 대상이 맨 위 단계, 끄는 것은 하위가 없는 것 (한 단계까지)
+    const canInto = !!d && !target.parentId && target.id !== d.id && !db.todos.some((x) => x.parentId === d.id)
+    if (canInto && y > 0.28 && y < 0.72) return 'into'
+    return y < 0.5 ? 'before' : 'after'
+  }
+  function drop(target: Todo, zone: 'before' | 'after' | 'into') {
+    const d = db.todos.find((x) => x.id === dragId)
+    if (!d || d.id === target.id) return
+    const hasKids = db.todos.some((x) => x.parentId === d.id)
+    let parent: string | null
+    let sibs: Todo[]
+    let at: number
+    const targetKids = kidsOf(target.id).filter((x) => x.id !== d.id)
+    if (zone === 'into') {
+      parent = target.id
+      sibs = targetKids
+      at = sibs.length
+    } else if (zone === 'after' && !target.parentId && targetKids.length && !fold.includes(target.id)) {
+      // 펼친 상위 할 일 바로 아래에 놓으면 첫 번째 하위로
+      parent = target.id
+      sibs = targetKids
+      at = 0
+    } else {
+      parent = target.parentId && shown.has(target.parentId) ? target.parentId : null
+      sibs = (parent ? kidsOf(parent) : top).filter((x) => x.id !== d.id)
+      at = sibs.findIndex((x) => x.id === target.id) + (zone === 'after' ? 1 : 0)
+    }
+    if (parent && hasKids) { showToast(t('하위 할 일이 있는 할 일은 다른 할 일의 하위로 넣을 수 없어요')); return }
+    const order = [...sibs.slice(0, at), d, ...sibs.slice(at)]
+    arrangeTodos(order.map((x, i) => ({ id: x.id, parentId: x.id === d.id ? parent : x.parentId ?? null, position: i })))
+    if (parent && d.parentId !== parent) showToast(t('‘{name}’의 하위 할 일로 넣었어요', { name: target.parentId ? db.todos.find((x) => x.id === parent)?.text ?? '' : target.text }))
+  }
 
   return (
     <section className="panel-half todo">
@@ -155,9 +212,35 @@ export function Todos() {
             <small><Rich text={t('위 칸에 할 일을 적어 보세요. <mbr>적은 할 일을 타임라인으로 끌어다 놓으면 일정이 돼요.')} /></small>
           </div>
         )}
-        <ul className="todos">
-          {list.map((t) => (
-            <li key={t.id} className="todo-li" data-tid={t.id}>
+        <ul className={'todos' + (dragId ? ' sorting' : '')}>
+          {top.map((p) => [p, ...(fold.includes(p.id) ? [] : kidsOf(p.id))]).flat().map((t, i, rows) => {
+            const kids = kidsOf(t.id)
+            const isChild = !!t.parentId && shown.has(t.parentId)
+            // 마지막 하위 할 일이면 연결선을 아래로 잇지 않는다
+            const isLast = isChild && rows[i + 1]?.parentId !== t.parentId
+            const h = hint?.id === t.id ? hint.zone : null
+            return (
+            <li
+              key={t.id}
+              className={'todo-li' + (isChild ? ' child' + (isLast ? ' last' : '') : '') + (h ? ' drop-' + h : '') + (dragId === t.id ? ' drag-src' : '')}
+              data-tid={t.id}
+              onDragOver={(e) => {
+                if (!dragId || !e.dataTransfer.types.includes('text/weekendar-todo')) return
+                e.preventDefault()
+                const z = zoneOf(e, t)
+                if (hint?.id !== t.id || hint.zone !== z) setHint({ id: t.id, zone: z })
+              }}
+              onDragLeave={(e) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setHint((x) => (x?.id === t.id ? null : x)) }}
+              onDrop={(e) => {
+                if (!dragId) return
+                e.preventDefault()
+                drop(t, zoneOf(e, t))
+                setHint(null)
+                setDragId(null)
+                endDayDrag(false)
+              }}
+            >
+            {isChild && <span className="todo-tree" aria-hidden />}
             <GestureRow
               className={'todo-item' + (t.done ? ' done' : '')}
               onDelete={() => act.removeTodo(t)}
@@ -167,17 +250,32 @@ export function Todos() {
                 onDragStart: (e) => {
                   e.dataTransfer.setData('text/weekendar-todo', t.id)
                   e.dataTransfer.effectAllowed = 'copyMove'
+                  setDragId(t.id)
                   // 위쪽에 날짜 띠: 날짜에 놓으면 그날로 옮기기, 타임라인에 놓으면 일정으로
                   startDayDrag({ label: t.text, native: true, anchor: document.querySelector('.timeline-scroll'), onDrop: (d) => act.moveTodo(t.id, d) })
                 },
-                onDragEnd: () => endDayDrag(false),
-                title: !t.done && !isMobile ? tr('타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요') : undefined,
+                onDragEnd: () => { setDragId(null); setHint(null); endDayDrag(false) },
+                title: !t.done && !isMobile ? tr('다른 할 일 위에 놓으면 하위 할 일, 사이에 놓으면 순서 바꾸기 · 타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요') : undefined,
               }}
             >
               <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTodo(t.id)} aria-label={t.text}>
                 {t.done && <Icon name="check" size={13} />}
               </button>
-              <span className="todo-text">{t.text}</span>
+              <span className="todo-text">
+                {t.text}
+                {kids.length > 0 && (
+                  <button
+                    className={'todo-fold' + (fold.includes(t.id) ? ' folded' : '')}
+                    onClick={() => toggleFold(t.id)}
+                    aria-expanded={!fold.includes(t.id)}
+                    aria-label={fold.includes(t.id) ? tr('하위 할 일 펼치기') : tr('하위 할 일 접기')}
+                  >
+                    <span>{kids.filter((k) => k.done).length}/{kids.length}</span>
+                    <Icon name="chevD" size={11} />
+                  </button>
+                )}
+                {h === 'into' && <span className="todo-into">{tr('하위 할 일로')}</span>}
+              </span>
               {!t.done && (
                 <button
                   className="icon-btn tiny to-event"
@@ -196,7 +294,8 @@ export function Todos() {
               </button>
             </GestureRow>
             </li>
-          ))}
+            )
+          })}
         </ul>
       </div>
     </section>

@@ -275,7 +275,10 @@ export interface Store {
   /** 할 일을 다른 날로 옮기기 */
   moveTodo: (id: string, date: string) => void
   /** 지운 할 일 되살리기 (되돌리기) */
-  restoreTodo: (t: Omit<Todo, 'id' | 'ownerId'>) => void
+  /** 지운 할 일 되돌리기 (하위 할 일이 있었으면 함께) */
+  restoreTodo: (t: Omit<Todo, 'id' | 'ownerId'>, children?: Omit<Todo, 'id' | 'ownerId'>[]) => void
+  /** 할 일 순서·상위 바꾸기 (끌어 놓기). parentId 가 null 이면 맨 위 단계로 */
+  arrangeTodos: (updates: { id: string; parentId: string | null; position: number }[]) => void
   // 이번 주 목표 (할 일과 따로, 한 주에 하나, 나만 보임)
   /** week(그 주의 월요일)의 목표를 정한다. 이미 있으면 글만 바꾸고, 빈 글이면 지운다 */
   setGoal: (week: string, text: string) => void
@@ -712,13 +715,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...p,
           todos: [...p.todos, { id: uid(), ownerId: p.currentUserId!, text, date, done: false, priority }],
         })),
+      // 상위 할 일을 끝내면 하위 할 일도 모두 끝낸다
       toggleTodo: (id) =>
-        set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) })),
+        set((p) => {
+          const x = p.todos.find((t) => t.id === id)
+          if (!x) return p
+          const done = !x.done
+          return { ...p, todos: p.todos.map((t) => (t.id === id || (done && t.parentId === id) ? { ...t, done } : t)) }
+        }),
       togglePriority: (id) =>
         set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, priority: !t.priority } : t)) })),
-      removeTodo: (id) => set((p) => ({ ...p, todos: p.todos.filter((t) => t.id !== id) })),
-      moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, date } : t)) })),
-      restoreTodo: (t) => set((p) => ({ ...p, todos: [...p.todos, { ...t, id: uid(), ownerId: p.currentUserId! }] })),
+      // 하위 할 일도 함께 지우고, 함께 옮긴다
+      removeTodo: (id) => set((p) => ({ ...p, todos: p.todos.filter((t) => t.id !== id && t.parentId !== id) })),
+      moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id || t.parentId === id ? { ...t, date } : t)) })),
+      restoreTodo: (t, children = []) => set((p) => {
+        const pid = uid()
+        const owner = p.currentUserId!
+        return { ...p, todos: [...p.todos, { ...t, id: pid, ownerId: owner }, ...children.map((c) => ({ ...c, id: uid(), ownerId: owner, parentId: pid }))] }
+      }),
+      arrangeTodos: (updates) => set((p) => ({
+        ...p,
+        todos: p.todos.map((t) => {
+          const u = updates.find((x) => x.id === t.id)
+          if (!u) return t
+          const { parentId: _old, ...rest } = t
+          return { ...rest, ...(u.parentId ? { parentId: u.parentId } : {}), position: u.position }
+        }),
+      })),
       setGoal: (week, text) =>
         set((p) => {
           const me = p.currentUserId
