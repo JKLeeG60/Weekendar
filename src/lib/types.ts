@@ -20,6 +20,8 @@ export interface Team {
   id: string
   name: string
   inviteCode: string
+  /** 대화 보관 기간(일). 없으면 영구 보관 */
+  chatRetentionDays?: number | null
 }
 
 /** 1인 1팀: userId 는 유일해야 한다 (Supabase 에서는 unique 제약). */

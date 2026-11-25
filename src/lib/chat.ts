@@ -1,5 +1,6 @@
 import { fmtTime } from './date'
 import type { ChatRoom, Message } from './types'
+import { t } from './i18n'
 
 export const ALL = '전체'
 /** 영어 화면에서 쓰는 @all (한국어 @전체 와 똑같이 팀 모두를 부른다) */
@@ -95,3 +96,13 @@ export function chatScope(me: string, c: { toId?: string; roomId?: string; autho
   if (peer) return 'dm:' + [me, peer].sort().join(':')
   return 'team'
 }
+
+/** 대화 보관 기간 선택지 (일, null = 영구) */
+export const RETENTION: { days: number | null; label: string }[] = [
+  { days: 90, label: '3개월' },
+  { days: 180, label: '6개월' },
+  { days: 365, label: '1년' },
+  { days: 1095, label: '3년' },
+  { days: null, label: '영구' },
+]
+export const retentionLabel = (days: number | null | undefined) => t(RETENTION.find((r) => r.days === (days ?? null))?.label ?? '영구')

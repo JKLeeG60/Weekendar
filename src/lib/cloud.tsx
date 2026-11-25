@@ -138,7 +138,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     setDb({
       currentUserId: uid,
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
-      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code })),
+      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
       requests: (r.data ?? []).map(reqFrom),
@@ -464,6 +464,11 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       },
 
       renameTeam: (name) => run(() => supabase.from('teams').update({ name }).eq('id', team!.id)) as unknown as void,
+      setChatRetention: (days) => run(() => supabase.from('teams').update({ chat_retention_days: days }).eq('id', team!.id)) as unknown as void,
+      teamChatUsage: async () => {
+        const { data, error } = await supabase.rpc('team_chat_usage')
+        return error ? 0 : Number(data ?? 0)
+      },
 
       updateMember: async (userId, patch) => {
         if (patch.role === 'leader') {

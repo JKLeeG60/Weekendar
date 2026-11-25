@@ -249,6 +249,10 @@ export interface Store {
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
   renameTeam: (name: string) => void
+  /** 대화 보관 기간(일, null = 영구). 팀 관리 권한이 있는 사람만 */
+  setChatRetention: (days: number | null) => void
+  /** 우리 팀 대화가 차지하는 용량(바이트) */
+  teamChatUsage: () => Promise<number>
   updateMember: (userId: string, patch: Partial<Member>) => void
   moveMember: (userId: string, dir: -1 | 1) => void
   removeMember: (userId: string) => void
@@ -545,6 +549,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       renameTeam: (name) =>
         set((p) => ({ ...p, teams: p.teams.map((t) => (t.id === team?.id ? { ...t, name } : t)) })),
+      setChatRetention: (days) =>
+        set((p) => ({ ...p, teams: p.teams.map((t) => (t.id === team?.id ? { ...t, chatRetentionDays: days } : t)) })),
+      // 체험 모드: 이 기기에 저장된 우리 팀 대화의 크기로 어림한다
+      teamChatUsage: async () =>
+        new Blob([JSON.stringify(db.messages.filter((m) => m.teamId === team?.id))]).size,
 
       updateMember: (userId, patch) =>
         set((p) => {

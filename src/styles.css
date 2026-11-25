@@ -1910,3 +1910,14 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .todo-li.drop-after::after { bottom: -1.5px; }
 .todo-li.child.drop-before::before, .todo-li.child.drop-after::after { left: 2.35rem; }
 .todo-into { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+
+/* ───────── 대화 보관 기간 (팀 관리) ───────── */
+.ret-seg { display: flex; gap: 0.15rem; padding: 0.2rem; margin: 0.4rem 0 0.55rem; background: var(--line-soft); border-radius: 0.7rem; }
+.ret-seg button { flex: 1; padding: 0.45rem 0; border-radius: 0.55rem; font-size: 0.86rem; font-weight: 600; color: var(--muted); transition: background 0.15s ease, color 0.15s ease; }
+.ret-seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.ret-hint { margin: 0.15rem 0; font-size: 0.8rem; line-height: 1.5; color: var(--muted); }
+.ret-use { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted); }
+.ret-use b { color: var(--text); font-variant-numeric: tabular-nums; }
+.ret-bar { flex: 1; height: 0.42rem; border-radius: 99px; background: var(--line-soft); overflow: hidden; }
+.ret-bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s ease; }
+.chat-ret { align-self: center; display: flex; align-items: center; gap: 0.3rem; margin: 0.3rem 0 0.2rem; font-size: 0.72rem; color: var(--faint); }

@@ -8,6 +8,7 @@ import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr } from '../lib/date'
 import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 import { localize, Rich, t } from '../lib/i18n'
+import { RETENTION, retentionLabel } from '../lib/chat'
 import {
   CATEGORY_LABEL,
   type Category, type EventItem, type Occurrence, type Repeat, type Role,
@@ -427,6 +428,47 @@ function DayModal({ userId, date }: { userId: string; date: string }) {
   )
 }
 
+/* ───────── 대화 보관 기간 (팀 관리) ───────── */
+const fmtBytes = (n: number) => (n < 1024 * 1024 ? `${Math.max(0.1, n / 1024 / 1024).toFixed(1)}MB` : n < 1024 ** 3 ? `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)}MB` : `${(n / 1024 ** 3).toFixed(2)}GB`)
+
+function ChatRetention() {
+  const { team, setChatRetention, teamChatUsage } = useStore()
+  const { showToast } = useUI()
+  const cur = team?.chatRetentionDays ?? null
+  const [usage, setUsage] = useState<number | null>(null)
+  useEffect(() => { teamChatUsage().then(setUsage) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const LIMIT = 500 * 1024 * 1024 // Weekendar 전체 DB 한도 (Supabase 무료 요금제)
+  function pick(days: number | null) {
+    if (days === cur) return
+    // 기간을 줄이면 오래된 대화가 지워지므로 한 번 더 묻는다
+    if (days !== null && (cur === null || days < cur) && !window.confirm(t('{period}이 지난 대화는 내일 새벽에 지워지고 되돌릴 수 없어요. 바꿀까요?', { period: retentionLabel(days) }))) return
+    setChatRetention(days)
+    showToast(t('대화 보관 기간을 {period}(으)로 바꿨어요.', { period: retentionLabel(days) }))
+  }
+  return (
+    <section className="ret">
+      <h3 className="section-label">{t('대화 보관 기간')}</h3>
+      <div className="ret-seg" role="radiogroup" aria-label={t('대화 보관 기간')}>
+        {RETENTION.map((r) => (
+          <button key={r.label} role="radio" aria-checked={cur === r.days} className={cur === r.days ? 'on' : ''} onClick={() => pick(r.days)}>{t(r.label)}</button>
+        ))}
+      </div>
+      <p className="ret-hint">
+        {cur === null
+          ? t('대화를 지우지 않고 계속 보관해요. 팀 대화·1:1·그룹방 모두 똑같이 적용돼요.')
+          : t('{period}이 지난 대화는 매일 새벽 자동으로 지워져요. 팀 대화·1:1·그룹방 모두 똑같이 적용돼요.', { period: retentionLabel(cur) })}
+      </p>
+      {cur !== null && <p className="ret-hint">{t('공지로 등록한 메시지는 기간이 지나도 남아요. 지운 대화는 되돌릴 수 없어요.')}</p>}
+      <div className="ret-use">
+        <span>{t('우리 팀 대화 저장량')}</span>
+        <span className="ret-bar" aria-hidden><i style={{ width: `${usage === null ? 0 : Math.max(1, Math.min(100, (usage / LIMIT) * 100))}%` }} /></span>
+        <b>{usage === null ? '…' : fmtBytes(usage)}</b>
+        <span>/ 500MB</span>
+      </div>
+    </section>
+  )
+}
+
 /* ───────── 팀 관리 (관리자) ───────── */
 function AdminModal() {
   const { db, me, team, userOf, renameTeam, updateMember, moveMember, removeMember, transferAdmin } = useStore()
@@ -463,6 +505,8 @@ function AdminModal() {
             </button>
           </div>
         </section>
+
+        <ChatRetention />
 
         {pending.length > 0 && (
           <section>

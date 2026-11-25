@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
 import { addDays, dowHeads, fmtHead, fmtLong, fmtMonthDay, monthGrid, monthTitle, todayStr, weekDays } from '../lib/date'
-import { ALL, ALL_EN, chatScope, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
+import { ALL, ALL_EN, chatScope, mentionsMe, retentionLabel, splitMentions, timeLabel } from '../lib/chat'
 import { getLang, localize, t } from '../lib/i18n'
 import type { ChatPin, ChatRef, Message, ScheduledMessage } from '../lib/types'
 import { Avatar, Icon } from './ui'
@@ -298,7 +298,7 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
 
 /** 메시지 목록 + 입력창. peer 가 있으면 그 사람과의 1:1 대화 */
 function ChatBody({ peer, room }: { peer?: string; room?: string }) {
-  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react, rooms, roomMessages, markRoomRead, pins, pinMessage, unpin, scheduled, scheduleMessage } = useStore()
+  const { messages: teamMessages, team, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react, rooms, roomMessages, markRoomRead, pins, pinMessage, unpin, scheduled, scheduleMessage } = useStore()
   // 대화 종류: 그룹 대화방 / 1:1 / 팀 대화
   const roomInfo = room ? rooms.find((r) => r.id === room) : undefined
   const messages = room ? roomMessages(room) : peer ? dmMessages(peer) : teamMessages
@@ -522,6 +522,9 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           <p className="chat-empty">
             {peer && !room ? t('{name}님과 아직 대화가 없어요. 첫 메시지를 남겨보세요.', { name: userOf(peer).name }) : t('아직 대화가 없어요. 첫 메시지를 남겨보세요.')}
           </p>
+        )}
+        {team?.chatRetentionDays && messages.length > 0 && (
+          <p className="chat-ret"><Icon name="clock" size={13} />{t('이 팀의 대화는 {period} 동안 보관돼요', { period: retentionLabel(team.chatRetentionDays) })}</p>
         )}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
