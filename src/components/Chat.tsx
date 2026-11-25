@@ -687,7 +687,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
         )}
         <div className="chat-input">
           <button className="icon-btn" onClick={() => setAttachOpen((v) => !v)} aria-label={t('일정 첨부')} title={t('일정 첨부')}>
-            <Icon name="cal" size={18} />
+            <Icon name="eventCards" size={20} />
           </button>
           <textarea
             ref={taRef}

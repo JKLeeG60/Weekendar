@@ -133,6 +133,16 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   copy: <path d="M9 9h11v11H9zM5 15V4h11" />,
   cal: <path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4" />,
+  // 일정 카드 묶음: 둥근 큰 네모 안에 연한 일정 카드 2개 + 왼쪽 색 띠 (팀 일정 카드 모양)
+  eventCards: (
+    <>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4.2" />
+      <rect x="7" y="7.6" width="10" height="3.6" rx="1.5" fill="currentColor" fillOpacity=".28" stroke="none" />
+      <rect x="7" y="12.8" width="10" height="3.6" rx="1.5" fill="currentColor" fillOpacity=".28" stroke="none" />
+      <rect x="7" y="7.6" width="1.6" height="3.6" rx=".8" fill="currentColor" stroke="none" />
+      <rect x="7" y="12.8" width="1.6" height="3.6" rx=".8" fill="currentColor" stroke="none" />
+    </>
+  ),
   calClock: <path d="M20 11V7a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h5M4 10h16M8 3v4M16 3v4M17 22a5 5 0 100-10 5 5 0 000 10zM17 15v2.2l1.5 1" />,
   person: <path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20a8 8 0 0116 0" />,
   list: <path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />,
