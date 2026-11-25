@@ -5,7 +5,7 @@
  * 실제 서비스에서는 DB 의 RLS 가 강제한다.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { chatCounts, dmPeer, dmThreads, inviteNotice, leaveNotice, parseMentions, roomThreads, type RoomThread } from './chat'
+import { chatCounts, chatScope, dmPeer, dmThreads, inviteNotice, leaveNotice, parseMentions, roomThreads, type RoomThread } from './chat'
 import type {
   Category,
   ChangeRequest,
@@ -14,6 +14,8 @@ import type {
   Member,
   Message,
   ChatRef,
+  ChatPin,
+  ScheduledMessage,
   Notice,
   RequestPayload,
   Role,
@@ -327,6 +329,23 @@ export interface Store {
   reactions: Record<string, Record<string, string>>
   /** 내 반응 달기 (emoji 가 null 이면 취소). 한 메시지에 1개만 */
   react: (messageId: string, emoji: string | null) => void
+  // 대화 공지 (대화방마다 1개, 그 대화를 볼 수 있는 사람 누구나 올리고 내림)
+  /** 대화방 구분(chatScope) → 공지 */
+  pins: Record<string, ChatPin>
+  /** 이 메시지를 그 대화방의 공지로 (있던 공지는 바뀜) */
+  pinMessage: (m: Message) => void
+  unpin: (scope: string) => void
+  // 예약 보내기
+  /** 내가 예약해 둔 메시지 (보낼 시각 순) */
+  scheduled: ScheduledMessage[]
+  /** sendAt(ms)에 보내도록 예약. 실패하면 false */
+  scheduleMessage: (body: string, sendAt: number, toId?: string, opts?: { replyTo?: string; roomId?: string }) => Promise<boolean>
+  reschedule: (id: string, sendAt: number) => void
+  /** 예약한 메시지 내용 고치기 */
+  editScheduled: (id: string, body: string) => void
+  cancelScheduled: (id: string) => void
+  /** 예약을 지우고 바로 보내기 */
+  sendScheduledNow: (id: string) => void
   // 캘린더 구독 주소 (서버 모드만, 체험 모드는 null)
   getCalendarUrl: (reset?: boolean) => Promise<string | null>
 }
@@ -344,6 +363,27 @@ export const useStore = () => {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(load)
   const fromOtherTab = useRef(false)
+
+  // 체험 모드 예약 보내기: 시각이 된 예약을 실제 메시지로 (실서비스에서는 서버가 1분마다 한다)
+  const hasScheduled = (db.scheduled ?? []).length > 0
+  useEffect(() => {
+    if (!hasScheduled) return
+    const tick = () => setDb((p) => {
+      const now = Date.now()
+      const due = (p.scheduled ?? []).filter((x) => x.sendAt <= now)
+      const author = p.currentUserId
+      const teamId = p.members.find((m) => m.userId === author)?.teamId
+      if (!due.length || !author || !teamId) return p
+      const sent: Message[] = due.map((x) => ({
+        id: uid(), teamId, authorId: author, body: x.body, mentions: x.mentions, mentionAll: x.mentionAll, createdAt: now,
+        ...(x.toId ? { toId: x.toId } : {}), ...(x.roomId ? { roomId: x.roomId } : {}), ...(x.replyTo ? { replyTo: x.replyTo } : {}),
+      }))
+      return { ...p, messages: [...p.messages, ...sent], scheduled: (p.scheduled ?? []).filter((x) => x.sendAt > now) }
+    })
+    tick()
+    const id = window.setInterval(tick, 5000)
+    return () => window.clearInterval(id)
+  }, [hasScheduled, db.scheduled])
 
   useEffect(() => {
     // 다른 탭에서 받은 변경은 다시 저장하지 않는다 (탭끼리 주고받기 반복 방지)
@@ -410,6 +450,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(
       messages, db.currentUserId, db.chatReads[db.currentUserId ?? ''] ?? 0,
     )
+    // 대화 공지: 지운 메시지의 공지는 보이지 않게
+    const pins: Record<string, ChatPin> = Object.fromEntries(
+      (db.pins ?? []).filter((x) => !db.messages.find((m) => m.id === x.messageId)?.deleted).map((x) => [x.scope, x]),
+    )
+    const scheduled = [...(db.scheduled ?? [])].sort((a, b) => a.sendAt - b.sendAt)
 
     const set = (fn: (prev: DB) => DB) => setDb(fn)
     const notify = (prev: DB, userId: string, n: Omit<Notice, 'id' | 'userId' | 'read' | 'createdAt'>): Notice[] => [
@@ -842,6 +887,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
       getCalendarUrl: async () => null,
+      pins,
+      pinMessage: (m) => {
+        const me = db.currentUserId
+        if (!me || m.deleted || m.system) return
+        const pin: ChatPin = { scope: chatScope(me, m), messageId: m.id, body: m.body, authorId: m.authorId, pinnedBy: me, pinnedAt: Date.now() }
+        set((p) => ({ ...p, pins: [...(p.pins ?? []).filter((x) => x.scope !== pin.scope), pin] }))
+      },
+      unpin: (scope) => set((p) => ({ ...p, pins: (p.pins ?? []).filter((x) => x.scope !== scope) })),
+      scheduled,
+      scheduleMessage: async (body, sendAt, toId, opts) => {
+        const text = body.trim()
+        if (!text || sendAt <= Date.now()) return false
+        const people = tableMembers.map((m) => ({ id: m.userId, name: userOf(m.userId).name }))
+        const { mentions, mentionAll } = toId || opts?.roomId ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
+        const s: ScheduledMessage = {
+          id: uid(), body: text, sendAt, mentions: mentions.filter((id) => id !== db.currentUserId), mentionAll,
+          ...(toId ? { toId } : {}), ...(opts?.roomId ? { roomId: opts.roomId } : {}), ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
+        }
+        set((p) => ({ ...p, scheduled: [...(p.scheduled ?? []), s] }))
+        return true
+      },
+      reschedule: (id, sendAt) => set((p) => ({ ...p, scheduled: (p.scheduled ?? []).map((x) => (x.id === id ? { ...x, sendAt } : x)) })),
+      editScheduled: (id, body) => {
+        const text = body.trim()
+        if (text) set((p) => ({ ...p, scheduled: (p.scheduled ?? []).map((x) => (x.id === id ? { ...x, body: text } : x)) }))
+      },
+      cancelScheduled: (id) => set((p) => ({ ...p, scheduled: (p.scheduled ?? []).filter((x) => x.id !== id) })),
+      // 체험 모드: 보낼 시각을 지금으로 당기면 아래 타이머가 바로 보낸다
+      sendScheduledNow: (id) => set((p) => ({ ...p, scheduled: (p.scheduled ?? []).map((x) => (x.id === id ? { ...x, sendAt: Date.now() - 1 } : x)) })),
       getReadReceipts: async (messageId) => {
         const m = db.messages.find((x) => x.id === messageId)
         if (!m || m.authorId !== db.currentUserId) return {}

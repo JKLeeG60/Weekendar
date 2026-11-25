@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, Todo, WeekGoal } from './types'
-import { chatCounts, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
+import type { ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
+import { chatCounts, chatScope, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { localize, t as tr, useLang } from './i18n'
 import { TERMS_VERSION } from './legal'
 
@@ -66,6 +66,11 @@ const memberFrom = (r: any): Member => ({
   userId: r.user_id, teamId: r.team_id, role: r.role as Role, isAdmin: r.is_admin, title: r.title, sort: r.sort,
 })
 
+const schedFrom = (x: any): ScheduledMessage => ({
+  id: x.id, body: x.body, sendAt: Date.parse(x.send_at), mentions: x.mentions ?? [], mentionAll: !!x.mention_all,
+  ...(x.recipient_id ? { toId: x.recipient_id } : {}), ...(x.room_id ? { roomId: x.room_id } : {}), ...(x.reply_to ? { replyTo: x.reply_to } : {}),
+})
+
 const fail = (e: unknown) => {
   console.error(e)
   alert(tr('저장하지 못했어요. 네트워크를 확인하고 다시 시도해주세요.') + '\n' + ((e as any)?.message ?? ''))
@@ -109,6 +114,15 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const gl = await supabase.from('week_goals').select('id, owner_id, week, title, done')
     if (gl.error) console.warn('이번 주 목표를 불러오지 못했어요', gl.error.message)
     const goals: WeekGoal[] = ((gl.data ?? []) as any[]).map((x) => ({ id: x.id, ownerId: x.owner_id, week: x.week, text: x.title, done: !!x.done }))
+    // 대화 공지·내 예약 메시지 (migration_027 전이면 비어 있음)
+    const [pn, sc] = await Promise.all([
+      supabase.from('chat_pins').select('scope, message_id, body, author_id, pinned_by, pinned_at'),
+      supabase.from('scheduled_messages').select('*').eq('author_id', uid).order('send_at'),
+    ])
+    if (pn.error) console.warn('대화 공지를 불러오지 못했어요', pn.error.message)
+    if (sc.error) console.warn('예약 메시지를 불러오지 못했어요', sc.error.message)
+    const pins: ChatPin[] = ((pn.data ?? []) as any[]).map((x) => ({ scope: x.scope, messageId: x.message_id, body: x.body, authorId: x.author_id ?? undefined, pinnedBy: x.pinned_by, pinnedAt: Date.parse(x.pinned_at) }))
+    const scheduled: ScheduledMessage[] = ((sc.data ?? []) as any[]).map(schedFrom)
     const err = [p, t, m, e, r, n, td].find((x) => x.error)?.error
     // 대화 테이블이 아직 없으면(마이그레이션 전) 대화만 비워 두고 나머지는 정상 동작
     if (ms.error) console.warn('대화를 불러오지 못했어요', ms.error.message)
@@ -130,6 +144,8 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       notices: (n.data ?? []).map(noticeFrom),
       todos: (td.data ?? []).map(todoFrom),
       goals,
+      pins,
+      scheduled,
       messages: (ms.data ?? []).map(msgFrom).reverse(),
       chatReads: Object.fromEntries((cr.data ?? []).map((x: any) => [x.user_id, Date.parse(x.last_read_at)])),
       messageReads: {},
@@ -185,7 +201,9 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
     // 대화방에 초대되거나 누가 나가면 (서버 규칙상 내 방의 변화만 온다)
     on('chat_room_members')
+    on('scheduled_messages', `author_id=eq.${me}`)
     if (teamId) {
+      on('chat_pins', `team_id=eq.${teamId}`)
       on('requests', `team_id=eq.${teamId}`)
       on('teams', `id=eq.${teamId}`)
     }
@@ -255,6 +273,11 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const dmMessages = (peerId: string) => dms.filter((m) => dmPeer(m, me_id) === peerId)
     const lastRead = db.chatReads[me_id] ?? 0
     const { unread: chatUnread, mentions: chatMentions } = chatCounts(messages, me_id, lastRead)
+    // 대화 공지: 지운 메시지의 공지는 보이지 않게 (서버도 지울 때 함께 내린다)
+    const pins: Record<string, ChatPin> = Object.fromEntries(
+      (db.pins ?? []).filter((x) => !db.messages.find((m) => m.id === x.messageId)?.deleted).map((x) => [x.scope, x]),
+    )
+    const scheduled = [...(db.scheduled ?? [])].sort((a, b) => a.sendAt - b.sendAt)
 
     /** 서버 호출 후 새로고침. 실패하면 알림 */
     const run = async (fn: () => PromiseLike<{ error: any }>) => {
@@ -573,6 +596,64 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         setDb((p) => ({ ...p, rooms: (p.rooms ?? []).map((x) => (x.id === roomId ? { ...x, members: x.members.map((y) => (y.userId === me_id ? { ...y, lastReadAt: now } : y)) } : x)) }))
         supabase.rpc('mark_room_read', { p_room: roomId }).then(({ error }) => { if (error) console.warn(error.message) })
         if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
+      },
+      pins,
+      pinMessage: (m) => {
+        if (!team || m.deleted || m.system) return
+        const pin: ChatPin = { scope: chatScope(me_id, m), messageId: m.id, body: m.body, authorId: m.authorId, pinnedBy: me_id, pinnedAt: Date.now() }
+        setDb((p) => ({ ...p, pins: [...(p.pins ?? []).filter((x) => x.scope !== pin.scope), pin] }))
+        run(() => supabase.from('chat_pins').upsert({ team_id: team.id, scope: pin.scope, message_id: m.id, body: m.body, author_id: m.authorId, pinned_by: me_id, pinned_at: new Date().toISOString() }, { onConflict: 'team_id,scope' }))
+      },
+      unpin: (scope) => {
+        if (!team) return
+        setDb((p) => ({ ...p, pins: (p.pins ?? []).filter((x) => x.scope !== scope) }))
+        run(() => supabase.from('chat_pins').delete().eq('team_id', team.id).eq('scope', scope))
+      },
+      scheduled,
+      scheduleMessage: async (body, sendAt, toId, opts) => {
+        const text = body.trim()
+        if (!text || !team || sendAt <= Date.now()) return false
+        const people = tableMembers.map((x) => ({ id: x.userId, name: userOf(x.userId).name }))
+        const { mentions, mentionAll } = toId || opts?.roomId ? { mentions: [] as string[], mentionAll: false } : parseMentions(text, people)
+        const { data, error } = await supabase.from('scheduled_messages').insert({
+          team_id: team.id, author_id: me_id, body: text, send_at: new Date(sendAt).toISOString(),
+          mentions: mentions.filter((id) => id !== me_id), mention_all: mentionAll,
+          ...(toId ? { recipient_id: toId } : {}), ...(opts?.roomId ? { room_id: opts.roomId } : {}), ...(opts?.replyTo ? { reply_to: opts.replyTo } : {}),
+        }).select().single()
+        if (error) { fail(error); return false }
+        setDb((p) => ({ ...p, scheduled: [...(p.scheduled ?? []), schedFrom(data)] }))
+        return true
+      },
+      reschedule: (id, sendAt) => {
+        setDb((p) => ({ ...p, scheduled: (p.scheduled ?? []).map((x) => (x.id === id ? { ...x, sendAt } : x)) }))
+        run(() => supabase.from('scheduled_messages').update({ send_at: new Date(sendAt).toISOString() }).eq('id', id))
+      },
+      editScheduled: (id, body) => {
+        const text = body.trim()
+        if (!text) return
+        setDb((p) => ({ ...p, scheduled: (p.scheduled ?? []).map((x) => (x.id === id ? { ...x, body: text } : x)) }))
+        run(() => supabase.from('scheduled_messages').update({ body: text }).eq('id', id))
+      },
+      cancelScheduled: (id) => {
+        setDb((p) => ({ ...p, scheduled: (p.scheduled ?? []).filter((x) => x.id !== id) }))
+        run(() => supabase.from('scheduled_messages').delete().eq('id', id))
+      },
+      sendScheduledNow: (id) => {
+        const x = (db.scheduled ?? []).find((y) => y.id === id)
+        if (!x || !team) return
+        // 예약을 지운 뒤(이미 서버가 보냈으면 지울 것이 없으니 다시 보내지 않는다) 보통 메시지로 보낸다
+        setDb((p) => ({ ...p, scheduled: (p.scheduled ?? []).filter((y) => y.id !== id) }))
+        void (async () => {
+          const { data, error } = await supabase.from('scheduled_messages').delete().eq('id', id).select('id')
+          if (error) { fail(error); return }
+          if (!data?.length) return
+          const { data: row, error: e2 } = await supabase.from('messages').insert({
+            team_id: team.id, author_id: me_id, body: x.body, mentions: x.mentions, mention_all: x.mentionAll,
+            ...(x.toId ? { recipient_id: x.toId } : {}), ...(x.roomId ? { room_id: x.roomId } : {}), ...(x.replyTo ? { reply_to: x.replyTo } : {}),
+          }).select().single()
+          if (e2) { fail(e2); return }
+          setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [msgFrom(row)]) }))
+        })()
       },
       getCalendarUrl: async (reset) => {
         const { data, error } = await supabase.rpc(reset ? 'reset_calendar_token' : 'get_calendar_token')

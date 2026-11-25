@@ -149,6 +149,30 @@ export interface ChatRef {
   ownerName: string
 }
 
+/** 대화 공지: 대화방마다 1개. scope 는 chatScope() 로 만든다 */
+export interface ChatPin {
+  scope: string
+  messageId: string
+  body: string
+  /** 원래 글쓴이 */
+  authorId?: string
+  /** 공지로 올린 사람 */
+  pinnedBy: string
+  pinnedAt: number
+}
+
+/** 예약 보내기: 보낼 때까지 쓴 사람만 본다 */
+export interface ScheduledMessage {
+  id: string
+  body: string
+  sendAt: number
+  toId?: string
+  roomId?: string
+  replyTo?: string
+  mentions: string[]
+  mentionAll: boolean
+}
+
 export interface Message {
   id: string
   teamId: string
@@ -192,6 +216,10 @@ export interface DB {
   goals?: WeekGoal[]
   memos?: Memo[]
   notices: Notice[]
+  /** 대화 공지 (대화방마다 1개) */
+  pins?: ChatPin[]
+  /** 내가 예약해 둔 메시지 */
+  scheduled?: ScheduledMessage[]
   messages: Message[]
   /** 사람별 대화 마지막 읽은 시각(ms) */
   chatReads: Record<string, number>

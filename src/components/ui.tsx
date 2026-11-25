@@ -127,6 +127,7 @@ const PATHS: Record<string, ReactNode> = {
   down: <path d="M6 10l6 6 6-6" />,
   trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
+  megaphone: <path d="M4 10v4a1 1 0 001 1h2l6 4V5L7 9H5a1 1 0 00-1 1zM17 9a4 4 0 010 6M8 15l1 5" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   copy: <path d="M9 9h11v11H9zM5 15V4h11" />,
   cal: <path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4" />,

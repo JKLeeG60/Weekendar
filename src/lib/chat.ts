@@ -87,3 +87,11 @@ export function roomThreads(rooms: ChatRoom[], messages: Message[], me: string |
 /** 대화방 안내 문장 (서버 migration_020 과 같은 모양: "김하늘님이 박서준님, 최유리님을 초대했어요") */
 export const inviteNotice = (who: string, names: string[]) => `${who}님이 ${names.map((n) => n + '님').join(', ')}을 초대했어요`
 export const leaveNotice = (who: string) => `${who}님이 나갔어요`
+
+/** 대화 공지의 대화방 구분: 팀 대화 'team' / 1:1 'dm:<작은 id>:<큰 id>' / 그룹 'room:<방 id>' */
+export function chatScope(me: string, c: { toId?: string; roomId?: string; authorId?: string }): string {
+  if (c.roomId) return 'room:' + c.roomId
+  const peer = c.toId ? (c.toId === me ? c.authorId : c.toId) : undefined
+  if (peer) return 'dm:' + [me, peer].sort().join(':')
+  return 'team'
+}

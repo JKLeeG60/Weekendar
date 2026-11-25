@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { occurrencesOn } from '../lib/events'
-import { fmtHead, fmtLong, weekDays } from '../lib/date'
-import { ALL, ALL_EN, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
+import { addDays, fmtHead, fmtLong, fmtMonthDay, todayStr, weekDays } from '../lib/date'
+import { ALL, ALL_EN, chatScope, mentionsMe, splitMentions, timeLabel } from '../lib/chat'
 import { getLang, localize, t } from '../lib/i18n'
-import type { ChatRef, Message } from '../lib/types'
+import type { ChatPin, ChatRef, Message, ScheduledMessage } from '../lib/types'
 import { Avatar, Icon } from './ui'
 
 /** 자주 쓰는 반응 이모지 */
@@ -120,8 +120,14 @@ export function ChatWindow() {
 
 /** 대화창: [팀 대화 | 1:1 대화] 탭 (데스크탑 창과 모바일 탭에서 함께 사용) */
 export function ChatPanel({ onClose }: { onClose?: () => void }) {
-  const { team, tableMembers, userOf, chatUnread, dmUnread, rooms, me, createRoom, inviteToRoom, leaveRoom } = useStore()
-  const { chatTab, setChatTab, dmPeer, setDmPeer } = useUI()
+  const { team, tableMembers, userOf, chatUnread, dmUnread, rooms, me, createRoom, inviteToRoom, leaveRoom, dmThreads, markDmRead, markRoomRead } = useStore()
+  const { chatTab, setChatTab, dmPeer, setDmPeer, showToast } = useUI()
+  /** 개인 대화 탭: 1:1·그룹 대화를 모두 읽음으로 (팀 대화는 그대로) */
+  const readAllDirect = () => {
+    dmThreads.filter((x) => x.unread > 0).forEach((x) => markDmRead(x.peerId))
+    rooms.filter((r) => r.unread > 0).forEach((r) => markRoomRead(r.id))
+    showToast(t('개인 대화를 모두 읽음으로 표시했어요'))
+  }
   const sel = chatTab === 'dm' ? dmPeer : null
   // "room:방id" 이면 그룹 대화방, 아니면 1:1 상대 id
   const roomId = sel?.startsWith('room:') ? sel.slice(5) : null
@@ -175,6 +181,9 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           <>
             <strong>{t('{team} 대화', { team: team?.name ?? '' })}</strong>
             <small>{t('{n}명', { n: tableMembers.length })}</small>
+            {chatTab === 'dm' && dmUnread > 0 && (
+              <button className="chat-readall" onClick={readAllDirect}>{t('모두 읽음')}</button>
+            )}
           </>
         )}
         {onClose && (
@@ -276,12 +285,25 @@ function DmList({ onPick }: { onPick: (id: string) => void }) {
 
 /** 메시지 목록 + 입력창. peer 가 있으면 그 사람과의 1:1 대화 */
 function ChatBody({ peer, room }: { peer?: string; room?: string }) {
-  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react, rooms, roomMessages, markRoomRead } = useStore()
+  const { messages: teamMessages, me, tableMembers, userOf, sendMessage, deleteMessage, markChatRead, db, getReadReceipts, dmMessages, markDmRead, reactions, react, rooms, roomMessages, markRoomRead, pins, pinMessage, unpin, scheduled, scheduleMessage } = useStore()
   // 대화 종류: 그룹 대화방 / 1:1 / 팀 대화
   const roomInfo = room ? rooms.find((r) => r.id === room) : undefined
   const messages = room ? roomMessages(room) : peer ? dmMessages(peer) : teamMessages
   const markRead = room ? () => markRoomRead(room) : peer ? () => markDmRead(peer) : markChatRead
   const priv = !!(peer || room) // 1:1·그룹은 @호출 없음
+  // 이 대화방의 공지 / 이 대화방으로 예약해 둔 메시지
+  const scope = me ? chatScope(me.id, { toId: peer, roomId: room }) : 'team'
+  const pin = pins[scope]
+  // 보낼 시각이 지난 예약은 서버가 보내는 중이라 숨긴다 (20초마다 다시 확인)
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => { const id = window.setInterval(() => setNowTick(Date.now()), 20000); return () => window.clearInterval(id) }, [])
+  const mySched = scheduled.filter((x) => x.sendAt > nowTick && (room ? x.roomId === room : peer ? x.toId === peer && !x.roomId : !x.toId && !x.roomId))
+  // 보내기 꾹 → '보내기 예약' / 날짜·시간 고르기 / 예약 목록
+  const [schedHint, setSchedHint] = useState(false)
+  const [schedPick, setSchedPick] = useState(false)
+  const [schedList, setSchedList] = useState(false)
+  const sendHold = useRef<number | undefined>(undefined)
+  const sendHeld = useRef(false)
   const { openModal, isMobile, showToast } = useUI()
   const [receipt, setReceipt] = useState<{ m: Message; rect: DOMRect } | null>(null)
   // 답장할 메시지, 메시지 메뉴, 이모지 줄·전체 고르기, 반응한 사람, 전달하기
@@ -342,7 +364,19 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
     setPickIdx(0)
   }
 
+  /** 예약: 고른 시각에 보내도록 하고 입력칸을 비운다 */
+  async function schedule(at: number) {
+    const ok = await scheduleMessage(text, at, peer, { ...(replyTo ? { replyTo: replyTo.id } : {}), ...(room ? { roomId: room } : {}) })
+    if (!ok) return
+    setText('')
+    setCaret(0)
+    setReplyTo(null)
+    setSchedPick(false)
+    showToast(t('{when}에 보내도록 예약했어요', { when: fmtWhen(at) }))
+  }
+
   function send() {
+    if (sendHeld.current) { sendHeld.current = false; return } // 꾹 누른 뒤 손을 뗀 것은 보내기가 아님
     if (!text.trim() && !ref) return
     sendMessage(text, ref ?? undefined, peer, room || replyTo ? { ...(replyTo ? { replyTo: replyTo.id } : {}), ...(room ? { roomId: room } : {}) } : undefined)
     setText('')
@@ -425,6 +459,15 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
 
   return (
     <>
+      {pin && (
+        <PinBar
+          pin={pin}
+          by={userOf(pin.pinnedBy).name}
+          canJump={messages.some((m) => m.id === pin.messageId)}
+          onJump={() => jump(pin.messageId)}
+          onUnpin={() => { unpin(scope); showToast(t('공지를 내렸어요')) }}
+        />
+      )}
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
           <p className="chat-empty">
@@ -496,6 +539,12 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           onCopy={() => copy(menu.m)}
           onReads={() => { setReceipt({ m: menu.m, rect: menu.rect }); setMenu(null) }}
           onDelete={() => { deleteMessage(menu.m.id); setMenu(null); if (replyTo?.id === menu.m.id) setReplyTo(null) }}
+          pinned={pin?.messageId === menu.m.id}
+          onPin={() => {
+            if (pin?.messageId === menu.m.id) { unpin(scope); showToast(t('공지를 내렸어요')) }
+            else { pinMessage(menu.m); showToast(t('공지로 등록했어요')) }
+            setMenu(null)
+          }}
           onClose={() => setMenu(null)}
         />
       )}
@@ -569,6 +618,14 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
             <button className="icon-btn" onClick={() => setReplyTo(null)} aria-label={t('답장 취소')}><Icon name="x" size={14} /></button>
           </div>
         )}
+        {mySched.length > 0 && (
+          <button className="sched-bar" onClick={() => setSchedList(true)}>
+            <Icon name="clock" size={14} />
+            <span>{t('예약된 메시지 {n}개', { n: mySched.length })}</span>
+            <small>{fmtWhen(mySched[0].sendAt)}</small>
+            <Icon name="chevR" size={13} />
+          </button>
+        )}
         {ref && (
           <div className="ref-draft">
             <RefCard r={ref} />
@@ -592,10 +649,36 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
             onCompositionEnd={(e) => { composing.current = false; setCaret((e.target as HTMLTextAreaElement).selectionStart) }}
             aria-label={t('메시지 입력')}
           />
-          <button className="send-btn" onClick={send} disabled={!text.trim() && !ref} aria-label={t('보내기')}>
+          <button
+            className="send-btn"
+            onClick={send}
+            disabled={!text.trim() && !ref}
+            aria-label={t('보내기')}
+            title={t('꾹 누르거나 오른쪽 클릭하면 보내기 예약')}
+            // 꾹 누르기(0.5초)·오른쪽 클릭: '보내기 예약' 띄우기 (일정 첨부는 예약하지 않음)
+            onPointerDown={(e) => {
+              if (e.button !== 0 || !text.trim() || ref) return
+              window.clearTimeout(sendHold.current)
+              sendHold.current = window.setTimeout(() => { sendHeld.current = true; setSchedHint(true) }, 500)
+            }}
+            onPointerUp={() => window.clearTimeout(sendHold.current)}
+            onPointerLeave={() => window.clearTimeout(sendHold.current)}
+            onPointerCancel={() => window.clearTimeout(sendHold.current)}
+            onContextMenu={(e) => { e.preventDefault(); if (text.trim() && !ref) setSchedHint(true) }}
+          >
             <Icon name="send" size={16} />
           </button>
+          {schedHint && (
+            <>
+              <div className="popover-scrim" onPointerDown={() => { setSchedHint(false); sendHeld.current = false }} />
+              <button className="sched-hint" onClick={() => { setSchedHint(false); sendHeld.current = false; setSchedPick(true) }}>
+                <Icon name="clock" size={15} />{t('보내기 예약')}
+              </button>
+            </>
+          )}
         </div>
+        {schedPick && <SchedulePicker text={text} onPick={schedule} onClose={() => setSchedPick(false)} />}
+        {schedList && <ScheduledList items={mySched} onClose={() => setSchedList(false)} />}
       </footer>
     </>
   )
@@ -804,6 +887,9 @@ function MsgMenu(props: {
   onCopy: () => void
   onReads: () => void
   onDelete: () => void
+  /** 이 메시지가 지금 공지인지 / 공지로 올리기·내리기 */
+  pinned?: boolean
+  onPin?: () => void
   onClose: () => void
 }) {
   const { m, mobile, mine, onClose } = props
@@ -824,6 +910,9 @@ function MsgMenu(props: {
       <button onClick={props.onReply}><Icon name="reply" size={16} />{t('답장')}</button>
       <button onClick={props.onForward}><Icon name="forward" size={16} />{t('전달')}</button>
       {m.body && <button onClick={props.onCopy}><Icon name="copy" size={16} />{t('복사')}</button>}
+      {props.onPin && m.body && (
+        <button onClick={props.onPin}><Icon name="megaphone" size={16} />{props.pinned ? t('공지 내리기') : t('공지로 등록')}</button>
+      )}
       {mine && <button onClick={props.onReads}><Icon name="eye" size={16} />{t('읽은 사람')}</button>}
       {mine && (
         <button className="red" onClick={() => (sure ? props.onDelete() : setSure(true))}>
@@ -1164,5 +1253,210 @@ function InviteSheet({ locked, group, onClose, onDone }: { locked: string[]; gro
       </div>
     </>,
     document.body,
+  )
+}
+
+/** 예약 시각 "오늘 오후 6:00" / "내일 오전 9:00" / "11월 30일 (월) 오전 9:00" */
+function fmtWhen(ms: number) {
+  const d = new Date(ms)
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const today = todayStr()
+  const head = day === today ? t('오늘') : day === addDays(today, 1) ? t('내일') : fmtMonthDay(day)
+  return `${head} ${timeLabel(ms)}`
+}
+
+/** 날짜·시간 입력칸 값 ↔ ms */
+const toDateInput = (ms: number) => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const toTimeInput = (ms: number) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+const fromInputs = (date: string, time: string) => (date && time ? new Date(`${date}T${time}:00`).getTime() : NaN)
+/** 처음 보여 줄 시각: 다음 정각 */
+const nextHour = () => {
+  const d = new Date()
+  d.setHours(d.getHours() + 1, 0, 0, 0)
+  return d.getTime()
+}
+
+/** 날짜·시간 고르기 (휴대폰은 기본 날짜·시간 휠이 열린다) */
+function WhenFields({ at, onChange }: { at: number; onChange: (ms: number) => void }) {
+  const date = Number.isNaN(at) ? '' : toDateInput(at)
+  const time = Number.isNaN(at) ? '' : toTimeInput(at)
+  return (
+    <div className="sched-fields">
+      <input type="date" value={date} min={todayStr()} onChange={(e) => onChange(fromInputs(e.target.value, time))} aria-label={t('날짜')} />
+      <input type="time" value={time} onChange={(e) => onChange(fromInputs(date, e.target.value))} aria-label={t('시간')} />
+    </div>
+  )
+}
+
+/** '보내기 예약'을 누르면: 보낼 날짜·시간 고르기 */
+function SchedulePicker({ text, onPick, onClose }: { text: string; onPick: (ms: number) => void; onClose: () => void }) {
+  useEsc(onClose)
+  const [at, setAt] = useState(nextHour)
+  const ok = !Number.isNaN(at) && at > Date.now() + 30000
+  return createPortal(
+    <>
+      <div className="mm-scrim dim" onPointerDown={onClose} />
+      <div className="fwd-pick sched-pick" role="dialog" aria-label={t('보내기 예약')}>
+        <div className="emo-head">
+          <b>{t('보내기 예약')}</b>
+          <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="fwd-preview">{text.trim()}</div>
+        <WhenFields at={at} onChange={setAt} />
+        <p className="sched-note">{ok ? t('{when}에 보내요', { when: fmtWhen(at) }) : t('지금보다 뒤의 시간을 골라 주세요')}</p>
+        <button className="fwd-send" disabled={!ok} onClick={() => ok && onPick(at)}>{t('예약하기')}</button>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
+/** 입력칸 위 '예약된 메시지 n개'를 누르면: 대화방처럼 날짜별 말풍선 목록. 말풍선을 누르면 메뉴 */
+function ScheduledList({ items, onClose }: { items: ScheduledMessage[]; onClose: () => void }) {
+  const { reschedule, cancelScheduled, sendScheduledNow, editScheduled } = useStore()
+  const { showToast, isMobile } = useUI()
+  // 메뉴가 열린 말풍선 / 시간 바꾸기 / 내용 고치기
+  const [menu, setMenu] = useState<{ id: string; top: number } | null>(null)
+  const [timeOf, setTimeOf] = useState<{ id: string; at: number } | null>(null)
+  const [textOf, setTextOf] = useState<{ id: string; body: string } | null>(null)
+  useEsc(() => { if (menu) setMenu(null); else if (timeOf) setTimeOf(null); else if (textOf) setTextOf(null); else onClose() })
+  // 다 보내거나 취소하면 닫는다
+  useEffect(() => { if (!items.length) onClose() }, [items.length, onClose])
+  // 날짜별로 묶기 (보낼 시각 순)
+  const days: { day: string; list: ScheduledMessage[] }[] = []
+  for (const x of items) {
+    const day = toDateInput(x.sendAt)
+    const last = days[days.length - 1]
+    if (last?.day === day) last.list.push(x)
+    else days.push({ day, list: [x] })
+  }
+  const cur = items.find((x) => x.id === menu?.id)
+  const timeOk = !!timeOf && !Number.isNaN(timeOf.at) && timeOf.at > Date.now() + 30000
+  return createPortal(
+    <>
+      {!isMobile && <div className="mm-scrim dim" onPointerDown={onClose} />}
+      <div className={'sched-view' + (isMobile ? ' mob' : '')} role="dialog" aria-label={t('예약된 메시지')}>
+        <div className="sv-top">
+          <button className="sv-back" onClick={onClose}>{isMobile ? <><Icon name="chevL" size={16} />{t('대화')}</> : null}</button>
+          <b>{t('예약된 메시지')} <span>{items.length}</span></b>
+          <span className="sv-side">{!isMobile && <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="x" size={16} /></button>}</span>
+        </div>
+        <div className="sv-list">
+          {days.map((g) => (
+            <Fragment key={g.day}>
+              <span className="chat-day">{fmtLong(g.day)}</span>
+              {g.list.map((x) => (
+                <div key={x.id} className="sv-row">
+                  <span className="sv-time"><Icon name="clock" size={11} />{timeLabel(x.sendAt)}</span>
+                  <button
+                    className={'sv-bub' + (menu?.id === x.id ? ' sel' : '')}
+                    onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ id: x.id, top: r.bottom + 6 }) }}
+                  >{x.body}</button>
+                </div>
+              ))}
+            </Fragment>
+          ))}
+        </div>
+        <p className="sv-foot">{t('말풍선을 누르면 시간 바꾸기·지금 보내기·내용 고치기·취소를 할 수 있어요')}</p>
+      </div>
+
+      {menu && cur && (
+        <>
+          <div className="popover-scrim sv-scrim" onPointerDown={() => setMenu(null)} />
+          <div className="sv-menu" role="menu" style={{ top: Math.min(menu.top, innerHeight - 210) }}>
+            <button role="menuitem" onClick={() => { setTimeOf({ id: cur.id, at: cur.sendAt }); setMenu(null) }}><Icon name="clock" size={16} />{t('시간 바꾸기')}</button>
+            <button role="menuitem" onClick={() => { sendScheduledNow(cur.id); setMenu(null); showToast(t('보냈어요')) }}><Icon name="send" size={16} />{t('지금 보내기')}</button>
+            <button role="menuitem" onClick={() => { setTextOf({ id: cur.id, body: cur.body }); setMenu(null) }}><Icon name="note" size={16} />{t('내용 고치기')}</button>
+            <button role="menuitem" className="red" onClick={() => { cancelScheduled(cur.id); setMenu(null); showToast(t('예약을 취소했어요')) }}><Icon name="trash" size={16} />{t('예약 취소')}</button>
+          </div>
+        </>
+      )}
+
+      {timeOf && (
+        <>
+          <div className="mm-scrim dim sv-over" onPointerDown={() => setTimeOf(null)} />
+          <div className="fwd-pick sched-pick sv-over" role="dialog" aria-label={t('시간 바꾸기')}>
+            <div className="emo-head">
+              <b>{t('시간 바꾸기')}</b>
+              <button className="icon-btn" onClick={() => setTimeOf(null)} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+            </div>
+            <WhenFields at={timeOf.at} onChange={(ms) => setTimeOf({ id: timeOf.id, at: ms })} />
+            <p className="sched-note">{timeOk ? t('{when}에 보내요', { when: fmtWhen(timeOf.at) }) : t('지금보다 뒤의 시간을 골라 주세요')}</p>
+            <button className="fwd-send" disabled={!timeOk} onClick={() => { reschedule(timeOf.id, timeOf.at); showToast(t('{when}으로 바꿨어요', { when: fmtWhen(timeOf.at) })); setTimeOf(null) }}>{t('저장')}</button>
+          </div>
+        </>
+      )}
+
+      {textOf && (
+        <>
+          <div className="mm-scrim dim sv-over" onPointerDown={() => setTextOf(null)} />
+          <div className="fwd-pick sched-pick sv-over" role="dialog" aria-label={t('내용 고치기')}>
+            <div className="emo-head">
+              <b>{t('내용 고치기')}</b>
+              <button className="icon-btn" onClick={() => setTextOf(null)} aria-label={t('닫기')}><Icon name="x" size={16} /></button>
+            </div>
+            <textarea className="sv-edit" value={textOf.body} maxLength={1000} autoFocus onChange={(e) => setTextOf({ id: textOf.id, body: e.target.value })} />
+            <button className="fwd-send" disabled={!textOf.body.trim()} onClick={() => { editScheduled(textOf.id, textOf.body); showToast(t('고쳤어요')); setTextOf(null) }}>{t('저장')}</button>
+          </div>
+        </>
+      )}
+    </>,
+    document.body,
+  )
+}
+
+/** 대화방 맨 위 공지 띠: 누르면 그 메시지로, ⌄ 로 접기·내리기 */
+function PinBar({ pin, by, canJump, onJump, onUnpin }: { pin: ChatPin; by: string; canJump: boolean; onJump: () => void; onUnpin: () => void }) {
+  // 접기는 나에게만 (같은 공지는 다시 열 때까지 접힌 채로)
+  const foldKey = 'weekendar-pin-fold'
+  const readFold = () => { try { return (JSON.parse(localStorage.getItem(foldKey) ?? '{}') as Record<string, string>)[pin.scope] === pin.messageId } catch { return false } }
+  const [folded, setFolded] = useState(readFold)
+  const [open, setOpen] = useState(false) // 전체 내용 펼치기
+  const [menu, setMenu] = useState(false)
+  useEffect(() => { setFolded(readFold()); setOpen(false) }, [pin.scope, pin.messageId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fold = (v: boolean) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(foldKey) ?? '{}') as Record<string, string>
+      if (v) all[pin.scope] = pin.messageId
+      else delete all[pin.scope]
+      localStorage.setItem(foldKey, JSON.stringify(all))
+    } catch { /* 저장 못 해도 화면에서는 접힘 */ }
+    setFolded(v)
+    setMenu(false)
+  }
+  if (folded) {
+    return (
+      <button className="pin-folded" onClick={() => fold(false)} aria-label={t('공지 펼치기')} title={t('공지 펼치기')}>
+        <Icon name="megaphone" size={15} />
+      </button>
+    )
+  }
+  return (
+    <div className={'pin-bar' + (open ? ' open' : '')}>
+      <span className="pin-ic"><Icon name="megaphone" size={16} /></span>
+      <button className="pin-txt" onClick={() => (canJump ? onJump() : setOpen((v) => !v))}>
+        <small>{t('공지 · {name}', { name: by })}</small>
+        <span>{pin.body}</span>
+      </button>
+      <button className="icon-btn pin-more" onClick={() => setMenu((v) => !v)} aria-label={t('공지 메뉴')} aria-expanded={menu}>
+        <Icon name="chevD" size={15} />
+      </button>
+      {menu && (
+        <>
+          <div className="popover-scrim" onPointerDown={() => setMenu(false)} />
+          <div className="pin-menu" role="menu">
+            <button role="menuitem" onClick={() => { setOpen((v) => !v); setMenu(false) }}>{open ? t('한 줄로 보기') : t('전체 보기')}</button>
+            <button role="menuitem" onClick={() => fold(true)}>{t('접기')}</button>
+            <button role="menuitem" className="red" onClick={() => { setMenu(false); onUnpin() }}>{t('공지 내리기')}</button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
