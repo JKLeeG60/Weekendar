@@ -1809,3 +1809,18 @@ th.who .who-btn { width: 100%; padding: 0.15rem 0.25rem; margin: -0.15rem -0.25r
 .mm-scrim.sv-over { z-index: 127; }
 .fwd-pick.sv-over { z-index: 128; }
 .sv-edit { width: 100%; min-height: 7rem; resize: vertical; padding: 0.6rem 0.7rem; border-radius: 0.7rem; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: inherit; font-size: 16px; line-height: 1.45; }
+
+/* 계정 메뉴: 인쇄·공유하기 (아래 작은 글씨로 무엇이 나갈지) */
+.menu-item.two > span { display: flex; align-items: flex-start; gap: 0.5rem; }
+.menu-item.two > span > svg { margin-top: 0.15rem; flex: none; }
+.menu-item.two small, .share-txt small { display: block; font-size: 0.74rem; color: var(--muted); font-weight: 500; margin-top: 0.1rem; }
+.share-pick { display: flex; flex-direction: column; }
+.share-item { justify-content: flex-start !important; gap: 0.6rem; }
+.share-ic { width: 2rem; height: 2rem; border-radius: 0.55rem; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.share-txt { text-align: left; }
+.share-item:disabled { opacity: 0.6; }
+.share-back { color: var(--muted); }
+.share-txt, .menu-item.two > span > span { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; white-space: nowrap; }
+.share-txt small, .menu-item.two small { white-space: nowrap; }
+.share-txt, .menu-item.two > span > span { text-align: left !important; align-items: flex-start !important; }
+.share-item, .menu-item.two { text-align: left; }

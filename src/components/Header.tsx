@@ -4,6 +4,7 @@ import { useUI } from '../lib/ui'
 import { addDays, isoWeek, mondayOf, monthTitle, parse, weekPill, weekRangeLabel } from '../lib/date'
 import { t } from '../lib/i18n'
 import { Avatar, Icon } from './ui'
+import { PrintShareItems } from './PrintShare'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
 
@@ -104,6 +105,8 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
                   )
                 })}
                 <div className="menu-sep" />
+                {/* 인쇄·공유하기: 주간 보기면 이번 주 팀 표, 월간 보기면 그 달 */}
+                <PrintShareItems onDone={() => setPop(null)} />
                 {/* 화면·언어·할 일·알림 같은 설정은 "설정" 창에 모았다 */}
                 <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'settings' }) }}>
                   <span><Icon name="gear" size={15} /> {t('설정')}</span>
