@@ -10,7 +10,7 @@ import { ChatButton } from './Chat'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: string; eyebrow?: string; teamMenu?: boolean } = {}) {
-  const { team, me, isAdmin, unreadCount, logout, login, db, mode, myTeams } = useStore()
+  const { team, me, isAdmin, unreadCount, logout, login, db, mode, myTeams, solo } = useStore()
   // 두 팀에 속해 있으면 팀 전환 (데스크탑: 왼쪽 끝 버튼, 휴대폰: 제목을 눌러 목록)
   const multi = myTeams.length > 1
   const [teamOpen, setTeamOpen] = useState(false)
@@ -27,8 +27,10 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
   return (
     <header className="topbar">
       {/* 월간 보기일 때 팀원 사진 줄이 이 자리에 들어온다 (People.tsx) */}
-      <div className="tb-side" id={mobileTitle === undefined ? 'tb-left' : undefined} aria-hidden={monthView || (multi && mobileTitle === undefined) ? undefined : true}>
+      <div className="tb-side" id={mobileTitle === undefined ? 'tb-left' : undefined} aria-hidden={monthView || ((multi || solo) && mobileTitle === undefined) ? undefined : true}>
         {multi && mobileTitle === undefined && !monthView && <TeamSeg />}
+        {/* 혼자 쓰는 중: 팀과 함께 쓰기 (승인 대기 중이면 그 팀 이름) */}
+        {solo && mobileTitle === undefined && !monthView && <TeamUpButton />}
       </div>
       <div className="titles">
         {(eyebrow || (teamMenu && multi)) && <span className="eyebrow">{teamMenu && multi ? team?.name : eyebrow}</span>}
@@ -42,7 +44,7 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
               {teamOpen && <TeamMenu onClose={() => setTeamOpen(false)} />}
             </div>
           ) : (
-            <h1>{mobileTitle ?? (monthView ? t('{team} 월간 일정', { team: team?.name ?? '' }) : t('{team} 주간예정사항', { team: team?.name ?? '' }))}</h1>
+            <h1>{mobileTitle ?? (solo ? (monthView ? t('내 월간 일정') : t('내 주간예정사항')) : monthView ? t('{team} 월간 일정', { team: team?.name ?? '' }) : t('{team} 주간예정사항', { team: team?.name ?? '' }))}</h1>
           )}
         </div>
         {/* 주 이동: 화살표가 바꾸는 대상(날짜) 양옆에 둔다. 모바일에서는 숨김(주간 카드에 따로 있음) */}
@@ -75,7 +77,7 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
         <div className="toolgroup">
         {/* 검색 (데스크탑 ⌘F, 휴대폰은 달력 아이콘 왼쪽) */}
         <button className={'icon-btn' + (searchOpen ? ' on' : '')} onClick={() => setSearchOpen(true)} aria-label={t('검색')} title={t('검색 (⌘F)')}><Icon name="search" /></button>
-        <ChatButton />
+        {!solo && <ChatButton />}
         {/* 내 월간 일정 */}
         <button className={'icon-btn' + (monthView ? ' on' : '')} onClick={() => (monthView ? setMonthView(null) : me && openModal({ type: 'month', userId: me.id }))} aria-label={t('내 월간 일정')} title={monthView ? t('주간 팀 표로') : t('내 월간 일정')}>
           <Icon name="cal" />
@@ -87,7 +89,7 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
           </button>
           {pop === 'bell' && <Notifications onClose={() => setPop(null)} />}
         </div>
-        {isAdmin && (
+        {isAdmin && !solo && (
           <button className="icon-btn" onClick={() => openModal({ type: 'admin' })} aria-label={t('팀 관리')} title={t('팀 관리')}>
             <Icon name="users" />
           </button>
@@ -135,6 +137,19 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
         </div>
       </div>
     </header>
+  )
+}
+
+/** 혼자 쓰는 중 (데스크탑, 왼쪽 끝): 팀과 함께 쓰기 */
+function TeamUpButton() {
+  const { myTeams } = useStore()
+  const { openModal } = useUI()
+  const waiting = myTeams.find((x) => x.role === 'pending')
+  return (
+    <button className={'teamup-btn' + (waiting ? ' wait' : '')} onClick={() => openModal({ type: 'teamup' })} title={waiting ? t('관리자의 승인을 기다리고 있어요') : undefined}>
+      <Icon name={waiting ? 'clock' : 'userPlus'} size={17} />
+      {waiting ? t('{team} 승인 대기 중', { team: waiting.name }) : t('팀과 함께 쓰기')}
+    </button>
   )
 }
 

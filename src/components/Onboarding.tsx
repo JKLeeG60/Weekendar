@@ -85,7 +85,7 @@ export function Login() {
 }
 
 export function TeamChoice() {
-  const { me, createTeam, joinTeam, logout, deleteAccount } = useStore()
+  const { me, createTeam, joinTeam, logout, deleteAccount, startPersonal } = useStore()
   const [bye, setBye] = useState(false) // 탈퇴 확인 창
   const [busy, setBusy] = useState(false)
   const [byeErr, setByeErr] = useState<string | null>(null)
@@ -100,7 +100,7 @@ export function TeamChoice() {
       <div className="auth-card wide">
         <Logo size={48} />
         <h1 className="brand sm">{t('{name}님, 환영합니다', { name: me?.name ?? '' })}</h1>
-        <p className="tagline">{t('팀을 만들거나 기존 팀에 참여해 시작하세요.')}</p>
+        <p className="tagline">{t('팀과 함께 쓰거나, 혼자 가볍게 시작하세요.')}</p>
 
         {mode === 'choose' && (
           <div className="choice-row">
@@ -115,6 +115,17 @@ export function TeamChoice() {
               <span>{t('관리자에게 받은 초대 코드로 팀에 들어갑니다. 팀장·팀원 역할은 관리자가 지정합니다.')}</span>
             </button>
           </div>
+        )}
+        {/* 혼자 쓰기: 팀 없이 내 일정·할 일·메모만. 나중에 팀을 만들면 그대로 팀이 된다 */}
+        {mode === 'choose' && (
+          <button className="choice solo" onClick={() => void startPersonal()}>
+            <span className="choice-ico solo"><Icon name="person" size={26} /></span>
+            <span className="solo-text">
+              <strong>{t('혼자 쓰기')}</strong>
+              <span>{t('팀 없이 내 일정·할 일·메모만 관리해요. 나중에 언제든 팀을 만들거나 참여할 수 있어요.')}</span>
+            </span>
+            <Icon name="chevR" size={18} />
+          </button>
         )}
 
         {mode === 'create' && (
@@ -245,5 +256,71 @@ export function PendingScreen() {
         <button className="btn ghost" onClick={logout}>{t('로그아웃')}</button>
       </div>
     </div>
+  )
+}
+
+/** 혼자 쓰다가 팀과 함께 쓰기: 지금 공간을 팀으로 만들거나, 초대 코드로 다른 팀에 참여 */
+export function TeamUpModal() {
+  const { createTeam, joinTeam, myTeams } = useStore()
+  const { closeModal, showToast } = useUI()
+  const waiting = myTeams.find((x) => x.role === 'pending')
+  const [tab, setTab] = useState<'create' | 'join'>('create')
+  const [name, setName] = useState('')
+  const [code, setCode] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const ok = tab === 'create' ? !!name.trim() : !!code.trim() && !waiting
+  const submit = async () => {
+    if (!ok || busy) return
+    setBusy(true)
+    if (tab === 'create') {
+      await createTeam(name.trim())
+      closeModal()
+      showToast(t('{team}이 만들어졌어요. 팀 관리에서 구성원을 초대해 보세요.', { team: name.trim() }))
+    } else {
+      const e = await joinTeam(code.trim())
+      setBusy(false)
+      if (e) { setErr(localize(e)); return }
+      closeModal()
+      showToast(t('참여를 요청했어요. 승인될 때까지 지금처럼 혼자 쓸 수 있어요.'))
+    }
+  }
+  return (
+    <Modal
+      title={t('팀과 함께 쓰기')}
+      onClose={closeModal}
+      width={420}
+      footer={
+        <>
+          <button className="btn ghost" onClick={closeModal}>{t('취소')}</button>
+          <button className="btn primary" disabled={!ok || busy} onClick={() => void submit()}>{tab === 'create' ? t('팀 만들기') : t('참여 요청')}</button>
+        </>
+      }
+    >
+      <div className="team-seg teamup-seg" role="tablist">
+        <button role="tab" aria-selected={tab === 'create'} className={tab === 'create' ? 'on' : ''} onClick={() => { setTab('create'); setErr(null) }}>{t('팀 만들기')}</button>
+        <button role="tab" aria-selected={tab === 'join'} className={tab === 'join' ? 'on' : ''} onClick={() => { setTab('join'); setErr(null) }}>{t('초대 코드로 참여')}</button>
+      </div>
+      {tab === 'create' ? (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); void submit() }}>
+          <label className="field">
+            <span>{t('팀 이름')}</span>
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('예: 마케팅팀')} maxLength={30} />
+          </label>
+          <p className="hint">{t('지금 쓰던 일정·할 일·메모는 그대로 팀으로 옮겨지고, 내가 관리자가 돼요.')}</p>
+        </form>
+      ) : waiting ? (
+        <p className="hint">{t('{team} 팀의 승인을 기다리고 있어요. 승인되면 팀 화면으로 바뀌어요.', { team: waiting.name })}</p>
+      ) : (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); void submit() }}>
+          <label className="field">
+            <span>{t('초대 코드')}</span>
+            <input autoFocus value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setErr(null) }} placeholder="WKND-XXXXXX" />
+          </label>
+          {err && <p className="error">{err}</p>}
+          <p className="hint">{t('관리자가 승인하면 그 팀 화면으로 바뀌어요. 내 일정은 그대로 따라가요.')}</p>
+        </form>
+      )}
+    </Modal>
   )
 }

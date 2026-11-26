@@ -13,6 +13,8 @@ export type ModalState =
   | { type: 'calendar' }
   | { type: 'push' }
   | { type: 'leave' }
+  /** 혼자 쓰다가 팀과 함께 쓰기 (팀 만들기 / 초대 코드로 참여) */
+  | { type: 'teamup' }
   /** 팀원 메뉴 (x, y: 데스크탑에서 메뉴를 띄울 위치) */
   | { type: 'member'; userId: string; x?: number; y?: number }
   /** date: 처음 보여줄 날짜 (없으면 지금 고른 날) */

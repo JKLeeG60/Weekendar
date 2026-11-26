@@ -102,7 +102,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     // 내가 속한 팀 목록 (migration_032 전이면 비어 있음 → 지금 팀 하나로 본다)
     const mt = await supabase.rpc('my_teams')
     if (mt.error) console.warn('팀 목록을 불러오지 못했어요', mt.error.message)
-    const myTeams: MyTeam[] = ((mt.data ?? []) as any[]).map((x) => ({ id: x.team_id, name: x.name, role: x.role as Role, isAdmin: !!x.is_admin, current: !!x.is_current }))
+    const myTeams: MyTeam[] = ((mt.data ?? []) as any[]).filter((x) => !x.personal).map((x) => ({ id: x.team_id, name: x.name, role: x.role as Role, isAdmin: !!x.is_admin, current: !!x.is_current }))
     // 그룹 대화방: 내가 들어간 방의 사람들 (migration_020 전이면 비어 있음)
     const rm = await supabase.from('chat_room_members').select('room_id, user_id, joined_at, last_read_at, chat_rooms(team_id)')
     if (rm.error) console.warn('대화방을 불러오지 못했어요', rm.error.message)
@@ -142,7 +142,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     setDb({
       currentUserId: uid,
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
-      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null })),
+      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map(evFrom),
       requests: (r.data ?? []).map(reqFrom),
@@ -259,8 +259,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const myMember = db.members.find((m) => m.userId === db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)
     // 내가 속한 팀 목록 (서버 함수가 없으면 지금 팀 하나)
+    // 지금 혼자 쓰기 공간을 보고 있는지 (팀 목록에는 넣지 않는다)
+    const solo = !!team?.personal
     const myTeams: MyTeam[] = db.myTeams?.length ? db.myTeams
-      : team && myMember ? [{ id: team.id, name: team.name, role: myMember.role, isAdmin: myMember.isAdmin, current: true }] : []
+      : team && myMember && !solo ? [{ id: team.id, name: team.name, role: myMember.role, isAdmin: myMember.isAdmin, current: true }] : []
     const isAdmin = !!myMember?.isAdmin
     const isLeader = myMember?.role === 'leader'
     const tableMembers = db.members
@@ -299,7 +301,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, solo, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -464,6 +466,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       },
 
       createTeam: async (name) => { await run(() => supabase.rpc('create_team', { p_name: name })) },
+      startPersonal: async () => { await run(() => supabase.rpc('start_personal')) },
       switchTeam: async (teamId) => {
         if (teamId === team?.id) return
         const { error } = await supabase.rpc('switch_team', { p_team: teamId })

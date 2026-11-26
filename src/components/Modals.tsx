@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { TeamUpModal } from './Onboarding'
 import { disablePush, enablePush, isIOS, isStandalone, pushState, pushSupported, sendTestPush } from '../lib/push'
 import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
@@ -56,6 +57,7 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'admin': return <AdminModal />
     case 'calendar': return <CalendarModal />
     case 'leave': return <LeaveModal />
+    case 'teamup': return <TeamUpModal />
     case 'push': return <PushModal />
     case 'member': return <MemberMenu userId={modal.userId} x={modal.x} y={modal.y} />
     case 'month': return <MonthModal userId={modal.userId} date={modal.date} />
@@ -77,7 +79,7 @@ const addHour = (t: string) => {
 }
 
 function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft }: { date: string; start?: string; occ?: Occurrence; titleHint?: string; sharedHint?: boolean; draft?: Partial<EventItem> }) {
-  const { db, addEvent, updateEvent, deleteEvent, mode, me } = useStore()
+  const { db, addEvent, updateEvent, deleteEvent, mode, me, solo } = useStore()
   const { closeModal, showToast } = useUI()
   const base: EventItem | undefined = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
   const [title, setTitle] = useState(draft?.title ?? base?.title ?? titleHint ?? '')
@@ -112,7 +114,7 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
     if (data.remind !== undefined) askNotifyPermission()
     void (base ? updateEvent(base.id, data) : addEvent(data))
     closeModal()
-    showToast(shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
+    showToast(solo ? t('일정을 저장했어요.') : shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
   }
 
   // [연결]: 지금까지 쓴 내용을 잠깐 저장해 두고 구글 동의 화면으로 (돌아오면 토글이 켜진 채로 다시 열림)
@@ -193,13 +195,14 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
               {REMIND_OPTIONS.map(([v, l]) => <option key={l} value={v === undefined ? '' : String(v)}>{t(l)}</option>)}
             </select>
           </label>}
-          <div className="gr">
+          {/* 혼자 쓸 때는 공유할 팀이 없어 숨긴다 (나중에 팀이 되면 그대로 팀 표에 보이도록 켜 둔 채 저장) */}
+          {!solo && <div className="gr">
             <div className="gr-text">
               <span>{t('팀에 공유')}</span>
               <small>{shared ? t('팀 주간표에 표시됩니다') : t('내 패널에만 표시됩니다')}</small>
             </div>
             <Switch on={shared} onChange={(v) => setShared(v)} label={t('팀에 공유')} />
-          </div>
+          </div>}
           {mode === 'cloud' && linked !== true ? (
             <div className="gr">
               <div className="gr-text gcal-text">

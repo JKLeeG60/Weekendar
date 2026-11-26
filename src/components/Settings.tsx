@@ -13,7 +13,7 @@ import { startInstall, useInstallable } from './People'
  * - 휴대폰 알림·캘린더 등은 설정 위에 겹쳐 열어서, 닫으면 설정으로 돌아온다
  */
 export function SettingsModal() {
-  const { me, myMember, team, setTodoCarry } = useStore()
+  const { me, myMember, team, setTodoCarry, solo, deleteAccount } = useStore()
   const { closeModal, openModal, openLayer, showToast, themePref, setThemePref, narrow } = useUI()
   const { pref, setPref } = useLang()
   const installable = useInstallable()
@@ -66,13 +66,23 @@ export function SettingsModal() {
         </Group>
       )}
 
-      {member && (
+      {member && !solo && (
         <div className="set-group set-danger">
           {/* 팀 나가기는 설정을 닫고 확인 창을 연다 */}
           <button className="set-row" onClick={() => openModal({ type: 'leave' })}>{t('팀 나가기')}</button>
         </div>
       )}
-      <p className="set-foot">Weekendar{team ? ` · ${team.name}` : ''}</p>
+      {/* 혼자 쓰는 중: 나갈 팀이 없으니 바로 탈퇴 */}
+      {solo && (
+        <div className="set-group set-danger">
+          <button className="set-row" onClick={async () => {
+            if (!window.confirm(t('Weekendar에서 탈퇴할까요?') + '\n' + t('내 일정·할 일·메모와 알림·구글 캘린더 연결 정보가 모두 지워지고 되돌릴 수 없어요.'))) return
+            const e = await deleteAccount()
+            if (e) showToast(e); else closeModal()
+          }}>{t('Weekendar 탈퇴')}</button>
+        </div>
+      )}
+      <p className="set-foot">Weekendar{team && !solo ? ` · ${team.name}` : ''}</p>
     </Modal>
   )
 }

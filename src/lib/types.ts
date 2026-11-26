@@ -22,6 +22,8 @@ export interface Team {
   inviteCode: string
   /** 대화 보관 기간(일). 없으면 영구 보관 */
   chatRetentionDays?: number | null
+  /** 혼자 쓰기 공간 (팀 없이 나 혼자). 팀 만들기를 하면 일반 팀으로 바뀐다 */
+  personal?: boolean
 }
 
 /** 1인 1팀: userId 는 유일해야 한다 (Supabase 에서는 unique 제약). */

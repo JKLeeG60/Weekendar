@@ -36,7 +36,7 @@ function spansOf(events: EventItem[], days: string[]): { spans: Span[]; lanes: n
 }
 
 export function TeamTable() {
-  const { db, me, myMember, tableMembers, userOf } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo } = useStore()
   const { selected, openModal } = useUI()
   const days = weekDays(selected)
   const act = useEventActions()
@@ -76,7 +76,8 @@ export function TeamTable() {
         }
       : {}
   const today = todayStr()
-  const shared = db.events.filter((e) => e.shared)
+  // 혼자 쓸 때는 내 일정을 모두 보여 준다 (팀에 공유할 사람이 없음)
+  const shared = solo ? db.events : db.events.filter((e) => e.shared)
 
   // 요청 대기 표시: 요청자 본인과 팀장에게만 보인다
   const myPending: ChangeRequest[] = db.requests.filter(
@@ -123,7 +124,7 @@ export function TeamTable() {
         </colgroup>
         <thead>
           <tr>
-            <th className="corner">{t('구성원')}</th>
+            <th className="corner">{solo ? '' : t('구성원')}</th>
             {days.map((d) => (
               <th key={d} className={'day' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
                 <span>{fmtHead(d)}</span>
@@ -138,7 +139,7 @@ export function TeamTable() {
             const mine = m.userId === me?.id
             const { spans, lanes } = spansOf(shared.filter((e) => e.ownerId === m.userId), days)
             return (
-              <tr key={m.userId} className={mine ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%`, ['--lanes' as string]: lanes }}>
+              <tr key={m.userId} className={mine && !solo ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%`, ['--lanes' as string]: lanes }}>
                 <th className="who" scope="row">
                   {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
                   <button
@@ -153,7 +154,7 @@ export function TeamTable() {
                         {u.name}
                         {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
                       </div>
-                      <div className="who-title">{m.role === 'leader' ? '' : m.title || t('직급 미지정')}</div>
+                      <div className="who-title">{solo ? t('나') : m.role === 'leader' ? '' : m.title || t('직급 미지정')}</div>
                     </div>
                   </button>
                 </th>
@@ -267,7 +268,7 @@ export function TeamTable() {
             )
           })}
         </tbody>
-        <tfoot>
+        {!solo && <tfoot>
           <tr>
             <th className="who absent-label" scope="row">{t('부재자')}</th>
             {days.map((d) => {
@@ -287,7 +288,7 @@ export function TeamTable() {
               )
             })}
           </tr>
-        </tfoot>
+        </tfoot>}
       </table>
     </div>
   )

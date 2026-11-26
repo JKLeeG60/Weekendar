@@ -26,7 +26,7 @@ const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
   const { toast, setChatOpen, chatOpen } = useUI()
-  const { db, me, chatUnread: teamUnread, chatMentions, dmUnread } = useStore()
+  const { db, me, chatUnread: teamUnread, chatMentions, dmUnread, solo } = useStore()
   // 팀 대화 + 1:1 대화 안 읽은 수
   const chatUnread = teamUnread + dmUnread
   // 대화 탭을 보고 있으면 '대화창 열림'으로 본다 (호출 팝업을 띄우지 않음)
@@ -50,7 +50,7 @@ export function MobileMain() {
   return (
     <div className="m-app">
       {/* 팀 탭은 기존 제목(○○팀 주간예정사항), 나머지 탭은 탭 이름 */}
-      <Header mobileTitle={tab === 'team' ? t('주간예정사항') : t(TAB_TITLE[tab])} teamMenu={tab === 'team'} />
+      <Header mobileTitle={tab === 'team' ? (solo ? t('내 주간예정사항') : t('주간예정사항')) : t(TAB_TITLE[tab])} teamMenu={tab === 'team'} />
       <div className="m-body">
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}
@@ -58,14 +58,15 @@ export function MobileMain() {
         {tab === 'memo' && <MemoTab />}
         {tab === 'chat' && <ChatPanel />}
       </div>
-      <nav className="m-tabs five" aria-label={t('화면 전환')}>
+      {/* 혼자 쓸 때는 대화 탭이 없다 (주간표·내 일정·할 일·메모 4탭) */}
+      <nav className={'m-tabs' + (solo ? '' : ' five')} aria-label={t('화면 전환')}>
         {([
-          ['team', '팀 주간표', 'cal'],
+          ['team', solo ? '주간표' : '팀 주간표', 'cal'],
           ['me', '내 일정', 'person'],
           ['todo', '할 일', 'list'],
           ['memo', '메모', 'note'],
           ['chat', '대화', 'chat'],
-        ] as const).map(([k, label, icon]) => (
+        ] as const).filter(([k]) => !(solo && k === 'chat')).map(([k, label, icon]) => (
           <button key={k} className={'m-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)} aria-current={tab === k}>
             <span className="m-tab-ico">
               <Icon name={icon} size={22} />
@@ -87,7 +88,7 @@ export function MobileMain() {
 }
 
 function MobileTeam() {
-  const { db, me, myMember, tableMembers, userOf } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo, myTeams } = useStore()
   const { selected, setSelected, openModal } = useUI()
   const act = useEventActions()
   const days = weekDays(selected)
@@ -105,7 +106,9 @@ function MobileTeam() {
     ? `${MON[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON[b.getMonth()] + ' '}${b.getDate()}`
     : `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? '' : b.getMonth() + 1 + '월 '}${b.getDate()}일`
 
-  const shared = db.events.filter((e) => e.shared)
+  // 혼자 쓸 때는 내 일정을 모두 보여 준다
+  const shared = solo ? db.events : db.events.filter((e) => e.shared)
+  const waiting = myTeams.find((x) => x.role === 'pending')
   const myPending: ChangeRequest[] = db.requests.filter(
     (r) => r.status === 'pending' && (r.requesterId === me?.id || r.leaderId === me?.id),
   )
@@ -164,7 +167,7 @@ function MobileTeam() {
         <>
           <div className="m-scroll">
             {holidayName(day) && <div className="m-holiday">{holidayLabel(day)} · {t('휴일')}</div>}
-            <section className="m-absent">
+            {!solo && <section className="m-absent">
               <h3>{t('부재자')}</h3>
               <div className="m-pills">
                 {absent.length === 0 && <span className="none">{t('없음')}</span>}
@@ -172,7 +175,7 @@ function MobileTeam() {
                   <AbsencePill key={m.userId} name={userOf(m.userId).name} o={o} />
                 ))}
               </div>
-            </section>
+            </section>}
 
             {tableMembers.map((m) => {
               const u = userOf(m.userId)
@@ -204,9 +207,9 @@ function MobileTeam() {
                         <strong>
                           {u.name}
                           {m.role === 'leader' && <span className="badge">{t('팀장')}</span>}
-                          {mine && <span className="me-badge">{t('나')}</span>}
+                          {mine && !solo && <span className="me-badge">{t('나')}</span>}
                         </strong>
-                        {m.role !== 'leader' && <small>{m.title || t('직급 미지정')}</small>}
+                        {m.role !== 'leader' && !solo && <small>{m.title || t('직급 미지정')}</small>}
                       </div>
                     </button>
                     {clickable(m) && (
@@ -259,6 +262,17 @@ function MobileTeam() {
                 </section>
               )
             })}
+            {/* 혼자 쓰는 중: 팀과 함께 쓰기 (승인 대기 중이면 그 팀 이름) */}
+            {solo && (
+              <button className="m-teamup" onClick={() => openModal({ type: 'teamup' })}>
+                <span className="ico"><Icon name={waiting ? 'clock' : 'userPlus'} size={20} /></span>
+                <span>
+                  <b>{waiting ? t('{team} 승인 대기 중', { team: waiting.name }) : t('팀과 함께 쓰기')}</b>
+                  <small>{waiting ? t('승인되면 팀 화면으로 바뀌어요') : t('팀을 만들거나 초대 코드로 참여해요')}</small>
+                </span>
+                <Icon name="chevR" size={16} />
+              </button>
+            )}
           </div>
         </>
       )}

@@ -1942,3 +1942,23 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .team-menu .tm-name b { font-size: 0.98rem; }
 .team-menu .tm-name small { font-size: 0.75rem; color: var(--muted); }
 .team-menu svg { color: var(--accent); }
+
+/* ───────── 혼자 쓰기 ───────── */
+/* 첫 화면: 팀 카드 아래 가로로 넓은 "혼자 쓰기" */
+.choice.solo { flex-direction: row; align-items: center; gap: 1rem; width: 100%; padding: 1.05rem 1.2rem; margin-top: 0.6rem; }
+.choice.solo > svg { flex: none; color: var(--faint); }
+.choice-ico.solo { flex: none; margin: 0; background: rgba(255, 149, 0, 0.14); color: #ff9500; }
+.solo-text { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+/* 데스크탑 왼쪽 위: 팀과 함께 쓰기 */
+.teamup-btn { display: inline-flex; align-items: center; gap: 0.4rem; height: 2.15rem; padding: 0 0.9rem 0 0.7rem; border-radius: 999px; border: 1px solid var(--line-soft); background: var(--surface); color: var(--accent); font-size: 0.84rem; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: background 0.15s ease; }
+.teamup-btn:hover { background: var(--accent-soft); }
+.teamup-btn.wait { color: var(--muted); }
+/* 팀과 함께 쓰기 창: 위쪽 두 칸 전환 */
+.teamup-seg { display: flex; width: 100%; margin-bottom: 1rem; }
+.teamup-seg button { flex: 1; }
+/* 휴대폰: 내 일정 아래 "팀과 함께 쓰기" 카드 */
+.m-teamup { display: flex; align-items: center; gap: 0.8rem; width: calc(100% - 2rem); margin: 0.9rem 1rem; padding: 0.95rem 1rem; border-radius: 1rem; background: var(--surface); box-shadow: 0 0 0 0.5px var(--line-soft); text-align: left; }
+.m-teamup .ico { width: 2.4rem; height: 2.4rem; border-radius: 0.65rem; display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); }
+.m-teamup b { display: block; font-size: 0.95rem; }
+.m-teamup small { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
+.m-teamup > svg { margin-left: auto; color: var(--faint); flex: none; }

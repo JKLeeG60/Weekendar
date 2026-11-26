@@ -28,7 +28,7 @@ export function Main() {
   // 끌어서 바꾸는 오른쪽 칸 폭 (이 브라우저에 기억)
   const lay = useLayout()
   const appRef = useRef<HTMLDivElement>(null)
-  const { myMember, team, me, mode, myTeams, joinTeam } = useStore()
+  const { myMember, team, me, mode, myTeams, joinTeam, solo } = useStore()
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {
     if (mode !== 'cloud' || !me) return
@@ -49,6 +49,12 @@ export function Main() {
     clearInvite()
     if (code === team.inviteCode) return
     if (myTeams.length >= MAX_TEAMS) { showToast(t('팀은 최대 2개까지 참여할 수 있어요.')); return }
+    // 혼자 쓰는 중이면: 승인되면 그 팀 화면으로 바뀐다 (내 일정은 그대로)
+    if (solo) {
+      if (!window.confirm(t('초대 코드 {code} 팀에 참여할까요? 관리자가 승인하면 팀 화면으로 바뀌고, 내 일정은 그대로 따라가요.', { code }))) return
+      void Promise.resolve(joinTeam(code)).then((err) => showToast(err ?? t('참여를 요청했어요. 승인될 때까지 지금처럼 혼자 쓸 수 있어요.')))
+      return
+    }
     if (!window.confirm(t('초대 코드 {code} 팀에도 참여할까요? 관리자가 승인하면 팀을 오가며 볼 수 있어요.', { code }))) return
     void Promise.resolve(joinTeam(code)).then((err) => showToast(err ?? t('참여를 요청했어요. 관리자가 승인하면 팀 목록에 나타나요.')))
     // eslint-disable-next-line react-hooks/exhaustive-deps

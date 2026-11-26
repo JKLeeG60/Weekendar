@@ -279,8 +279,12 @@ export interface Store {
   /** Weekendar 탈퇴: 팀에 속하지 않은 내 계정과 데이터를 지운다. 실패하면 안내 문구 */
   deleteAccount: () => string | null | Promise<string | null>
   createTeam: (name: string) => void | Promise<void>
-  /** 내가 속한 팀 목록 (최대 2개) */
+  /** 내가 속한 팀 목록 (최대 2개, 혼자 쓰기 공간은 빼고) */
   myTeams: MyTeam[]
+  /** 지금 혼자 쓰기 공간을 보고 있는지 */
+  solo: boolean
+  /** 혼자 쓰기 시작 (팀 없이 개인용으로) */
+  startPersonal: () => void | Promise<void>
   /** 보고 있는 팀 바꾸기 */
   switchTeam: (teamId: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
@@ -468,8 +472,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
     const myMember = currentRow(db, db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)
+    const isPersonal = (teamId: string) => !!db.teams.find((t) => t.id === teamId)?.personal
+    const solo = !!team?.personal
     const myTeams: MyTeam[] = db.members
-      .filter((m) => m.userId === db.currentUserId)
+      .filter((m) => m.userId === db.currentUserId && !isPersonal(m.teamId))
       .map((m) => ({ id: m.teamId, name: db.teams.find((t) => t.id === m.teamId)?.name ?? '', role: m.role, isAdmin: m.isAdmin, current: m.teamId === myMember?.teamId }))
     const isAdmin = !!myMember?.isAdmin
     const isLeader = myMember?.role === 'leader'
@@ -518,7 +524,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages,
       // 요청은 지금 보고 있는 팀 것만 (실서비스는 서버 권한 규칙이 팀별로 나눠 준다)
       db: { ...db, requests: db.requests.filter((r) => db.members.some((m) => m.userId === r.leaderId && m.teamId === myMember?.teamId && m.role === 'leader')) },
-      me, myMember, team, myTeams, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      me, myMember, team, myTeams, solo, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
       logout: () => set((p) => ({ ...p, currentUserId: null })),
@@ -534,9 +540,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       deleteAccount: () => {
         const id = db.currentUserId
         if (!id) return null
-        if (db.members.some((m) => m.userId === id)) return tr('팀에서 먼저 나간 뒤 탈퇴할 수 있어요')
+        if (db.members.some((m) => m.userId === id && !isPersonal(m.teamId))) return tr('팀에서 먼저 나간 뒤 탈퇴할 수 있어요')
+        // 혼자 쓰기 공간은 함께 정리
+        const mine = new Set(db.members.filter((m) => m.userId === id).map((m) => m.teamId))
         set((p) => ({
           ...p,
+          teams: p.teams.filter((t) => !mine.has(t.id)),
+          members: p.members.filter((m) => !mine.has(m.teamId)),
           users: p.users.filter((u) => u.id !== id),
           events: p.events.filter((e) => e.ownerId !== id),
           todos: p.todos.filter((x) => x.ownerId !== id),
@@ -551,7 +561,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       createTeam: (name) =>
         set((p) => {
-          if (!p.currentUserId || p.members.filter((m) => m.userId === p.currentUserId).length >= MAX_TEAMS) return p
+          if (!p.currentUserId) return p
+          const personalOf = (q: DB) => q.members.find((m) => m.userId === q.currentUserId && q.teams.find((t) => t.id === m.teamId)?.personal)
+          // 혼자 쓰기 공간이 있으면 그 공간을 그대로 팀으로 바꾼다 (일정·할 일 유지)
+          const own = personalOf(p)
+          if (own) return {
+            ...p,
+            teams: p.teams.map((t) => (t.id === own.teamId ? { ...t, name, personal: false } : t)),
+            currentTeams: { ...p.currentTeams, [p.currentUserId]: own.teamId },
+          }
+          if (p.members.filter((m) => m.userId === p.currentUserId && !p.teams.find((t) => t.id === m.teamId)?.personal).length >= MAX_TEAMS) return p
           const teamId = 't_' + uid()
           const code = 'WKND-' + Math.random().toString(36).slice(2, 6).toUpperCase()
           return {
@@ -571,13 +590,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...p, currentTeams: { ...p.currentTeams, [me]: teamId } }
         }),
 
+      startPersonal: () =>
+        set((p) => {
+          const me = p.currentUserId
+          if (!me || p.members.some((m) => m.userId === me && m.role !== 'pending')) return p
+          const teamId = 't_' + uid()
+          const code = 'WKND-' + Math.random().toString(36).slice(2, 6).toUpperCase()
+          return {
+            ...p,
+            teams: [...p.teams, { id: teamId, name: tr('개인'), inviteCode: code, personal: true }],
+            members: [...p.members, { userId: me, teamId, role: 'member', isAdmin: true, title: '', sort: 0 }],
+            currentTeams: { ...p.currentTeams, [me]: teamId },
+          }
+        }),
+
       joinTeam: (code) => {
-        const t = db.teams.find((x) => x.inviteCode.toLowerCase() === code.trim().toLowerCase())
+        const t = db.teams.find((x) => !x.personal && x.inviteCode.toLowerCase() === code.trim().toLowerCase())
         if (!t) return tr('초대 코드를 찾을 수 없어요. 코드를 다시 확인해주세요.')
         if (!db.currentUserId) return tr('로그인이 필요해요.')
         if (db.members.some((m) => m.userId === db.currentUserId && m.teamId === t.id))
           return tr('이미 이 팀에 참여했거나 승인을 기다리고 있어요.')
-        if (db.members.filter((m) => m.userId === db.currentUserId).length >= MAX_TEAMS)
+        if (db.members.filter((m) => m.userId === db.currentUserId && !isPersonal(m.teamId)).length >= MAX_TEAMS)
           return tr('팀은 최대 2개까지 참여할 수 있어요.')
         const admins = db.members.filter((m) => m.teamId === t.id && m.isAdmin)
         set((p) => ({
@@ -621,6 +654,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (patch.role === 'member') {
             const max = Math.max(0, ...members.filter((m) => m.teamId === team?.id && m.role === 'member' && m.userId !== userId).map((m) => m.sort))
             members = members.map((m) => (m.userId === userId && m.teamId === team?.id && m.sort === 99 ? { ...m, sort: max + 1 } : m))
+          }
+          // 승인된 사람에게 혼자 쓰기 공간이 있으면 정리하고, 이 팀을 보게 한다 (일정·할 일은 사람에게 붙어 있어 그대로)
+          const was = p.members.find((m) => m.userId === userId && m.teamId === team?.id)
+          if (was?.role === 'pending' && patch.role && patch.role !== 'pending' && team) {
+            const own = new Set(members.filter((m) => m.userId === userId && p.teams.find((t) => t.id === m.teamId)?.personal).map((m) => m.teamId))
+            if (own.size) return {
+              ...p,
+              teams: p.teams.filter((t) => !own.has(t.id)),
+              members: members.filter((m) => !own.has(m.teamId)),
+              currentTeams: { ...p.currentTeams, [userId]: team.id },
+            }
           }
           return { ...p, members }
         }),
