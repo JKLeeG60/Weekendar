@@ -239,8 +239,25 @@ export interface DB {
   reactions?: Record<string, Record<string, string>>
   /** 그룹 대화방 (내가 들어가 있는 방) */
   rooms?: ChatRoom[]
+  /** 내가 속한 팀 목록 (실서비스: 서버에서 받아 옴, 체험: members 에서 계산) */
+  myTeams?: MyTeam[]
+  /** 체험 모드: 사람별 지금 보고 있는 팀 */
+  currentTeams?: Record<string, string>
   currentUserId: string | null
 }
+
+/** 내가 속한 팀 (한 사람은 최대 2개 팀) */
+export interface MyTeam {
+  id: string
+  name: string
+  role: Role
+  isAdmin: boolean
+  /** 지금 보고 있는 팀인지 */
+  current: boolean
+}
+
+/** 한 사람이 속할 수 있는 팀 수 */
+export const MAX_TEAMS = 2
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   meeting: '회의',

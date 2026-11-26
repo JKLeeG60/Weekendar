@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
+import type { ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, MyTeam, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
 import { chatCounts, chatScope, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { localize, t as tr, useLang } from './i18n'
 import { TERMS_VERSION } from './legal'
@@ -99,6 +99,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       // 1:1 대화 읽은 위치 (migration_015 전이면 비어 있음)
       supabase.from('dm_reads').select('*').eq('user_id', uid),
     ])
+    // 내가 속한 팀 목록 (migration_032 전이면 비어 있음 → 지금 팀 하나로 본다)
+    const mt = await supabase.rpc('my_teams')
+    if (mt.error) console.warn('팀 목록을 불러오지 못했어요', mt.error.message)
+    const myTeams: MyTeam[] = ((mt.data ?? []) as any[]).map((x) => ({ id: x.team_id, name: x.name, role: x.role as Role, isAdmin: !!x.is_admin, current: !!x.is_current }))
     // 그룹 대화방: 내가 들어간 방의 사람들 (migration_020 전이면 비어 있음)
     const rm = await supabase.from('chat_room_members').select('room_id, user_id, joined_at, last_read_at, chat_rooms(team_id)')
     if (rm.error) console.warn('대화방을 불러오지 못했어요', rm.error.message)
@@ -153,6 +157,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       messageReads: {},
       reactions,
       rooms: [...roomMap.values()],
+      myTeams,
       dmReads: Object.fromEntries((dr.data ?? []).map((x: any) => [`${x.user_id}>${x.peer_id}`, Date.parse(x.last_read_at)])),
     })
   }, [])
@@ -253,6 +258,9 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
     const myMember = db.members.find((m) => m.userId === db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)
+    // 내가 속한 팀 목록 (서버 함수가 없으면 지금 팀 하나)
+    const myTeams: MyTeam[] = db.myTeams?.length ? db.myTeams
+      : team && myMember ? [{ id: team.id, name: team.name, role: myMember.role, isAdmin: myMember.isAdmin, current: true }] : []
     const isAdmin = !!myMember?.isAdmin
     const isLeader = myMember?.role === 'leader'
     const tableMembers = db.members
@@ -291,7 +299,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -456,6 +464,12 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       },
 
       createTeam: async (name) => { await run(() => supabase.rpc('create_team', { p_name: name })) },
+      switchTeam: async (teamId) => {
+        if (teamId === team?.id) return
+        const { error } = await supabase.rpc('switch_team', { p_team: teamId })
+        if (error) { fail(error); return }
+        await refresh()
+      },
       joinTeam: async (code) => {
         const { error } = await supabase.rpc('join_team', { p_code: code })
         if (error) return error.message
@@ -484,7 +498,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
           const max = Math.max(0, ...db.members.filter((m) => m.teamId === team?.id && m.role === 'member' && m.userId !== userId).map((m) => m.sort))
           row.sort = max + 1
         }
-        if (Object.keys(row).length) await run(() => supabase.from('members').update(row).eq('user_id', userId))
+        if (Object.keys(row).length) await run(() => supabase.from('members').update(row).eq('user_id', userId).eq('team_id', team!.id))
         else await refresh()
       },
 
@@ -500,7 +514,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const order = list.map((m) => m.userId)
         ;[order[i], order[j]] = [order[j], order[i]]
         await run(async () => {
-          const rs = await Promise.all(order.map((id, idx) => supabase.from('members').update({ sort: idx + 1 }).eq('user_id', id)))
+          const rs = await Promise.all(order.map((id, idx) => supabase.from('members').update({ sort: idx + 1 }).eq('user_id', id).eq('team_id', team!.id)))
           return { error: rs.find((x) => x.error)?.error ?? null }
         })
         void a; void b
@@ -629,7 +643,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
           return
         }
         setDb((p) => ({ ...p, messages: mergeMsgs(p.messages, [m]), chatReads: { ...p.chatReads, [me_id]: m.createdAt } }))
-        supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
+        supabase.from('chat_reads').upsert({ user_id: me_id, team_id: team?.id, last_read_at: new Date(m.createdAt).toISOString() }).then(() => {})
       },
       deleteMessage: async (id) => {
         const { error } = await supabase.rpc('delete_message', { p_id: id })
@@ -646,7 +660,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         const at = Math.max(last, Date.now())
         const fresh = messages.filter((m) => m.authorId !== me_id && !m.deleted && m.createdAt > lastRead).map((m) => m.id)
         setDb((p) => ({ ...p, chatReads: { ...p.chatReads, [me_id]: at } }))
-        supabase.from('chat_reads').upsert({ user_id: me_id, last_read_at: new Date(at).toISOString() }).then(() => {})
+        supabase.from('chat_reads').upsert({ user_id: me_id, team_id: team?.id, last_read_at: new Date(at).toISOString() }).then(() => {})
         // 메시지별 읽은 시각 기록 (마이그레이션 6 전이면 조용히 실패)
         if (fresh.length) supabase.rpc('mark_messages_read', { p_ids: fresh }).then(({ error }) => { if (error) console.warn(error.message) })
       },

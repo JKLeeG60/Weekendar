@@ -1921,3 +1921,24 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .ret-bar { flex: 1; height: 0.42rem; border-radius: 99px; background: var(--line-soft); overflow: hidden; }
 .ret-bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s ease; }
 .chat-ret { align-self: center; display: flex; align-items: center; gap: 0.3rem; margin: 0.3rem 0 0.2rem; font-size: 0.72rem; color: var(--faint); }
+
+/* ───────── 팀 전환 (여러 팀 소속) ───────── */
+/* 데스크탑: 왼쪽 끝 [마케팅팀 | 사업본부] */
+.team-seg { display: inline-flex; gap: 0.1rem; padding: 0.2rem; background: var(--line-soft); border-radius: 0.7rem; }
+.team-seg button { padding: 0.38rem 0.85rem; border-radius: 0.55rem; font-size: 0.84rem; font-weight: 600; color: var(--muted); white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
+.team-seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.team-seg button:not(.on):not(:disabled):hover { color: var(--text); }
+.team-seg button:disabled { opacity: 0.55; cursor: default; }
+.team-seg small { margin-left: 0.3rem; font-size: 0.68rem; font-weight: 700; }
+/* 휴대폰: 제목 "주간예정사항 ⌄" 을 누르면 팀 목록 */
+.team-title { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--text); padding: 0; }
+.team-title svg { color: var(--muted); transition: transform 0.2s ease; margin-top: 0.15rem; }
+.team-title.open svg { transform: rotate(180deg); }
+.team-menu { position: absolute; top: calc(100% + 0.4rem); left: 0; z-index: 61; min-width: 15rem; padding: 0.35rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 14px 36px rgba(0,0,0,0.18), 0 0 0 1px var(--line-soft); animation: pop 0.16s; }
+.team-menu button { display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.6rem 0.65rem; border-radius: 0.7rem; text-align: left; color: var(--text); }
+.team-menu button.on { background: var(--line-soft); }
+.team-menu button:disabled { opacity: 0.55; }
+.team-menu .tm-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.team-menu .tm-name b { font-size: 0.98rem; }
+.team-menu .tm-name small { font-size: 0.75rem; color: var(--muted); }
+.team-menu svg { color: var(--accent); }

@@ -227,7 +227,8 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
 function EventDetail({ occ }: { occ: Occurrence }) {
   const { me, myMember, userOf, db, deleteEvent, confirmEvent } = useStore()
   const { closeModal, openModal, showToast } = useUI()
-  const owner = db.members.find((m) => m.userId === occ.ownerId)
+  // 지금 보고 있는 팀에서의 역할 (여러 팀에 속할 수 있음)
+  const owner = db.members.find((m) => m.userId === occ.ownerId && m.teamId === myMember?.teamId)
   const mine = occ.ownerId === me?.id
   const leaderEvent = owner?.role === 'leader'
   const canRequest = !mine && leaderEvent && myMember?.role === 'member'
@@ -296,7 +297,7 @@ function EventDetail({ occ }: { occ: Occurrence }) {
 
 /* ───────── 팀장 일정 변경 요청 ───────── */
 function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; date: string; occ?: Occurrence }) {
-  const { createRequest, db, userOf } = useStore()
+  const { createRequest, db, myMember, userOf } = useStore()
   const { closeModal, showToast } = useUI()
   const base = occ ? db.events.find((e) => e.id === occ.baseId) : undefined
   const [title, setTitle] = useState(occ?.title ?? '')
@@ -308,7 +309,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
   // 여러 날 요청 (예: 팀장 교육 일정 월~수)
   const [multi, setMulti] = useState(base ? isMultiDay(base) : false)
   const [endDate, setEndDate] = useState(base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2))
-  const leader = db.members.find((m) => m.role === 'leader')
+  const leader = db.members.find((m) => m.role === 'leader' && m.teamId === myMember?.teamId)
   const del = mode === 'delete'
   const bad = !del && (!title.trim() || (multi ? endDate <= d : end <= start))
   const heading = t(mode === 'add' ? '팀장 일정 요청' : mode === 'edit' ? '팀장 일정 변경 요청' : '팀장 일정 삭제 요청')

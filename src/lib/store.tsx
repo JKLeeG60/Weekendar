@@ -13,6 +13,7 @@ import type {
   EventItem,
   Member,
   Message,
+  MyTeam,
   ChatRef,
   ChatPin,
   ScheduledMessage,
@@ -23,6 +24,7 @@ import type {
   Todo,
   User,
 } from './types'
+import { MAX_TEAMS } from './types'
 import { addDays, isWeekend, mondayOf, toStr, todayStr } from './date'
 import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
@@ -37,6 +39,14 @@ export function initialDate(): string {
   return isWeekend(t) ? addDays(mondayOf(t), 7) : t
 }
 
+/** 체험 모드: 이 사람이 지금 보고 있는 팀의 구성원 줄 (여러 팀이면 고른 팀, 없으면 승인된 첫 팀) */
+function currentRow(p: DB, userId: string | null): Member | undefined {
+  if (!userId) return undefined
+  const rows = p.members.filter((m) => m.userId === userId)
+  const want = p.currentTeams?.[userId]
+  return rows.find((m) => m.teamId === want && m.role !== 'pending') ?? rows.find((m) => m.role !== 'pending') ?? rows[0]
+}
+
 /**
  * 팀장이 팀에 공유한 일정을 고쳤으면: "변경" 표시를 남기고, 이전 확인을 지우고, 팀원에게 알림을 보낸다.
  * (실서비스에서는 DB 의 migration_023 트리거가 같은 일을 한다)
@@ -47,8 +57,9 @@ function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
   let notices = p.notices
   const events = after.map((e) => {
     const old = before.find((x) => x.id === e.id)
-    const owner = p.members.find((m) => m.userId === e.ownerId)
-    if (!old || old === e || owner?.role !== 'leader') return e
+    // 그 사람이 팀장인 팀들 (여러 팀에 속할 수 있음)
+    const leadTeams = p.members.filter((m) => m.userId === e.ownerId && m.role === 'leader').map((m) => m.teamId)
+    if (!old || old === e || leadTeams.length === 0) return e
     const ch = changeOf(old, e)
     if (!ch) return e
     // 이미 지난 일정(반복 아님)을 고치는 것은 알리지 않는다
@@ -56,8 +67,9 @@ function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
     const name = p.users.find((u) => u.id === e.ownerId)?.name ?? ''
     confirms = confirms.filter((c) => c.eventId !== e.id)
     notices = [
-      ...p.members
-        .filter((m) => m.teamId === owner.teamId && m.role === 'member')
+      ...[...new Map(p.members
+        .filter((m) => leadTeams.includes(m.teamId) && m.role === 'member' && m.userId !== e.ownerId)
+        .map((m) => [m.userId, m])).values()]
         .map((m): Notice => ({ id: uid(), userId: m.userId, kind: 'confirm', text: ch.noticeText(name), eventId: e.id, read: false, createdAt: Date.now() })),
       ...notices.map((n) => (n.kind === 'confirm' && n.eventId === e.id ? { ...n, read: true } : n)),
     ].slice(0, 200)
@@ -81,8 +93,15 @@ function seed(): DB {
     { id: 'u_m5', name: '한지호', email: 'jiho.han@example.com' },
     { id: 'u_p1', name: '오지훈', email: 'jihoon.oh@example.com' },
     { id: 'u_new', name: '신규 사용자', email: 'new.user@example.com' },
+    // 상위 팀(사업본부) 예시: 본부장 + 각 팀 팀장
+    { id: 'u_exec', name: '최현우', email: 'hyunwoo.choi@example.com' },
+    { id: 'u_sales', name: '이도윤', email: 'doyun.lee@example.com' },
+    { id: 'u_design', name: '한서연', email: 'seoyeon.han@example.com' },
   ]
-  const teams: Team[] = [{ id: teamId, name: '마케팅팀', inviteCode: 'WKND-2026' }]
+  const teams: Team[] = [
+    { id: teamId, name: '마케팅팀', inviteCode: 'WKND-2026' },
+    { id: 't_biz', name: '사업본부', inviteCode: 'WKND-BIZ1' },
+  ]
   const mk = (userId: string, role: Role, title: string, sort: number, isAdmin = false): Member => ({
     userId, teamId, role, isAdmin, title, sort,
   })
@@ -94,6 +113,11 @@ function seed(): DB {
     mk('u_m4', 'member', '사원', 4),
     mk('u_m5', 'member', '사원', 5),
     mk('u_p1', 'pending', '', 99),
+    // 사업본부: 박서준(마케팅팀장)은 마케팅팀과 사업본부 두 팀에 속한다
+    { userId: 'u_exec', teamId: 't_biz', role: 'leader', isAdmin: true, title: '', sort: 0 },
+    { userId: 'u_leader', teamId: 't_biz', role: 'member', isAdmin: false, title: '마케팅팀장', sort: 1 },
+    { userId: 'u_sales', teamId: 't_biz', role: 'member', isAdmin: false, title: '영업팀장', sort: 2 },
+    { userId: 'u_design', teamId: 't_biz', role: 'member', isAdmin: false, title: '디자인팀장', sort: 3 },
   ]
 
   const ev = (
@@ -133,6 +157,15 @@ function seed(): DB {
     ev('u_m5', d(0), '13:00', '17:00', '촬영 현장', 'outside', true, '파주 스튜디오'),
     ev('u_m5', d(3), '15:00', '16:00', '시안 리뷰', 'meeting', true, '회의실 C'),
     ev('u_m5', d(4), '09:00', '13:00', '오전 반차', 'halfday'),
+
+    ev('u_exec', d(0), '08:30', '09:30', '본부 주간회의', 'meeting', true, '대회의실'),
+    ev('u_exec', d(2), '10:00', '12:00', '경영 회의', 'meeting', true, '본사 18층'),
+    ev('u_exec', d(4), '14:00', '16:00', '협력사 방문', 'outside', true, '판교'),
+    ev('u_sales', d(0), '11:00', '12:00', '영업 실적 점검', 'meeting', true, '회의실 B'),
+    ev('u_sales', d(1), '09:00', '18:00', '부산 출장', 'trip', true, '부산 지사'),
+    ev('u_sales', d(3), '14:00', '15:30', '고객사 제안', 'outside', true, '여의도'),
+    ev('u_design', d(1), '13:00', '14:00', '브랜드 가이드 리뷰', 'meeting', true, '디자인실'),
+    ev('u_design', d(3), '14:00', '18:00', '오후 반차', 'halfday'),
   ]
 
   const requests: ChangeRequest[] = [
@@ -246,6 +279,10 @@ export interface Store {
   /** Weekendar 탈퇴: 팀에 속하지 않은 내 계정과 데이터를 지운다. 실패하면 안내 문구 */
   deleteAccount: () => string | null | Promise<string | null>
   createTeam: (name: string) => void | Promise<void>
+  /** 내가 속한 팀 목록 (최대 2개) */
+  myTeams: MyTeam[]
+  /** 보고 있는 팀 바꾸기 */
+  switchTeam: (teamId: string) => void | Promise<void>
   joinTeam: (code: string) => string | null | Promise<string | null>
   // 팀 관리 (관리자)
   renameTeam: (name: string) => void
@@ -383,7 +420,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const now = Date.now()
       const due = (p.scheduled ?? []).filter((x) => x.sendAt <= now)
       const author = p.currentUserId
-      const teamId = p.members.find((m) => m.userId === author)?.teamId
+      const teamId = currentRow(p, author)?.teamId
       if (!due.length || !author || !teamId) return p
       const sent: Message[] = due.map((x) => ({
         id: uid(), teamId, authorId: author, body: x.body, mentions: x.mentions, mentionAll: x.mentionAll, createdAt: now,
@@ -429,8 +466,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const userOf = (id: string) =>
       db.users.find((u) => u.id === id) ?? { id, name: tr('알 수 없음'), email: '' }
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
-    const myMember = db.members.find((m) => m.userId === db.currentUserId)
+    const myMember = currentRow(db, db.currentUserId)
     const team = db.teams.find((t) => t.id === myMember?.teamId)
+    const myTeams: MyTeam[] = db.members
+      .filter((m) => m.userId === db.currentUserId)
+      .map((m) => ({ id: m.teamId, name: db.teams.find((t) => t.id === m.teamId)?.name ?? '', role: m.role, isAdmin: m.isAdmin, current: m.teamId === myMember?.teamId }))
     const isAdmin = !!myMember?.isAdmin
     const isLeader = myMember?.role === 'leader'
 
@@ -476,7 +516,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       mode: 'demo', loading: false, loginGoogle: () => {},
       messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages,
-      db, me, myMember, team, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      // 요청은 지금 보고 있는 팀 것만 (실서비스는 서버 권한 규칙이 팀별로 나눠 준다)
+      db: { ...db, requests: db.requests.filter((r) => db.members.some((m) => m.userId === r.leaderId && m.teamId === myMember?.teamId && m.role === 'leader')) },
+      me, myMember, team, myTeams, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
       logout: () => set((p) => ({ ...p, currentUserId: null })),
@@ -509,7 +551,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       createTeam: (name) =>
         set((p) => {
-          if (!p.currentUserId || p.members.some((m) => m.userId === p.currentUserId)) return p
+          if (!p.currentUserId || p.members.filter((m) => m.userId === p.currentUserId).length >= MAX_TEAMS) return p
           const teamId = 't_' + uid()
           const code = 'WKND-' + Math.random().toString(36).slice(2, 6).toUpperCase()
           return {
@@ -519,15 +561,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...p.members,
               { userId: p.currentUserId, teamId, role: 'member', isAdmin: true, title: '', sort: 1 },
             ],
+            currentTeams: { ...p.currentTeams, [p.currentUserId]: teamId },
           }
+        }),
+      switchTeam: (teamId) =>
+        set((p) => {
+          const me = p.currentUserId
+          if (!me || !p.members.some((m) => m.userId === me && m.teamId === teamId && m.role !== 'pending')) return p
+          return { ...p, currentTeams: { ...p.currentTeams, [me]: teamId } }
         }),
 
       joinTeam: (code) => {
         const t = db.teams.find((x) => x.inviteCode.toLowerCase() === code.trim().toLowerCase())
         if (!t) return tr('초대 코드를 찾을 수 없어요. 코드를 다시 확인해주세요.')
         if (!db.currentUserId) return tr('로그인이 필요해요.')
-        if (db.members.some((m) => m.userId === db.currentUserId))
-          return tr('이미 팀에 소속되어 있어요.')
+        if (db.members.some((m) => m.userId === db.currentUserId && m.teamId === t.id))
+          return tr('이미 이 팀에 참여했거나 승인을 기다리고 있어요.')
+        if (db.members.filter((m) => m.userId === db.currentUserId).length >= MAX_TEAMS)
+          return tr('팀은 최대 2개까지 참여할 수 있어요.')
         const admins = db.members.filter((m) => m.teamId === t.id && m.isAdmin)
         set((p) => ({
           ...p,
@@ -557,7 +608,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       updateMember: (userId, patch) =>
         set((p) => {
-          let members = p.members.map((m) => (m.userId === userId ? { ...m, ...patch } : m))
+          let members = p.members.map((m) => (m.userId === userId && m.teamId === team?.id ? { ...m, ...patch } : m))
           // 팀장은 팀당 1명: 새로 팀장이 되면 기존 팀장은 팀원으로
           if (patch.role === 'leader') {
             members = members.map((m) =>
@@ -569,7 +620,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // 승인된 사람은 맨 아래 순서로 배치
           if (patch.role === 'member') {
             const max = Math.max(0, ...members.filter((m) => m.teamId === team?.id && m.role === 'member' && m.userId !== userId).map((m) => m.sort))
-            members = members.map((m) => (m.userId === userId && m.sort === 99 ? { ...m, sort: max + 1 } : m))
+            members = members.map((m) => (m.userId === userId && m.teamId === team?.id && m.sort === 99 ? { ...m, sort: max + 1 } : m))
           }
           return { ...p, members }
         }),
@@ -586,30 +637,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return {
             ...p,
             members: p.members.map((m) =>
-              m.userId === a.userId ? { ...m, sort: b.sort } : m.userId === b.userId ? { ...m, sort: a.sort } : m,
+              m.teamId !== team?.id ? m : m.userId === a.userId ? { ...m, sort: b.sort } : m.userId === b.userId ? { ...m, sort: a.sort } : m,
             ),
           }
         }),
 
+      // 이 팀에서만 빼고, 다른 팀에도 없을 때만 일정·할 일까지 정리
       removeMember: (userId) =>
-        set((p) => ({
-          ...p,
-          members: p.members.filter((m) => m.userId !== userId),
-          events: p.events.filter((e) => e.ownerId !== userId),
-          todos: p.todos.filter((t) => t.ownerId !== userId),
-          requests: p.requests.filter((r) => r.requesterId !== userId && r.leaderId !== userId),
-        })),
+        set((p) => {
+          const members = p.members.filter((m) => !(m.userId === userId && m.teamId === team?.id))
+          const gone = !members.some((m) => m.userId === userId)
+          return {
+            ...p,
+            members,
+            events: gone ? p.events.filter((e) => e.ownerId !== userId) : p.events,
+            todos: gone ? p.todos.filter((t) => t.ownerId !== userId) : p.todos,
+            requests: p.requests.filter((r) => r.requesterId !== userId && r.leaderId !== userId),
+          }
+        }),
 
       transferAdmin: (userId) =>
         set((p) => {
           const me = p.currentUserId
-          const mm = p.members.find((m) => m.userId === me)
-          const target = p.members.find((m) => m.userId === userId)
-          if (!me || !mm?.isAdmin || !target || target.teamId !== mm.teamId || target.role === 'pending') return p
+          const mm = currentRow(p, me)
+          const target = p.members.find((m) => m.userId === userId && m.teamId === mm?.teamId)
+          if (!me || !mm?.isAdmin || !target || target.role === 'pending') return p
           return {
             ...p,
             members: p.members.map((m) =>
-              m.userId === userId ? { ...m, isAdmin: true }
+              m.teamId !== mm.teamId ? m
+              : m.userId === userId ? { ...m, isAdmin: true }
               : m.userId === me ? { ...m, isAdmin: false, role: m.role === 'none' ? 'member' : m.role }
               : m),
             notices: notify(p, userId, { kind: 'result', text: '관리자 권한을 넘겨받았어요. 이제 팀 관리 메뉴를 쓸 수 있어요.' }),
@@ -620,28 +677,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set((prev) => {
           let p = prev
           const me = p.currentUserId
-          const mm0 = p.members.find((m) => m.userId === me)
+          const mm0 = currentRow(p, me)
           // 관리자가 나가면서 관리자를 넘기는 경우: 먼저 넘기고 나감
           if (mm0?.isAdmin && newAdmin) {
             const target = p.members.find((m) => m.userId === newAdmin && m.teamId === mm0.teamId && m.role !== 'pending')
             if (!target) return prev
             p = {
               ...p,
-              members: p.members.map((m) => (m.userId === newAdmin ? { ...m, isAdmin: true } : m.userId === me ? { ...m, isAdmin: false } : m)),
+              members: p.members.map((m) => (m.teamId !== mm0.teamId ? m : m.userId === newAdmin ? { ...m, isAdmin: true } : m.userId === me ? { ...m, isAdmin: false } : m)),
               notices: notify(p, newAdmin, { kind: 'result', text: '관리자 권한을 넘겨받았어요. 이제 팀 관리 메뉴를 쓸 수 있어요.' }),
             }
           }
-          const mm = p.members.find((m) => m.userId === me)
+          const mm = currentRow(p, me)
           if (!me || !mm) return prev
           const others = p.members.filter((m) => m.teamId === mm.teamId && m.userId !== me)
           if (mm.isAdmin && others.length > 0) return prev // 관리자는 다른 사람이 남아 있으면 나갈 수 없음
           const teamGone = others.length === 0
+          // 이 팀에서만 나가고, 다른 팀이 남아 있으면 일정·할 일은 그대로
+          const members = p.members.filter((m) => !(m.userId === me && m.teamId === mm.teamId))
+          const gone = !members.some((m) => m.userId === me)
+          const { [me]: _drop, ...restTeams } = p.currentTeams ?? {}
+          void _drop
           return {
             ...p,
             teams: teamGone ? p.teams.filter((t) => t.id !== mm.teamId) : p.teams,
-            members: p.members.filter((m) => m.userId !== me),
-            events: p.events.filter((e) => e.ownerId !== me),
-            todos: p.todos.filter((t) => t.ownerId !== me),
+            members,
+            currentTeams: restTeams,
+            events: gone ? p.events.filter((e) => e.ownerId !== me) : p.events,
+            todos: gone ? p.todos.filter((t) => t.ownerId !== me) : p.todos,
             requests: p.requests.filter((r) => r.requesterId !== me && r.leaderId !== me),
             messages: teamGone ? p.messages.filter((x) => x.teamId !== mm.teamId) : p.messages,
           }

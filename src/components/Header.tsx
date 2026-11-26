@@ -9,8 +9,11 @@ import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
-export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow?: string } = {}) {
-  const { team, me, isAdmin, unreadCount, logout, login, db, mode } = useStore()
+export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: string; eyebrow?: string; teamMenu?: boolean } = {}) {
+  const { team, me, isAdmin, unreadCount, logout, login, db, mode, myTeams } = useStore()
+  // 두 팀에 속해 있으면 팀 전환 (데스크탑: 왼쪽 끝 버튼, 휴대폰: 제목을 눌러 목록)
+  const multi = myTeams.length > 1
+  const [teamOpen, setTeamOpen] = useState(false)
   const { selected, setSelected, panelOpen, togglePanel, openModal, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   // 단축키(알림)로 알림 목록 열고 닫기
@@ -24,11 +27,23 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
   return (
     <header className="topbar">
       {/* 월간 보기일 때 팀원 사진 줄이 이 자리에 들어온다 (People.tsx) */}
-      <div className="tb-side" id={mobileTitle === undefined ? 'tb-left' : undefined} aria-hidden={monthView ? undefined : true} />
+      <div className="tb-side" id={mobileTitle === undefined ? 'tb-left' : undefined} aria-hidden={monthView || (multi && mobileTitle === undefined) ? undefined : true}>
+        {multi && mobileTitle === undefined && !monthView && <TeamSeg />}
+      </div>
       <div className="titles">
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+        {(eyebrow || (teamMenu && multi)) && <span className="eyebrow">{teamMenu && multi ? team?.name : eyebrow}</span>}
         <div className="title-row">
-          <h1>{mobileTitle ?? (monthView ? t('{team} 월간 일정', { team: team?.name ?? '' }) : t('{team} 주간예정사항', { team: team?.name ?? '' }))}</h1>
+          {teamMenu && multi ? (
+            <div className="rel">
+              <button className={'team-title' + (teamOpen ? ' open' : '')} onClick={() => setTeamOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={teamOpen}>
+                <h1>{mobileTitle}</h1>
+                <Icon name="chevD" size={18} />
+              </button>
+              {teamOpen && <TeamMenu onClose={() => setTeamOpen(false)} />}
+            </div>
+          ) : (
+            <h1>{mobileTitle ?? (monthView ? t('{team} 월간 일정', { team: team?.name ?? '' }) : t('{team} 주간예정사항', { team: team?.name ?? '' }))}</h1>
+          )}
         </div>
         {/* 주 이동: 화살표가 바꾸는 대상(날짜) 양옆에 둔다. 모바일에서는 숨김(주간 카드에 따로 있음) */}
         {/* 월간 보기: 주간의 '‹ 날짜 › 주차' 자리에 '‹ 2026년 11월 ›' */}
@@ -120,5 +135,64 @@ export function Header({ mobileTitle, eyebrow }: { mobileTitle?: string; eyebrow
         </div>
       </div>
     </header>
+  )
+}
+
+/** 팀 전환 (데스크탑, 왼쪽 끝): [마케팅팀 | 사업본부] */
+function TeamSeg() {
+  const { myTeams, switchTeam } = useStore()
+  const { showToast } = useUI()
+  return (
+    <div className="team-seg" role="tablist" aria-label={t('팀 전환')}>
+      {myTeams.map((x) => {
+        const pending = x.role === 'pending'
+        return (
+          <button
+            key={x.id}
+            role="tab"
+            aria-selected={x.current}
+            className={x.current ? 'on' : ''}
+            disabled={pending}
+            title={pending ? t('관리자의 승인을 기다리고 있어요') : x.name}
+            onClick={() => { if (!x.current) { void switchTeam(x.id); showToast(t('{team}(으)로 바꿨어요', { team: x.name })) } }}
+          >
+            {x.name}{pending && <small>{t('대기')}</small>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** 팀 전환 (휴대폰): 제목을 누르면 아래로 펼쳐지는 팀 목록 */
+function TeamMenu({ onClose }: { onClose: () => void }) {
+  const { myTeams, switchTeam } = useStore()
+  const { showToast } = useUI()
+  return (
+    <>
+      <div className="popover-scrim" onClick={onClose} />
+      <div className="team-menu" role="listbox" aria-label={t('팀 전환')}>
+        {myTeams.map((x) => {
+          const pending = x.role === 'pending'
+          return (
+            <button
+              key={x.id}
+              role="option"
+              aria-selected={x.current}
+              className={x.current ? 'on' : ''}
+              disabled={pending}
+              onClick={() => { onClose(); if (!x.current) { void switchTeam(x.id); showToast(t('{team}(으)로 바꿨어요', { team: x.name })) } }}
+            >
+              <Avatar name={x.name} size={30} />
+              <span className="tm-name">
+                <b>{x.name}</b>
+                <small>{pending ? t('승인 대기 중') : x.isAdmin ? t('관리자') : x.role === 'leader' ? t('팀장') : t('구성원')}</small>
+              </span>
+              {x.current && <Icon name="check" size={18} />}
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }

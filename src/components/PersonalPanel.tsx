@@ -120,7 +120,7 @@ const FOLD_KEY = 'weekendar-todo-fold'
 const readFold = (): string[] => { try { return JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]') } catch { return [] } }
 
 export function Todos() {
-  const { db, me, addTodo, toggleTodo, togglePriority, arrangeTodos } = useStore()
+  const { db, me, addTodo, toggleTodo, togglePriority, arrangeTodos, moveTodo } = useStore()
   const { selected, openModal, isMobile, showToast } = useUI()
   const act = useEventActions()
   const [text, setText] = useState('')
@@ -144,6 +144,12 @@ export function Todos() {
   const top = list.filter((x) => !x.parentId || !shown.has(x.parentId)).sort(byOrder)
   const kidsOf = (id: string) => list.filter((x) => x.parentId === id && shown.has(id)).sort(byOrder)
   const left = list.filter((t) => !t.done).length
+  // 지난 날에서 넘어온 할 일을 끝내면 끝낸 날로 옮긴다 (안 그러면 '안 끝난 것만 넘기기' 때문에 화면에서 사라짐)
+  const check = (t: Todo) => {
+    const old = t.date < selected || list.some((k) => k.parentId === t.id && k.date < selected)
+    if (!t.done && old) moveTodo(t.id, selected)
+    toggleTodo(t.id)
+  }
 
   // ── 끌어 놓기: 할 일 위에 놓으면 그 하위로, 위·아래 가장자리에 놓으면 순서만 ──
   const [dragId, setDragId] = useState<string | null>(null)
@@ -280,7 +286,7 @@ export function Todos() {
                 title: !t.done && !isMobile ? tr('다른 할 일 위에 놓으면 하위 할 일, 사이에 놓으면 순서 바꾸기 · 타임라인에 놓으면 일정, 위 날짜에 놓으면 그날로 옮겨져요') : undefined,
               }}
             >
-              <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTodo(t.id)} aria-label={t.text}>
+              <button className="check" role="checkbox" aria-checked={t.done} onClick={() => check(t)} aria-label={t.text}>
                 {t.done && <Icon name="check" size={13} />}
               </button>
               <span className="todo-text">

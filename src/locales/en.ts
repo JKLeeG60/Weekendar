@@ -874,4 +874,12 @@ export const EN: Record<string, string | [string, string]> = {
   '공지로 등록한 메시지는 기간이 지나도 남아요. 지운 대화는 되돌릴 수 없어요.': "Pinned announcements are kept. Deleted messages can't be restored.",
   '우리 팀 대화 저장량': 'Team chat storage',
   '이 팀의 대화는 {period} 동안 보관돼요': 'This team keeps messages for {period}',
+  '팀 전환': 'Switch team',
+  '관리자의 승인을 기다리고 있어요': 'Waiting for admin approval',
+  '{team}(으)로 바꿨어요': 'Switched to {team}',
+  '승인 대기 중': 'Waiting for approval',
+  '팀은 최대 2개까지 참여할 수 있어요.': 'You can join up to 2 teams.',
+  '초대 코드 {code} 팀에도 참여할까요? 관리자가 승인하면 팀을 오가며 볼 수 있어요.': 'Join the team for invite code {code} too? Once the admin approves, you can switch between teams.',
+  '참여를 요청했어요. 관리자가 승인하면 팀 목록에 나타나요.': 'Request sent. The team will appear once the admin approves.',
+  '이미 이 팀에 참여했거나 승인을 기다리고 있어요.': "You're already in this team or waiting for approval.",
 }

@@ -13,6 +13,7 @@ import { NoticeToasts } from './NoticeToasts'
 import { ChatWindow } from './Chat'
 import { Reminders } from './Reminders'
 import { clearInvite, getInvite } from '../lib/invite'
+import { MAX_TEAMS } from '../lib/types'
 import { t } from '../lib/i18n'
 import { DayDropStrip, Toast } from './DayDrop'
 import { useAutoTutorial } from './Tutorial'
@@ -27,7 +28,7 @@ export function Main() {
   // 끌어서 바꾸는 오른쪽 칸 폭 (이 브라우저에 기억)
   const lay = useLayout()
   const appRef = useRef<HTMLDivElement>(null)
-  const { myMember, team, me, mode } = useStore()
+  const { myMember, team, me, mode, myTeams, joinTeam } = useStore()
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {
     if (mode !== 'cloud' || !me) return
@@ -41,12 +42,15 @@ export function Main() {
   useAutoTutorial() // 처음 가입한 사람에게만 사용 안내를 한 번 보여준다
   useAutoWeekStart() // 주 첫 접속에 "이번 주 시작" 카드를 한 번 보여준다
 
-  // 이미 팀이 있는데 초대 링크로 들어온 경우: 안내하고 코드는 버린다
+  // 이미 팀이 있는데 초대 링크로 들어온 경우: 팀이 하나뿐이면 다른 팀에도 참여 요청 (최대 2개 팀)
   useEffect(() => {
     const code = getInvite()
     if (!code || !team) return
     clearInvite()
-    if (code !== team.inviteCode) showToast(t('이미 팀에 속해 있어서 초대 링크를 사용할 수 없어요. (1인 1팀)'))
+    if (code === team.inviteCode) return
+    if (myTeams.length >= MAX_TEAMS) { showToast(t('팀은 최대 2개까지 참여할 수 있어요.')); return }
+    if (!window.confirm(t('초대 코드 {code} 팀에도 참여할까요? 관리자가 승인하면 팀을 오가며 볼 수 있어요.', { code }))) return
+    void Promise.resolve(joinTeam(code)).then((err) => showToast(err ?? t('참여를 요청했어요. 관리자가 승인하면 팀 목록에 나타나요.')))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team?.id])
 
