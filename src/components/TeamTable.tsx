@@ -36,7 +36,7 @@ function spansOf(events: EventItem[], days: string[]): { spans: Span[]; lanes: n
 }
 
 export function TeamTable() {
-  const { db, me, myMember, tableMembers, userOf, solo } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo, online } = useStore()
   const { selected, openModal } = useUI()
   const days = weekDays(selected)
   const act = useEventActions()
@@ -148,7 +148,7 @@ export function TeamTable() {
                     title={mine ? undefined : t('{name}님 메뉴', { name: u.name })}
                     style={mine ? { cursor: 'default' } : undefined}
                   >
-                    <Avatar name={u.name} size={32} />
+                    <Avatar name={u.name} size={32} online={!solo && online.includes(m.userId)} />
                     <div>
                       <div className="who-name">
                         {u.name}

@@ -1962,3 +1962,7 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .m-teamup b { display: block; font-size: 0.95rem; }
 .m-teamup small { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
 .m-teamup > svg { margin-left: auto; color: var(--faint); flex: none; }
+
+/* ───────── 접속 상태: 사진 오른쪽 아래 초록 점 ───────── */
+.avatar.on { position: relative; }
+.avatar.on::after { content: ''; position: absolute; right: -0.08rem; bottom: -0.08rem; width: 0.66rem; height: 0.66rem; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 0.15rem var(--surface); }

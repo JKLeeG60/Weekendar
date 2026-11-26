@@ -253,6 +253,17 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(ch) }
   }, [myTeamId])
 
+  // 접속 상태: 같은 팀 화면을 켜 둔 사람 (DB에 저장하지 않고 실시간 연결로만 주고받는다)
+  const [online, setOnline] = useState<string[]>([])
+  useEffect(() => {
+    const me = db.currentUserId
+    if (!myTeamId || !me) { setOnline([]); return }
+    const ch = supabase.channel('presence-' + myTeamId, { config: { presence: { key: me } } })
+    ch.on('presence', { event: 'sync' }, () => setOnline(Object.keys(ch.presenceState())))
+      .subscribe((s) => { if (s === 'SUBSCRIBED') void ch.track({ at: Date.now() }) })
+    return () => { supabase.removeChannel(ch); setOnline([]) }
+  }, [myTeamId, db.currentUserId])
+
   const store = useMemo<Store>(() => {
     const userOf = (id: string) => db.users.find((u) => u.id === id) ?? { id, name: tr('알 수 없음'), email: '' }
     const me = db.users.find((u) => u.id === db.currentUserId) ?? null
@@ -301,7 +312,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, solo, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, solo, online, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({
@@ -789,7 +800,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         run(() => supabase.from('notices').update({ read: true }).eq('user_id', me_id).eq('read', false))
       },
     }
-  }, [db, loading, refresh])
+  }, [db, loading, refresh, online])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

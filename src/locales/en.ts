@@ -901,4 +901,5 @@ export const EN: Record<string, string | [string, string]> = {
   '내 일정·할 일·메모와 알림·구글 캘린더 연결 정보가 모두 지워지고 되돌릴 수 없어요.': 'Your schedule, to-dos, notes, notifications and Google Calendar link will all be deleted. This cannot be undone.',
   '초대 코드 {code} 팀에 참여할까요? 관리자가 승인하면 팀 화면으로 바뀌고, 내 일정은 그대로 따라가요.': 'Join the team for invite code {code}? Once the admin approves, you will switch to that team and your schedule comes with you.',
   '일정을 저장했어요.': 'Event saved.',
+  '접속 중': 'Online',
 }

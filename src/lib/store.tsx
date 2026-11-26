@@ -281,6 +281,8 @@ export interface Store {
   createTeam: (name: string) => void | Promise<void>
   /** 내가 속한 팀 목록 (최대 2개, 혼자 쓰기 공간은 빼고) */
   myTeams: MyTeam[]
+  /** 지금 같은 팀 화면을 켜 둔 사람들 (사용자 id) */
+  online: string[]
   /** 지금 혼자 쓰기 공간을 보고 있는지 */
   solo: boolean
   /** 혼자 쓰기 시작 (팀 없이 개인용으로) */
@@ -525,6 +527,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 요청은 지금 보고 있는 팀 것만 (실서비스는 서버 권한 규칙이 팀별로 나눠 준다)
       db: { ...db, requests: db.requests.filter((r) => db.members.some((m) => m.userId === r.leaderId && m.teamId === myMember?.teamId && m.role === 'leader')) },
       me, myMember, team, myTeams, solo, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      // 체험 모드: 나와 팀장 한 명을 접속 중으로 보여 준다
+      online: [db.currentUserId, db.members.find((m) => m.teamId === myMember?.teamId && m.role === 'leader' && m.userId !== db.currentUserId)?.userId].filter((x): x is string => !!x),
 
       login: (userId) => set((p) => ({ ...p, currentUserId: userId })),
       logout: () => set((p) => ({ ...p, currentUserId: null })),

@@ -88,12 +88,13 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boo
   )
 }
 
-export function Avatar({ name, size = 28 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 28, online }: { name: string; size?: number; online?: boolean }) {
   const hues = [210, 262, 150, 28, 340, 190, 100]
   const h = hues[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length]
   return (
     <span
-      className="avatar"
+      className={'avatar' + (online ? ' on' : '')}
+      title={online ? t('접속 중') : undefined}
       style={{
         width: size / 16 + 'rem',
         height: size / 16 + 'rem',

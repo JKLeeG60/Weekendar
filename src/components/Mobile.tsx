@@ -88,7 +88,7 @@ export function MobileMain() {
 }
 
 function MobileTeam() {
-  const { db, me, myMember, tableMembers, userOf, solo, myTeams } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo, myTeams, online } = useStore()
   const { selected, setSelected, openModal } = useUI()
   const act = useEventActions()
   const days = weekDays(selected)
@@ -202,7 +202,7 @@ function MobileTeam() {
                       const end = who ? rg.getBoundingClientRect().right : r.right
                       openModal({ type: 'member', userId: m.userId, x: end + 6, y: r.top + r.height / 2 - 30 })
                     }}>
-                      <Avatar name={u.name} size={34} />
+                      <Avatar name={u.name} size={34} online={!solo && online.includes(m.userId)} />
                       <div className="m-who">
                         <strong>
                           {u.name}
