@@ -6,7 +6,7 @@ import { useStore } from '../lib/store'
 import { dueState, goesTo } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, dowLabel, fmtHead, parse, todayStr, weekDays } from '../lib/date'
+import { addDays, dowLabel, fmtHead, holidayName, parse, setWeekendFolded, todayStr, weekDays, weekendShown } from '../lib/date'
 import type { Occurrence, Todo } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { WeekGoalSection } from './WeekGoals'
@@ -21,7 +21,7 @@ import { endDayDrag, moveDayDrag, startDayDrag } from '../lib/dayDrag'
 
 export function DayAgenda() {
   const { db, me, updateEvent, addEvent, absences } = useStore()
-  const { selected, setSelected, openModal, showToast } = useUI()
+  const { selected, setSelected, openModal, showToast, isMobile } = useUI()
   const act = useEventActions()
   const [cal, setCal] = useState(false)
   // 내 일정 + 초대받아 가는 회의 (불참은 빼고)
@@ -55,6 +55,8 @@ export function DayAgenda() {
             <Icon name="plus" />
           </button>
         </div>
+        {/* 휴대폰: 이번 주 요일 줄 (점 = 그날 일정 수) */}
+        {isMobile && <WeekStrip count={(d) => occurrencesOn(db.events.filter((e) => goesTo(e, me?.id)), d).length} label={(n) => t('일정 {n}개', { n })} />}
         {allDay.length > 0 && (
           <div className="allday">
             <span className="allday-label">{t('종일')}</span>
@@ -406,7 +408,6 @@ export function Todos() {
 /** 휴대폰 할 일 탭 위: ‹ 날짜 › + 이번 주 요일 줄 (점 = 그날 남은 할 일 수) */
 function TodoDateBar() {
   const { db, me } = useStore()
-  useWeekendFold() // 토·일 접기가 바뀌면 요일 줄도 다시
   const { selected, setSelected } = useUI()
   const [cal, setCal] = useState(false)
   const today = todayStr()
@@ -422,12 +423,29 @@ function TodoDateBar() {
         <button className="icon-btn" onClick={() => setSelected(addDays(selected, 1))} aria-label={t('다음날')}><Icon name="chevR" /></button>
         {selected === today && <span className="today-tag">{t('오늘')}</span>}
       </div>
+      <WeekStrip count={left} label={(n) => t('{n}개 남음', { n })} />
+    </div>
+  )
+}
+
+/**
+ * 휴대폰 요일 줄 (할 일·내 일정 탭): 누르면 그 날로, 점 = 그날 개수.
+ * 팀이 토·일을 표시하면 끝에 접기(‹)·펼치기("토·일 ›") 칩 — 팀 주간표와 같은 설정을 함께 쓴다.
+ */
+function WeekStrip({ count, label }: { count: (d: string) => number; label: (n: number) => string }) {
+  const { selected, setSelected } = useUI()
+  const fold = useWeekendFold()
+  const today = todayStr()
+  return (
+    <div className="todo-week-row">
       <div className="todo-week" role="tablist" aria-label={t('이번 주')}>
         {weekDays(selected).map((d) => {
-          const n = left(d)
+          const n = count(d)
+          const w = parse(d).getDay()
           return (
-            <button key={d} role="tab" aria-selected={d === selected} className={'tw-day' + (d === selected ? ' on' : '') + (d === today ? ' today' : '')} onClick={() => setSelected(d)}
-              aria-label={`${fmtHead(d)} · ${t('{n}개 남음', { n })}`}>
+            <button key={d} role="tab" aria-selected={d === selected}
+              className={'tw-day' + (d === selected ? ' on' : '') + (d === today ? ' today' : '') + (w === 6 ? ' sat' : w === 0 || holidayName(d) ? ' sun' : '')}
+              onClick={() => setSelected(d)} aria-label={`${fmtHead(d)} · ${label(n)}`}>
               <small>{dowLabel(d)}</small>
               <b>{Number(d.slice(8, 10))}</b>
               <span className="tw-dots" aria-hidden>{Array.from({ length: Math.min(3, n) }, (_, i) => <i key={i} />)}{n > 3 && <em>+</em>}</span>
@@ -435,6 +453,9 @@ function TodoDateBar() {
           )
         })}
       </div>
+      {weekendShown() && (fold
+        ? <button className="m-wk-fold" onClick={() => setWeekendFolded(false)} aria-label={t('토·일 펼치기')}>{t('토·일')}<Icon name="chevR" size={12} /></button>
+        : <button className="m-wk-fold mini" onClick={() => setWeekendFolded(true)} aria-label={t('토·일 접기')}><Icon name="chevL" size={12} /></button>)}
     </div>
   )
 }

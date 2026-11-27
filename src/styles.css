@@ -2336,3 +2336,9 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .fold-dots em { font-style: normal; font-size: 0.65rem; font-weight: 700; color: var(--accent); line-height: 1; }
 .m-wk-fold { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 0.1rem; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 99px; padding: 0.35rem 0.5rem; }
 .m-wk-fold.mini { padding: 0.35rem; }
+
+/* 휴대폰 요일 줄 (할 일·내 일정): 줄 + 토·일 접기 칩 */
+.todo-week-row { display: flex; align-items: center; gap: 0.3rem; padding: 0 0.85rem 0.35rem; }
+.todo-week-row .todo-week { flex: 1; padding: 0; }
+.tw-day.sat:not(.on) small, .tw-day.sat:not(.on) b { color: var(--accent); }
+.tw-day.sun:not(.on) small, .tw-day.sun:not(.on) b { color: var(--red); }
