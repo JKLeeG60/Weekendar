@@ -1271,12 +1271,17 @@ body:has(.todos .todo-li.drop-into, .todos .todo-li.drop-before, .todos .todo-li
 .group-av > span { position: absolute; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
 .group-av > span .avatar { display: grid; }
 .chat-head .dm-tool { flex: none; color: var(--accent); }
-/* 대화 달력 */
-.chat-head .chat-cal-btn { margin-left: auto; color: var(--muted); border-radius: 0.6rem; }
-.chat-head .dm-who ~ .chat-cal-btn { margin-left: 0; }
-.chat-head .chat-cal-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.chat-head .chat-cal-btn + .chat-close { margin-left: 0.15rem; }
-.ccal { position: absolute; top: 3.5rem; left: 0.7rem; right: 0.7rem; z-index: 61; background: var(--surface); border-radius: 1rem; box-shadow: 0 14px 36px rgba(0,0,0,0.16), 0 0 0 1px var(--line-soft); padding: 0.8rem 0.8rem 0.65rem; animation: pop 0.16s; }
+/* 대화 달력 (입력줄 맨 왼쪽 아이콘) */
+.chat-input .chat-cal-btn { color: var(--muted); border-radius: 0.6rem; }
+.chat-input .chat-cal-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* 제목 줄 대신 탭 줄이 맨 위: 닫기 ✕ 와 창 끌기 자리 */
+.chat-tabs { display: flex; align-items: center; gap: 0.5rem; flex: none; padding: 0.55rem 0.8rem 0.2rem; }
+.chat-tabs .chat-seg { flex: 1; margin: 0; }
+.chat-tabs .chat-close { margin-left: 0; flex: none; }
+.chat-window .chat-tabs { cursor: grab; user-select: none; }
+.chat-window.dragging .chat-tabs { cursor: grabbing; }
+.dm-readall { display: flex; padding: 0.15rem 1rem 0; flex: none; }
+.ccal { position: absolute; bottom: calc(100% - 0.2rem); left: 0.7rem; right: 0.7rem; z-index: 61; background: var(--surface); border-radius: 1rem; box-shadow: 0 14px 36px rgba(0,0,0,0.16), 0 0 0 1px var(--line-soft); padding: 0.8rem 0.8rem 0.65rem; animation: pop 0.16s; }
 .ccal-head { display: flex; align-items: center; gap: 0.1rem; margin-bottom: 0.4rem; }
 .ccal-head strong { flex: 1; font-size: 0.98rem; letter-spacing: -0.02em; }
 .ccal-head .icon-btn { width: 1.9rem; height: 1.9rem; color: var(--accent); }

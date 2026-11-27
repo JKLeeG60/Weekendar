@@ -81,7 +81,7 @@ export function ChatWindow() {
     const el = winRef.current
     if (!el || e.button !== 0) return
     const target = e.target as HTMLElement
-    if (!target.closest('.chat-head') || target.closest('button')) return
+    if (!target.closest('.chat-head, .chat-tabs') || target.closest('button')) return
     const r = el.getBoundingClientRect()
     const dx = e.clientX - r.left
     const dy = e.clientY - r.top
@@ -122,7 +122,7 @@ export function ChatWindow() {
 
 /** 대화창: [팀 대화 | 1:1 대화] 탭 (데스크탑 창과 모바일 탭에서 함께 사용) */
 export function ChatPanel({ onClose }: { onClose?: () => void }) {
-  const { team, tableMembers, userOf, chatUnread, dmUnread, rooms, me, createRoom, inviteToRoom, leaveRoom, dmThreads, markDmRead, markRoomRead } = useStore()
+  const { tableMembers, userOf, chatUnread, dmUnread, rooms, me, createRoom, inviteToRoom, leaveRoom, dmThreads, markDmRead, markRoomRead } = useStore()
   const { chatTab, setChatTab, dmPeer, setDmPeer, showToast } = useUI()
   /** 개인 대화 탭: 1:1·그룹 대화를 모두 읽음으로 (팀 대화는 그대로) */
   const readAllDirect = () => {
@@ -138,19 +138,13 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
   const room = roomId ? rooms.find((r) => r.id === roomId) : undefined
   const roomOthers = room ? room.memberIds.filter((x) => x !== me?.id) : []
   const [invite, setInvite] = useState(false)
-  // 대화 달력: 지금 보고 있는 대화(팀 / 1:1 / 그룹방)
-  const [calOpen, setCalOpen] = useState(false)
-  const calScope = !me ? null : chatTab === 'team' ? 'team' : room ? 'room:' + room.id : peer ? chatScope(me.id, { toId: peer, authorId: me.id }) : null
-  useEffect(() => setCalOpen(false), [calScope])
-  const calBtn = calScope && (
-    <button className={'icon-btn dm-tool chat-cal-btn' + (calOpen ? ' on' : '')} onClick={() => setCalOpen((v) => !v)} aria-label={t('대화 달력')} aria-expanded={calOpen} title={t('대화 달력')}>
-      <Icon name="calClock" size={18} />
-    </button>
-  )
+  // 제목 줄은 1:1·그룹 대화방에서만 (뒤로가기·이름·초대·나가기 자리). 팀 대화·개인 대화 목록은 탭이 맨 위
+  const showHead = !!(room || peer)
   // 방이 없어지면(나가기 등) 목록으로
   useEffect(() => { if (roomId && !room) setDmPeer(null) }, [roomId, room, setDmPeer])
   return (
     <section className="chat">
+      {showHead && (
       <header className="chat-head">
         {room ? (
           <>
@@ -188,22 +182,15 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
               <Icon name="userPlus" size={18} />
             </button>
           </>
-        ) : (
-          <>
-            <strong>{t('{team} 대화', { team: team?.name ?? '' })}</strong>
-            <small>{t('{n}명', { n: tableMembers.length })}</small>
-            {chatTab === 'dm' && dmUnread > 0 && (
-              <button className="chat-readall" onClick={readAllDirect}>{t('모두 읽음')}</button>
-            )}
-          </>
-        )}
-        {calBtn}
+        ) : null}
         {onClose && (
           <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
             <Icon name="x" size={16} />
           </button>
         )}
       </header>
+      )}
+      <div className="chat-tabs">
       <div className="chat-seg" role="tablist" aria-label={t('대화 종류')}>
         <button role="tab" aria-selected={chatTab === 'team'} className={chatTab === 'team' ? 'on' : ''} onClick={() => setChatTab('team')}>
           {t('팀 대화')}{chatUnread > 0 && <em>{chatUnread > 99 ? '99+' : chatUnread}</em>}
@@ -212,8 +199,18 @@ export function ChatPanel({ onClose }: { onClose?: () => void }) {
           {t('개인 대화')}{dmUnread > 0 && <em>{dmUnread > 99 ? '99+' : dmUnread}</em>}
         </button>
       </div>
-      {chatTab === 'team' ? <ChatBody key="team" /> : room ? <ChatBody key={sel!} room={room.id} /> : peer ? <ChatBody key={peer} peer={peer} /> : <DmList onPick={setDmPeer} />}
-      {calOpen && calScope && <ChatCalendar scope={calScope} onClose={() => setCalOpen(false)} />}
+      {!showHead && onClose && (
+        <button className="icon-btn chat-close" onClick={onClose} aria-label={t('대화창 닫기')} title={t('닫기 (Esc)')}>
+          <Icon name="x" size={16} />
+        </button>
+      )}
+      </div>
+      {chatTab === 'team' ? <ChatBody key="team" /> : room ? <ChatBody key={sel!} room={room.id} /> : peer ? <ChatBody key={peer} peer={peer} /> : (
+        <>
+          {dmUnread > 0 && <div className="dm-readall"><button className="chat-readall" onClick={readAllDirect}>{t('모두 읽음')}</button></div>}
+          <DmList onPick={setDmPeer} />
+        </>
+      )}
       {invite && (peer || room) && (
         <InviteSheet
           locked={room ? room.memberIds.filter((x) => x !== me?.id) : [peer!]}
@@ -315,6 +312,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
   const [schedHint, setSchedHint] = useState(false)
   const [schedPick, setSchedPick] = useState(false)
   const [schedList, setSchedList] = useState(false)
+  const [calOpen, setCalOpen] = useState(false) // 대화 달력
   const sendHold = useRef<number | undefined>(undefined)
   const sendHeld = useRef(false)
   const { openModal, isMobile, showToast } = useUI()
@@ -646,6 +644,7 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           </div>
         )}
         {stickerOpen && <StickerPick onPick={sendSticker} onClose={() => setStickerOpen(false)} />}
+        {calOpen && me && <ChatCalendar scope={scope} onClose={() => setCalOpen(false)} />}
         {attachOpen && (
           <>
             <div className="popover-scrim" onMouseDown={() => setAttachOpen(false)} />
@@ -686,6 +685,9 @@ function ChatBody({ peer, room }: { peer?: string; room?: string }) {
           </div>
         )}
         <div className="chat-input">
+          <button className={'icon-btn chat-cal-btn' + (calOpen ? ' on' : '')} onClick={() => setCalOpen((v) => !v)} aria-label={t('대화 달력')} aria-expanded={calOpen} title={t('대화 달력')}>
+            <Icon name="calClock" size={20} />
+          </button>
           <button className="icon-btn" onClick={() => setAttachOpen((v) => !v)} aria-label={t('일정 첨부')} title={t('일정 첨부')}>
             <Icon name="eventCards" size={20} />
           </button>
