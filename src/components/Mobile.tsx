@@ -347,7 +347,9 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    let x0 = 0, y0 = 0, dist = 0, dx = 0
+    let x0 = 0, y0 = 0, dist = 0, dx = 0, t0 = 0
+    // 옆으로 밀 때 움직일 부분: 날짜 줄은 두고 아래 목록만 (없으면 본문 전체)
+    let pane: HTMLElement = el
     let mode: 'none' | 'wait' | 'pull' | 'swipe' = 'none'
     let canPull = false, canSwipe = false
     const typing = (n: HTMLElement) => n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT' || n.tagName === 'SELECT'
@@ -361,7 +363,13 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
       }
       return { top, side }
     }
-    const reset = () => { el.style.transform = ''; el.style.transition = '' }
+    const paint = (x: number, op: number, ms = 0) => {
+      pane.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.8,.2,1), opacity ${ms}ms ease-out` : 'none'
+      pane.style.transform = x ? `translateX(${x}px)` : ''
+      pane.style.opacity = op < 1 ? String(op) : ''
+    }
+    const reset = () => { pane.style.transition = ''; pane.style.transform = ''; pane.style.opacity = '' }
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
     const start = (e: TouchEvent) => {
       mode = 'none'
       if (busyRef.current || e.touches.length !== 1 || dayDragActive()) return
@@ -369,7 +377,8 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
       canPull = opt.current.pull && top
       canSwipe = opt.current.swipe && side
       if (!canPull && !canSwipe) return
-      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dist = 0; dx = 0
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dist = 0; dx = 0; t0 = performance.now()
+      pane = el.querySelector<HTMLElement>('.m-scroll, .panel-scroll, .memo-content') ?? el
       mode = 'wait'
     }
     const move = (e: TouchEvent) => {
@@ -388,24 +397,31 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
         dist = Math.min(110, Math.max(0, my) * 0.5) // 당길수록 덜 따라오게
         setSt({ dist, busy: false })
       } else {
+        // 손가락을 그대로 따라간다
         dx = mx
-        el.style.transition = 'none'
-        el.style.transform = `translateX(${dx * 0.35}px)`
+        paint(dx, 1 - Math.min(0.35, Math.abs(dx) / el.clientWidth / 2))
       }
     }
     const end = async () => {
       const m = mode
       mode = 'none'
       if (m === 'swipe') {
+        const w = el.clientWidth
+        const fast = Math.abs(dx) > 30 && Math.abs(dx) / Math.max(1, performance.now() - t0) > 0.45 // 휙 튕기기
+        if (Math.abs(dx) < SWIPE_GO && !fast) { paint(0, 1, 220); await wait(230); reset(); return }
+        const dir: 1 | -1 = dx < 0 ? 1 : -1
+        busyRef.current = true
+        // ① 지금 목록이 민 방향으로 빠져나가고
+        paint(-dir * w, 0.2, 170)
+        await wait(170)
+        // ② 날짜를 바꾼 뒤, 새 목록이 반대쪽에서 들어온다
+        opt.current.onSwipe(dir)
+        paint(dir * w * 0.45, 0.2)
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        paint(0, 1, 260)
+        await wait(270)
         reset()
-        if (Math.abs(dx) >= SWIPE_GO) {
-          const dir = dx < 0 ? 1 : -1
-          opt.current.onSwipe(dir)
-          // 새 날짜가 밀어 온 쪽에서 들어오는 느낌
-          el.classList.remove('slide-next', 'slide-prev')
-          void el.offsetWidth
-          el.classList.add(dir === 1 ? 'slide-next' : 'slide-prev')
-        }
+        busyRef.current = false
         return
       }
       if (m !== 'pull') return
@@ -416,18 +432,15 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
       busyRef.current = false
       setSt({ dist: 0, busy: false })
     }
-    const anim = () => el.classList.remove('slide-next', 'slide-prev')
     el.addEventListener('touchstart', start, { passive: true })
     el.addEventListener('touchmove', move, { passive: false })
     el.addEventListener('touchend', end)
     el.addEventListener('touchcancel', end)
-    el.addEventListener('animationend', anim)
     return () => {
       el.removeEventListener('touchstart', start)
       el.removeEventListener('touchmove', move)
       el.removeEventListener('touchend', end)
       el.removeEventListener('touchcancel', end)
-      el.removeEventListener('animationend', anim)
     }
   }, [ref])
   return st
