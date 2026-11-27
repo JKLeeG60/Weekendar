@@ -10,6 +10,7 @@ import { addDays, dowLabel, fmtHead, parse, todayStr, weekDays } from '../lib/da
 import type { Occurrence, Todo } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { WeekGoalSection } from './WeekGoals'
+import { useWeekendFold } from '../lib/weekendFold'
 import { MemoDock } from './Memo'
 /** 할 일 목록 안에서는 변수 이름 t(할 일)와 겹치므로 tr 로 부른다 */
 const tr = t
@@ -405,6 +406,7 @@ export function Todos() {
 /** 휴대폰 할 일 탭 위: ‹ 날짜 › + 이번 주 요일 줄 (점 = 그날 남은 할 일 수) */
 function TodoDateBar() {
   const { db, me } = useStore()
+  useWeekendFold() // 토·일 접기가 바뀌면 요일 줄도 다시
   const { selected, setSelected } = useUI()
   const [cal, setCal] = useState(false)
   const today = todayStr()

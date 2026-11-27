@@ -30,6 +30,8 @@ export interface Team {
   personal?: boolean
   /** 휴가·출장 자동 승인: none 끔 · all 휴가·출장 · trip 출장만 · leave 휴가만 */
   autoApprove?: AutoApprove
+  /** 팀 주간표에 토·일도 표시 (관리자 설정) */
+  showWeekend?: boolean
 }
 
 export type AutoApprove = 'none' | 'all' | 'trip' | 'leave'

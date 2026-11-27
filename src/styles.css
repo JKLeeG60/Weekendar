@@ -2308,3 +2308,31 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 /* 월간 일정: 고른 사람 파란 테두리가 목록 끝에서 잘리지 않게 오른쪽·위아래 여유 */
 .mo-people { padding-right: 0.35rem; padding-block: 4px; }
 .mo-person { padding: 4px 5px 2px; }
+
+/* 토·일 표시 (팀 관리 설정) */
+.team-table th.day.sat { color: var(--accent); }
+.team-table th.day.sun { color: var(--red); }
+.team-table td.cell.weekend { background-color: color-mix(in srgb, var(--text) 2.5%, transparent); }
+.m-day.sat:not(.on) strong, .m-day.sat:not(.on) small { color: var(--accent); }
+.wk-set .wk-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0.9rem; border-radius: 0.8rem; background: var(--surface-2); border: 1px solid var(--line-soft); }
+.wk-text { display: flex; flex-direction: column; gap: 0.15rem; font-weight: 600; font-size: 0.95rem; }
+.wk-text small { font-size: 0.78rem; font-weight: 500; color: var(--muted); }
+/* 요일 줄이 5칸 또는 7칸 (토·일 표시) */
+.m-days, .todo-week { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
+
+/* 토·일 접기 (나만) */
+.team-table th.day { position: relative; }
+.wk-handle { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 3; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--accent); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16), 0 0 0 0.5px var(--line); opacity: 0.35; transition: opacity 0.15s, transform 0.15s; }
+.team-table thead:hover .wk-handle, .wk-handle:focus-visible { opacity: 1; }
+.wk-handle:hover { transform: translate(-50%, -50%) scale(1.1); }
+.team-table col.fold-col { width: 2.6rem; }
+.fold-head { padding: 0 !important; }
+.wk-fold-btn { width: 100%; height: 100%; min-height: 2.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--muted); position: relative; }
+.wk-fold-btn .wk-handle.in { position: static; transform: none; opacity: 1; width: 1.3rem; height: 1.3rem; }
+.team-table td.cell.fold-cell { cursor: pointer; background: color-mix(in srgb, var(--text) 3.5%, transparent); padding: 0; }
+.team-table td.cell.fold-cell:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.fold-dots { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-top: 0.8rem; }
+.fold-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.fold-dots em { font-style: normal; font-size: 0.65rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.m-wk-fold { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 0.1rem; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 99px; padding: 0.35rem 0.5rem; }
+.m-wk-fold.mini { padding: 0.35rem; }

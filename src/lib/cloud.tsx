@@ -166,7 +166,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     setDb({
       currentUserId: uid,
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, briefOn: x.brief_on ?? true, briefTime: x.brief_time ?? '08:30', briefDays: x.brief_days ?? 'weekdays', shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
-      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal, autoApprove: x.auto_approve ?? 'none' })),
+      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal, autoApprove: x.auto_approve ?? 'none', showWeekend: !!x.show_weekend })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map((x: any) => { const ev = evFrom(x); const a = attendeesOf.get(ev.id); return a ? { ...ev, attendees: a } : ev }),
       requests: (r.data ?? []).map(reqFrom),
@@ -530,6 +530,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
 
       renameTeam: (name) => run(() => supabase.from('teams').update({ name }).eq('id', team!.id)) as unknown as void,
       setChatRetention: (days) => run(() => supabase.from('teams').update({ chat_retention_days: days }).eq('id', team!.id)) as unknown as void,
+      setShowWeekend: (on) => {
+        setDb((p) => ({ ...p, teams: p.teams.map((x) => (x.id === team?.id ? { ...x, showWeekend: on } : x)) }))
+        run(() => supabase.from('teams').update({ show_weekend: on }).eq('id', team!.id))
+      },
       teamChatUsage: async () => {
         const { data, error } = await supabase.rpc('team_chat_usage')
         return error ? 0 : Number(data ?? 0)

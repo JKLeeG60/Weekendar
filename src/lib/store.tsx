@@ -31,7 +31,7 @@ import type {
   User,
 } from './types'
 import { MAX_TEAMS } from './types'
-import { addDays, isWeekend, mondayOf, noticeDate, toStr, todayStr } from './date'
+import { addDays, isWeekend, mondayOf, noticeDate, toStr, todayStr, weekendVisible } from './date'
 import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
@@ -41,10 +41,10 @@ import { absenceEvent, absenceNoticeText, approversOf, autoCovers, canApprove, c
 const KEY = 'weekendar-v1'
 export const uid = () => Math.random().toString(36).slice(2, 10)
 
-/** 평일이면 오늘, 주말이면 다음 주 월요일 */
+/** 평일이면 오늘, 주말이면 다음 주 월요일 (토·일을 표시하는 팀이면 그대로 오늘) */
 export function initialDate(): string {
   const t = todayStr()
-  return isWeekend(t) ? addDays(mondayOf(t), 7) : t
+  return isWeekend(t) && !weekendVisible() ? addDays(mondayOf(t), 7) : t
 }
 
 /** 체험 모드: 이 사람이 지금 보고 있는 팀의 구성원 줄 (여러 팀이면 고른 팀, 없으면 승인된 첫 팀) */
@@ -357,6 +357,8 @@ export interface Store {
   renameTeam: (name: string) => void
   /** 대화 보관 기간(일, null = 영구). 팀 관리 권한이 있는 사람만 */
   setChatRetention: (days: number | null) => void
+  /** 팀 주간표에 토·일 표시 (관리자) */
+  setShowWeekend: (on: boolean) => void
   /** 우리 팀 대화가 차지하는 용량(바이트) */
   teamChatUsage: () => Promise<number>
   updateMember: (userId: string, patch: Partial<Member>) => void
@@ -726,6 +728,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set((p) => ({ ...p, teams: p.teams.map((t) => (t.id === team?.id ? { ...t, name } : t)) })),
       setChatRetention: (days) =>
         set((p) => ({ ...p, teams: p.teams.map((t) => (t.id === team?.id ? { ...t, chatRetentionDays: days } : t)) })),
+      setShowWeekend: (on) =>
+        set((p) => ({ ...p, teams: p.teams.map((t) => (t.id === team?.id ? { ...t, showWeekend: on } : t)) })),
       // 체험 모드: 이 기기에 저장된 우리 팀 대화의 크기로 어림한다
       teamChatUsage: async () =>
         new Blob([JSON.stringify(db.messages.filter((m) => m.teamId === team?.id))]).size,

@@ -1111,4 +1111,11 @@ export const EN: Record<string, string | [string, string]> = {
   '메모 쓰기': 'Write memo',
   '지난 날에서 넘어온 할 일': 'Carried over from earlier',
   '{date}부터 · {n}일째': 'Since {date} · day {n}',
+  '토·일 표시': 'Show weekends',
+  '켜면 월~일 7칸, 끄면 월~금 5칸 · 팀원 모두에게 적용돼요': 'On: Mon–Sun (7 days), off: Mon–Fri · applies to the whole team',
+  '토·일 접기': 'Hide weekend',
+  '토·일 접기 (내 화면만)': 'Hide weekend (just for me)',
+  '토·일 펼치기': 'Show weekend',
+  '토·일': 'Sat·Sun',
+  '주말 일정 {n}개 · 눌러서 펼치기': '{n} weekend events · click to show',
 }

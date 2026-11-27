@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { fmtHead, holidayLabel, holidayName, todayStr, weekDays } from '../lib/date'
+import { addDays, fmtHead, holidayLabel, holidayName, isWeekend, mondayOf, parse, setWeekendFolded, todayStr, weekDays, weekendShown } from '../lib/date'
+import { useWeekendFold } from '../lib/weekendFold'
 import { t } from '../lib/i18n'
 import { useEventActions } from './DayDrop'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
@@ -40,7 +41,12 @@ function spansOf(events: EventItem[], days: string[]): { spans: Span[]; lanes: n
 export function TeamTable() {
   const { db, me, myMember, tableMembers, userOf, solo, online, absences } = useStore()
   const { selected, openModal } = useUI()
+  // 토·일 접기 (나만): 팀이 토·일을 표시할 때만 쓸 수 있다
+  const fold = useWeekendFold()
+  const canFold = weekendShown() && !solo
+  const folded = canFold && fold
   const days = weekDays(selected)
+  const weekend = [5, 6].map((i) => addDays(mondayOf(selected), i))
   const act = useEventActions()
   // 내 일정 끌어서 다른 요일로: 끌고 있는 일정과 놓을 칸
   const dragging = useRef<{ baseId: string; from: string } | null>(null)
@@ -137,16 +143,29 @@ export function TeamTable() {
         <colgroup>
           <col style={{ width: '11rem' }} />
           {days.map((d) => <col key={d} />)}
+          {folded && <col className='fold-col' />}
         </colgroup>
         <thead>
           <tr>
             <th className="corner">{solo ? '' : t('구성원')}</th>
             {days.map((d) => (
-              <th key={d} className={'day' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
+              <th key={d} className={'day' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (parse(d).getDay() === 6 ? ' sat' : parse(d).getDay() === 0 ? ' sun' : '')}>
                 <span>{fmtHead(d)}</span>
                 {holidayName(d) && <small className="hol-name">{holidayLabel(d)}</small>}
+                {/* 금·토 사이: 토·일 접기 (나만) */}
+                {canFold && parse(d).getDay() === 6 && (
+                  <button className="wk-handle" onClick={() => setWeekendFolded(true)} aria-label={t('토·일 접기')} title={t('토·일 접기 (내 화면만)')}><Icon name="chevL" size={14} /></button>
+                )}
               </th>
             ))}
+            {folded && (
+              <th className="day fold-head">
+                <button className="wk-fold-btn" onClick={() => setWeekendFolded(false)} aria-label={t('토·일 펼치기')} title={t('토·일 펼치기')}>
+                  <span>{t('토·일')}</span>
+                  <span className="wk-handle in"><Icon name="chevR" size={14} /></span>
+                </button>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -192,7 +211,7 @@ export function TeamTable() {
                       key={d}
                       {...dropProps(m, d)}
                       data-drop-label={mine && overDay === d ? t('{date}로 옮기기', { date: fmtHead(d) }) : undefined}
-                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (mine && overDay === d ? ' drop-on' : '')
+                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (isWeekend(d) ? ' weekend' : '') + (mine && overDay === d ? ' drop-on' : '')
                         + (off?.leave ? ' off-leave' : off?.half ? ' off-' + off.side : '') + (off?.trip ? ' off-trip' : '')}
                       onClick={() => {
                         onCell(m, d)
@@ -301,6 +320,15 @@ export function TeamTable() {
                     </td>
                   )
                 })}
+                {/* 접은 토·일: 그 사람의 주말 일정 수만 점으로 */}
+                {folded && (() => {
+                  const n = weekend.reduce((s, d) => s + eventsOf(m.userId, d).length, 0)
+                  return (
+                    <td className="cell fold-cell" onClick={() => setWeekendFolded(false)} title={n ? t('주말 일정 {n}개 · 눌러서 펼치기', { n }) : t('토·일 펼치기')}>
+                      <span className="fold-dots">{Array.from({ length: Math.min(3, n) }, (_, i) => <i key={i} />)}{n > 3 && <em>+</em>}</span>
+                    </td>
+                  )
+                })()}
               </tr>
             )
           })}
@@ -331,6 +359,7 @@ export function TeamTable() {
                 </td>
               )
             })}
+            {folded && <td className="cell fold-cell" onClick={() => setWeekendFolded(false)} />}
           </tr>
         </tfoot>}
       </table>

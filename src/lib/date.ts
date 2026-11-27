@@ -99,12 +99,13 @@ export function isoWeek(s: string): number {
 
 export function weekRangeLabel(monday: string): string {
   const a = parse(monday)
-  const b = parse(addDays(monday, 4))
+  const last = addDays(monday, weekendVisible() ? 6 : 4)
+  const b = parse(last)
   if (en()) {
     if (a.getFullYear() !== b.getFullYear()) return `${MON_EN[a.getMonth()]} ${a.getDate()}, ${a.getFullYear()} – ${MON_EN[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`
     return `${MON_EN[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON_EN[b.getMonth()] + ' '}${b.getDate()}, ${a.getFullYear()}`
   }
-  return `${koDate(monday, true)} – ${koDate(addDays(monday, 4))}`
+  return `${koDate(monday, true)} – ${koDate(last)}`
 }
 
 /**
@@ -216,10 +217,38 @@ export function holidayLabel(s: string): string | undefined {
   return n.endsWith(' 연휴') ? t('{name} 연휴', { name: t(n.slice(0, -3)) }) : t(n)
 }
 
-/** 팀 표에 표시할 날짜: 월~금 (공휴일도 칸은 유지하고 화면에서 휴일로 표시) */
+/**
+ * 팀 표에 토·일도 보일지 (팀 관리 → "토·일 표시"). 팀을 불러오면 Main 이 맞춰 둔다.
+ * 처음 열 때 깜빡이지 않게 마지막 값을 이 기기에 기억한다.
+ */
+let weekendOn = (() => { try { return localStorage.getItem('wk-weekend') === '1' } catch { return false } })()
+export const weekendShown = () => weekendOn
+export function setWeekendShown(on: boolean) {
+  if (on === weekendOn) return
+  weekendOn = on
+  try { localStorage.setItem('wk-weekend', on ? '1' : '0') } catch { /* 기억 못 해도 화면은 맞음 */ }
+}
+
+/**
+ * 토·일 접기: 팀이 토·일을 표시해도 나만 접어 둘 수 있다 (이 기기에 기억).
+ * 바뀌면 화면이 다시 그려지도록 알림을 보낸다 (useWeekendFold).
+ */
+let foldOn = (() => { try { return localStorage.getItem('wk-weekend-fold') === '1' } catch { return false } })()
+const foldSubs = new Set<() => void>()
+export const weekendFolded = () => foldOn
+export function setWeekendFolded(on: boolean) {
+  foldOn = on
+  try { localStorage.setItem('wk-weekend-fold', on ? '1' : '0') } catch { /* 기억 못 해도 화면은 맞음 */ }
+  foldSubs.forEach((f) => f())
+}
+export const subscribeWeekendFold = (f: () => void) => { foldSubs.add(f); return () => { foldSubs.delete(f) } }
+/** 지금 화면에 토·일 칸이 보이는지 (팀 설정 켬 + 내가 안 접음) */
+export const weekendVisible = () => weekendOn && !foldOn
+
+/** 팀 표에 표시할 날짜: 월~금 (토·일을 표시하고 접지 않았으면 월~일). 공휴일도 칸은 유지하고 화면에서 휴일로 표시 */
 export function weekDays(selected: string): string[] {
   const mon = mondayOf(selected)
-  return [0, 1, 2, 3, 4].map((i) => addDays(mon, i))
+  return Array.from({ length: weekendVisible() ? 7 : 5 }, (_, i) => addDays(mon, i))
 }
 
 /** 달력 격자 (일요일 시작, 6주) */

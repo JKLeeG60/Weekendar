@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { getLang, t } from '../lib/i18n'
-import { addDays, dowLabel, fmtHead, holidayName, todayStr } from '../lib/date'
+import { addDays, dowLabel, fmtHead, holidayName, todayStr, weekendShown } from '../lib/date'
 import { busyOn, DAY_FROM, DAY_TO, fmtMin, freeRanges, LUNCH } from '../lib/attend'
 import type { BusyEvent } from '../lib/types'
 import { Avatar, Icon } from './ui'
@@ -68,7 +68,7 @@ function workdays(from: string, n: number): string[] {
   const out: string[] = []
   for (let d = from; out.length < n; d = addDays(d, 1)) {
     const w = new Date(d + 'T00:00:00').getDay()
-    if (w !== 0 && w !== 6 && !holidayName(d)) out.push(d)
+    if ((weekendShown() || (w !== 0 && w !== 6)) && !holidayName(d)) out.push(d)
   }
   return out
 }

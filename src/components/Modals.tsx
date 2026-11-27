@@ -8,7 +8,7 @@ import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI, type ModalState } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, fmtDate, fmtHead, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr } from '../lib/date'
+import { addDays, fmtDate, fmtHead, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr, weekendShown } from '../lib/date'
 import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 import { localize, Rich, t } from '../lib/i18n'
 import { RETENTION, retentionLabel } from '../lib/chat'
@@ -489,7 +489,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
                 </div>
               </div>
             </div>
-            {!multi && (isWeekend(d) || holidayName(d)) && <p className="hint">{t('선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.')}</p>}
+            {!multi && ((isWeekend(d) && !weekendShown()) || holidayName(d)) && <p className="hint">{t('선택한 날짜는 주말·공휴일이라 팀 표에는 표시되지 않아요.')}</p>}
           </>
         )}
         <p className="hint">{t('저장하면 팀장에게 알림이 전달되고, 팀장이 ‘동의’하면 팀장 일정에 반영되어 모든 팀원에게 보입니다.')}</p>
@@ -520,6 +520,21 @@ function DayModal({ userId, date }: { userId: string; date: string }) {
         ))}
       </ul>
     </Modal>
+  )
+}
+
+/* ───────── 주간표 토·일 표시 (팀 관리) ───────── */
+function WeekendToggle() {
+  const { team, setShowWeekend } = useStore()
+  const on = !!team?.showWeekend
+  return (
+    <section className="wk-set">
+      <h3 className="section-label">{t('주간표')}</h3>
+      <div className="wk-row">
+        <span className="wk-text">{t('토·일 표시')}<small>{t('켜면 월~일 7칸, 끄면 월~금 5칸 · 팀원 모두에게 적용돼요')}</small></span>
+        <Switch on={on} onChange={setShowWeekend} label={t('토·일 표시')} />
+      </div>
+    </section>
   )
 }
 
@@ -600,6 +615,8 @@ function AdminModal() {
             </button>
           </div>
         </section>
+
+        <WeekendToggle />
 
         <ChatRetention />
 
