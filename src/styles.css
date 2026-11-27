@@ -2170,3 +2170,12 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .m-card.off-trip { background-image: linear-gradient(color-mix(in srgb, var(--c-trip) 5%, transparent), color-mix(in srgb, var(--c-trip) 5%, transparent)); }
 .m-item.off-dim { filter: grayscale(1); opacity: 0.5; }
 .m-off { flex: 1; justify-content: flex-end; min-width: 0; }
+
+/* ───────── 오른쪽 칸 접기/펴기 손잡이 (데스크탑) ───────── */
+.app { position: relative; }
+.panel-handle { position: absolute; top: 50%; z-index: 30; width: 1.75rem; height: 2.25rem; margin-top: -1.125rem; display: grid; place-items: center; border-radius: 0.9rem; background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.14), 0 0 0 1px var(--line); transition: left 0.25s ease, background 0.15s, scale 0.15s; }
+.panel-handle:hover { background: var(--accent-soft); color: var(--accent); }
+.panel-handle:active { scale: 0.94; }
+/* 접힌 상태: 화면 오른쪽 끝에 반원으로 붙는다 */
+.panel-handle.closed { border-radius: 0.9rem 0 0 0.9rem; }
+.rz-dragging .panel-handle { transition: none; }

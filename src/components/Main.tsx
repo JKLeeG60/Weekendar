@@ -23,6 +23,7 @@ import { comboOf, resolveShortcuts, type ShortcutId } from '../lib/shortcuts'
 import { finishGcalConnect } from '../lib/gcal'
 import { useLayout, clampRight, RIGHT_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
+import { Icon } from './ui'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
@@ -150,6 +151,16 @@ export function Main() {
         )}
         <PersonalPanel />
       </div>
+      {/* 오른쪽 칸 접기/펴기 손잡이: 팀 표와 오른쪽 칸의 경계(접히면 화면 오른쪽 끝) */}
+      <button
+        className={'panel-handle' + (panelOpen ? '' : ' closed')}
+        style={{ left: panelOpen ? `calc(${100 - lay.right}% - 0.9rem)` : 'calc(100% - 1.15rem)' }}
+        onClick={togglePanel}
+        aria-label={panelOpen ? t('내 일정·할 일 패널 숨기기') : t('내 일정·할 일 패널 보이기')}
+        title={(panelOpen ? t('내 일정·할 일 패널 숨기기') : t('내 일정·할 일 패널 보이기')) + ' (P)'}
+      >
+        <Icon name={panelOpen ? 'chevR' : 'chevL'} size={16} />
+      </button>
       {searchOpen && <SearchSheet />}
       <Modals />
       {toast && <Toast />}

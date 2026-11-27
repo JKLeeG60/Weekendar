@@ -18,7 +18,7 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
   // 두 팀에 속해 있으면 팀 전환 (데스크탑: 왼쪽 끝 버튼, 휴대폰: 제목을 눌러 목록)
   const multi = myTeams.length > 1
   const [teamOpen, setTeamOpen] = useState(false)
-  const { selected, setSelected, panelOpen, togglePanel, openModal, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
+  const { selected, setSelected, openModal, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
   const [pop, setPop] = useState<'bell' | 'menu' | null>(null)
   // 단축키(알림)로 알림 목록 열고 닫기
   useEffect(() => {
@@ -98,9 +98,6 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
             <Icon name="users" />
           </button>
         )}
-        <button className={'icon-btn panel-toggle' + (panelOpen ? '' : ' off')} onClick={togglePanel} aria-label={t('내 일정 패널 접기/펴기')} title={panelOpen ? t('내 일정·할 일 패널 숨기기') : t('내 일정·할 일 패널 보이기')}>
-          <Icon name="panel" />
-        </button>
         </div>
         <div className="rel">
           <button className="avatar-btn" onClick={() => setPop(pop === 'menu' ? null : 'menu')} aria-label={t('계정 메뉴')}>
