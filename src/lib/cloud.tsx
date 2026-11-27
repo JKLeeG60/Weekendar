@@ -340,7 +340,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      mode: 'cloud', loading, db, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, solo, online, isAdmin, isLeader, tableMembers, userOf, unreadCount,
+      mode: 'cloud', loading, db, refresh, messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages, me, myMember, team, myTeams, solo, online, isAdmin, isLeader, tableMembers, userOf, unreadCount,
 
       loginGoogle: () => {
         supabase.auth.signInWithOAuth({

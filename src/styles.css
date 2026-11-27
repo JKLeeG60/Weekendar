@@ -2191,3 +2191,10 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .brief-top img { width: 1.1rem; height: 1.1rem; border-radius: 0.28rem; }
 .brief-now { margin-left: auto; letter-spacing: 0; }
 .brief-off { color: var(--muted); }
+
+/* 휴대폰: 아래로 당겨 새로고침 */
+.m-ptr { flex: none; display: grid; place-items: center; overflow: hidden; margin: -0.7rem 0 0; color: var(--muted); transition: height 0.2s ease; }
+.m-ptr:not(.busy) { transition: none; }
+.m-ptr-ico { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.m-ptr.busy .m-ptr-ico { animation: m-ptr-spin 0.8s linear infinite; color: var(--accent); }
+@keyframes m-ptr-spin { to { transform: rotate(360deg); } }

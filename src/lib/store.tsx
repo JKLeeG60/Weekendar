@@ -312,6 +312,8 @@ function load(): DB {
 export interface Store {
   /** demo = 브라우저 저장 체험 모드, cloud = Supabase */
   mode: 'demo' | 'cloud'
+  /** 최신 내용 다시 불러오기 (휴대폰에서 아래로 당겨 새로고침) */
+  refresh: () => Promise<void>
   loading: boolean
   loginGoogle: () => void
   db: DB
@@ -604,6 +606,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       mode: 'demo', loading: false, loginGoogle: () => {},
+      // 체험 모드는 이 기기 안에만 있어서 다시 불러올 게 없다 (표시만)
+      refresh: async () => {},
       messages, chatUnread, chatMentions, dmThreads: threads, dmUnread, dmMessages, rooms, roomMessages,
       // 요청은 지금 보고 있는 팀 것만 (실서비스는 서버 권한 규칙이 팀별로 나눠 준다)
       db: { ...db, requests: db.requests.filter((r) => db.members.some((m) => m.userId === r.leaderId && m.teamId === myMember?.teamId && m.role === 'leader')) },

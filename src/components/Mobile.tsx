@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useStore } from '../lib/store'
 import { inRowOf, inviteOf } from '../lib/attend'
 import { useUI } from '../lib/ui'
@@ -29,7 +29,8 @@ const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
   const { toast, setChatOpen, chatOpen } = useUI()
-  const { db, me, chatUnread: teamUnread, chatMentions, dmUnread, solo } = useStore()
+  const { db, me, chatUnread: teamUnread, chatMentions, dmUnread, solo, refresh } = useStore()
+  const bodyRef = useRef<HTMLDivElement>(null)
   // 팀 대화 + 1:1 대화 안 읽은 수
   const chatUnread = teamUnread + dmUnread
   // 대화 탭을 보고 있으면 '대화창 열림'으로 본다 (호출 팝업을 띄우지 않음)
@@ -50,11 +51,17 @@ export function MobileMain() {
   const carry = me?.todoCarry !== false
   const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && (carry ? t.date <= selected : t.date === selected)).length
 
+  const ptr = usePullRefresh(bodyRef, tab !== 'chat', refresh)
+
   return (
     <div className="m-app">
       {/* 팀 탭은 기존 제목(○○팀 주간예정사항), 나머지 탭은 탭 이름 */}
       <Header mobileTitle={tab === 'team' ? (solo ? t('내 주간예정사항') : t('주간예정사항')) : t(TAB_TITLE[tab])} teamMenu={tab === 'team'} />
-      <div className="m-body">
+      <div className="m-body" ref={bodyRef}>
+        {/* 아래로 당겨 새로고침 (대화 탭 제외) */}
+        <div className={'m-ptr' + (ptr.busy ? ' busy' : '')} style={{ height: ptr.dist, opacity: Math.min(1, ptr.dist / PTR_GO) }} role="status" aria-label={ptr.busy ? t('새로고침 중') : undefined}>
+          <span className="m-ptr-ico" style={{ transform: ptr.busy ? undefined : `rotate(${ptr.dist * 4}deg)` }}><Icon name="refresh" size={18} /></span>
+        </div>
         {tab === 'team' && <MobileTeam />}
         {tab === 'me' && <DayAgenda />}
         {tab === 'todo' && <Todos />}
@@ -310,4 +317,60 @@ function MobileTeam() {
       )}
     </div>
   )
+}
+
+/** 당기는 거리가 이만큼 넘으면 놓았을 때 새로고침 */
+const PTR_GO = 64
+
+/**
+ * 아래로 당겨 새로고침: 안쪽 목록이 맨 위일 때만 동작.
+ * touchmove 를 막아야(passive: false) 화면 전체가 같이 끌려 내려오지 않는다.
+ */
+function usePullRefresh(ref: RefObject<HTMLDivElement | null>, enabled: boolean, refresh: () => Promise<void>) {
+  const [st, setSt] = useState({ dist: 0, busy: false })
+  const busyRef = useRef(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enabled) return
+    let startY = -1
+    let dist = 0
+    // 손가락 아래의 스크롤 영역이 전부 맨 위인지
+    const atTop = (target: EventTarget | null) => {
+      for (let n = target as HTMLElement | null; n && n !== el; n = n.parentElement) {
+        if (n.scrollTop > 0) return false
+        if (n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT') return false
+      }
+      return true
+    }
+    const start = (e: TouchEvent) => { startY = !busyRef.current && e.touches.length === 1 && atTop(e.target) ? e.touches[0].clientY : -1; dist = 0 }
+    const move = (e: TouchEvent) => {
+      if (startY < 0) return
+      const dy = e.touches[0].clientY - startY
+      if (dy <= 0) { if (dist) { dist = 0; setSt({ dist: 0, busy: false }) } return }
+      e.preventDefault()
+      dist = Math.min(110, dy * 0.5) // 당길수록 덜 따라오게
+      setSt({ dist, busy: false })
+    }
+    const end = async () => {
+      if (startY < 0) return
+      startY = -1
+      if (dist < PTR_GO) { setSt({ dist: 0, busy: false }); return }
+      busyRef.current = true
+      setSt({ dist: 48, busy: true })
+      await Promise.all([refresh().catch(() => {}), new Promise((r) => setTimeout(r, 600))])
+      busyRef.current = false
+      setSt({ dist: 0, busy: false })
+    }
+    el.addEventListener('touchstart', start, { passive: true })
+    el.addEventListener('touchmove', move, { passive: false })
+    el.addEventListener('touchend', end)
+    el.addEventListener('touchcancel', end)
+    return () => {
+      el.removeEventListener('touchstart', start)
+      el.removeEventListener('touchmove', move)
+      el.removeEventListener('touchend', end)
+      el.removeEventListener('touchcancel', end)
+    }
+  }, [ref, enabled, refresh])
+  return st
 }
