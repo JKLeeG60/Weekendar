@@ -7,6 +7,9 @@ import { t, useLang, type LangPref } from '../lib/i18n'
 import { Icon, Modal, Switch } from './ui'
 import { AUTO_OPTIONS } from './Absence'
 import { startInstall, useInstallable } from './People'
+import { makeBrief } from '../lib/brief'
+import { todayStr } from '../lib/date'
+import { sendBriefPush } from '../lib/push'
 
 /**
  * 설정: 흩어져 있던 설정을 아이폰 "설정" 앱처럼 묶음 목록으로 모은 창
@@ -75,6 +78,7 @@ export function SettingsModal() {
 
       <Group label={t('알림과 앱')}>
         <Row icon="bell" color="#ff3b30" label={t('휴대폰 알림')} onClick={() => openLayer({ type: 'push' })} />
+        <BriefRows />
         {installable && (
           <Row icon="addBox" color="#34c759" label={t('홈 화면에 추가')} sub={t('앱처럼 쓰기')} onClick={() => startInstall(() => openLayer({ type: 'install' }), showToast)} />
         )}
@@ -146,4 +150,59 @@ function GcalRow() {
       <button className="btn small ghost danger-text" onClick={async () => { await disconnectGcal(); setSt({ connected: false, broken: false }); showToast(t('구글 캘린더 연결을 끊었어요')) }}>{t('연결 끊기')}</button>
     </div>
   )
+}
+
+/** 아침 브리핑: 켜기 · 보내는 시간 · 요일 · 미리 보기 */
+function BriefRows() {
+  const { me, db, myMember, absences, setBriefing, mode } = useStore()
+  const { showToast } = useUI()
+  const [preview, setPreview] = useState(false)
+  const on = me?.briefOn !== false
+  const time = me?.briefTime ?? '08:30'
+  const days = me?.briefDays ?? 'weekdays'
+  const [h, mm] = time.split(':').map(Number)
+  const when = t(days === 'daily' ? '매일 {time}' : '평일 {time}', { time: fmtClock(h, mm) })
+  const brief = preview && me ? makeBrief(db, me.id, myMember?.teamId, absences, todayStr(), me.todoCarry !== false) : null
+  return (
+    <>
+      <Row icon="sun" color="#ff9f0a" label={t('아침 브리핑')} sub={on ? when + ' · ' + t('오늘 일정·할 일·마감·부재') : t('꺼져 있어요')}>
+        <Switch on={on} onChange={(v) => setBriefing({ on: v })} label={t('아침 브리핑')} />
+      </Row>
+      {on && (
+        <>
+          <Row icon="clock" color="#5e5ce6" label={t('보내는 시간')}>
+            <input
+              type="time" className="brief-time" value={time} step={300} aria-label={t('보내는 시간')}
+              onChange={(e) => { if (/^\d{2}:\d{2}$/.test(e.target.value)) setBriefing({ time: e.target.value }) }}
+            />
+          </Row>
+          <Row icon="cal" color="#007aff" label={t('요일')} sub={days === 'weekdays' ? t('주말·공휴일·휴가인 날은 쉬어요') : t('휴가인 날은 쉬어요')}>
+            <div className="theme-seg" role="radiogroup" aria-label={t('요일')}>
+              <button role="radio" aria-checked={days === 'weekdays'} className={days === 'weekdays' ? 'on' : ''} onClick={() => setBriefing({ days: 'weekdays' })}>{t('평일만')}</button>
+              <button role="radio" aria-checked={days === 'daily'} className={days === 'daily' ? 'on' : ''} onClick={() => setBriefing({ days: 'daily' })}>{t('매일')}</button>
+            </div>
+          </Row>
+          <div className="brief-actions">
+            <button className="link-btn" onClick={() => setPreview((v) => !v)}>{preview ? t('미리 보기 닫기') : t('오늘 브리핑 미리 보기')}</button>
+            {mode === 'cloud' && (
+              <button className="link-btn" onClick={async () => { const e = await sendBriefPush(); showToast(e ?? t('휴대폰으로 보냈어요.')) }}>{t('휴대폰으로 받아 보기')}</button>
+            )}
+          </div>
+          {brief && (
+            <div className="brief-card" aria-live="polite">
+              <div className="brief-top"><img src="/icons/icon-192.png" alt="" /><span>WEEKENDAR</span><span className="brief-now">{t('지금')}</span></div>
+              <b>{brief.title}</b>
+              {brief.off ? <p className="brief-off">{t('오늘은 휴가라 브리핑을 보내지 않아요.')}</p> : brief.lines.map((l, i) => <p key={i}>{l}</p>)}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+/** "오전 8:30" · "8:30 AM" */
+function fmtClock(h: number, m: number) {
+  const mm = String(m).padStart(2, '0')
+  return t(h < 12 ? '오전 {h}:{m}' : '오후 {h}:{m}', { h: h % 12 === 0 ? 12 : h % 12, m: mm })
 }

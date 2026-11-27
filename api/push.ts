@@ -1,6 +1,7 @@
 // 휴대폰 푸쉬 알림 발송
 //  GET  /api/push                         → 브라우저가 기기를 등록할 때 쓰는 공개 키
 //  POST /api/push {kind:'test'}           → (로그인한 본인) 내 기기로 테스트 알림
+//  POST /api/push {kind:'brief-test'}     → (로그인한 본인) 아침 브리핑을 지금 받아 보기
 //  POST /api/push {kind:'notice'|'message'|'remind'}  → Supabase 가 호출 (x-push-secret 필요)
 // 비밀값은 모두 Vercel 환경 변수에만 있다: SUPABASE_SERVICE_ROLE_KEY, VAPID_PRIVATE_KEY, PUSH_SECRET
 import webpush from 'web-push'
@@ -280,6 +281,101 @@ async function onRemind() {
   return sent
 }
 
+// ───────── 아침 브리핑 (migration_038) ─────────
+const KIND_KO: Record<string, string> = { annual: '휴가', am: '오전 반차', pm: '오후 반차', sick: '병가', family: '경조사', trip: '출장' }
+const KIND_EN: Record<string, string> = { annual: 'off', am: 'morning off', pm: 'afternoon off', sick: 'sick', family: 'family event', trip: 'trip' }
+const DOW_KO = '일월화수목금토', DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** 한 사람의 오늘 브리핑. 휴가인 날이면 null (보내지 않음) */
+async function briefOf(u: { id: string; todo_carry?: boolean; current_team_id?: string | null }, today: string): Promise<((lang: Lang) => Payload) | null> {
+  const evFilter = `date=lte.${today}&and=(or(until.is.null,until.gte.${today}),or(date.eq.${today},end_date.gte.${today},repeat_rule.neq.none))&select=id,title,date,end_date,until,start_time,end_time,category,repeat_rule`
+  const own: any[] = (await db(`events?owner_id=eq.${u.id}&${evFilter}`)) || []
+  // 수락한 회의 초대
+  const att: any[] = (await db(`event_attendees?user_id=eq.${u.id}&status=eq.accepted&select=event_id`).catch(() => [])) || []
+  const inv: any[] = att.length ? (await db(`events?id=in.(${att.map((a) => a.event_id).join(',')})&${evFilter}`)) || [] : []
+  const occurs = (e: any) => (e.end_date && e.end_date > e.date ? e.date <= today && today <= e.end_date : occursOn(e, today))
+  const evs = [...own, ...inv].filter(occurs).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+  // 하루 종일 휴가인 날은 보내지 않는다
+  if (evs.some((e) => e.category === 'leave')) return null
+  const todos: any[] = (await db(`todos?owner_id=eq.${u.id}&done=eq.false&parent_id=is.null&date=${u.todo_carry === false ? 'eq' : 'lte'}.${today}&select=title,assigned_by,due_date,due_time`)) || []
+  const due = todos.filter((x) => x.assigned_by && x.due_date === today)
+  const plain = todos.filter((x) => !x.assigned_by).length + todos.filter((x) => x.assigned_by && x.due_date !== today).length
+  // 오늘 팀 부재 (승인된 휴가·출장, 나 빼고)
+  let away: { name: string; kind: string }[] = []
+  if (u.current_team_id) {
+    const ab: any[] = (await db(`absence_requests?team_id=eq.${u.current_team_id}&status=eq.approved&user_id=neq.${u.id}&date=lte.${today}&or=(end_date.gte.${today},date.eq.${today})&select=user_id,kind`).catch(() => [])) || []
+    if (ab.length) {
+      const ps: any[] = (await db(`profiles?id=in.(${[...new Set(ab.map((a) => a.user_id))].join(',')})&select=id,name`)) || []
+      away = ab.map((a) => ({ name: ps.find((p) => p.id === a.user_id)?.name || '', kind: a.kind }))
+    }
+  }
+  const [y, mo, d] = today.split('-').map(Number)
+  const w = dowOf(today)
+  const allDay = (e: any) => e.end_date && e.end_date > e.date
+  return (lang) => {
+    const en = lang === 'en'
+    const lines: string[] = []
+    const head = en
+      ? [`${evs.length} event${evs.length === 1 ? '' : 's'}`, `${plain} to-do${plain === 1 ? '' : 's'}`, ...(due.length ? [`${due.length} due today`] : [])]
+      : [`일정 ${evs.length}개`, `할 일 ${plain}개`, ...(due.length ? [`오늘 마감 ${due.length}건`] : [])]
+    if (!evs.length && !plain && !due.length) lines.push(en ? 'Nothing scheduled today. Have a relaxed day!' : '오늘은 일정도 할 일도 없어요. 여유로운 하루 보내세요!')
+    else lines.push(head.join(' · '))
+    if (evs.length) {
+      const top = evs.slice(0, 3).map((e) => (allDay(e) ? e.title : `${e.start_time} ${e.title}`)).join(' · ')
+      lines.push(top + (evs.length > 3 ? (en ? ` +${evs.length - 3} more` : ` 외 ${evs.length - 3}개`) : ''))
+    }
+    for (const x of due.slice(0, 2)) lines.push(en ? `⚑ ${x.title} due ${x.due_time || 'today'}` : `⚑ ${x.title}${x.due_time ? ' ' + x.due_time : ''} 마감`)
+    if (away.length) lines.push((en ? 'Away today: ' : '오늘 부재: ') + away.map((a) => `${a.name} ${en ? KIND_EN[a.kind] : KIND_KO[a.kind]}`).join(', '))
+    return {
+      title: en ? `Good morning · ${DOW_EN[w]} ${mo}/${d}` : `좋은 아침이에요 · ${mo}. ${d}.(${DOW_KO[w]})`,
+      body: lines.join('\n'),
+      tag: `brief-${y}${mo}${d}`,
+      url: '/',
+    }
+  }
+}
+
+/** 정한 시간(기본 평일 08:30)이 된 사람에게 하루 한 번 브리핑 */
+async function onBrief() {
+  const seoul = new Date(Date.now() + 9 * 3600 * 1000)
+  const today = seoul.toISOString().slice(0, 10)
+  const now = seoul.getUTCHours() * 60 + seoul.getUTCMinutes()
+  const hm = (n: number) => `${pad2(Math.floor(n / 60))}:${pad2(n % 60)}`
+  // 휴대폰 알림을 켠 사람만
+  const subs: any[] = (await db('push_subscriptions?select=user_id')) || []
+  const ids = [...new Set(subs.map((x) => x.user_id))]
+  if (!ids.length) return 0
+  // 정한 시간부터 1시간 안 (서버가 잠깐 멈춰도 놓치지 않게)
+  const people: any[] = (await db(`profiles?id=in.(${ids.join(',')})&brief_on=eq.true&brief_time=lte.${hm(now)}&brief_time=gte.${hm(Math.max(0, now - 60))}&select=id,brief_days,todo_carry,current_team_id`)) || []
+  const offDay = isWeekendStr(today) || isHoliday(today)
+  const due = people.filter((p) => p.brief_days === 'daily' || !offDay)
+  if (!due.length) return 0
+  // 처음 보내는 사람만 (이미 기록된 사람은 무시)
+  const fresh: any[] = (await db('brief_log?on_conflict=user_id,day', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+    body: JSON.stringify(due.map((p) => ({ user_id: p.id, day: today }))),
+  })) || []
+  let sent = 0
+  for (const f of fresh) {
+    const p = due.find((x) => x.id === f.user_id)
+    const make = p && (await briefOf(p, today))
+    if (make) sent += await sendTo([p.id], make)
+  }
+  return sent
+}
+
+/** 설정의 "휴대폰으로 받아 보기": 로그인한 본인에게 지금 브리핑 (휴가인 날도 보냄) */
+async function onBriefTest(authHeader: string) {
+  const r = await fetch(`${SB}/auth/v1/user`, { headers: { apikey: ANON, Authorization: authHeader } })
+  if (!r.ok) return -1
+  const u = await r.json()
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+  const p: any[] = (await db(`profiles?id=eq.${u.id}&select=id,todo_carry,current_team_id`)) || []
+  const make = await briefOf(p[0] ?? { id: u.id }, today)
+  return sendTo([u.id], make ?? ((lang) => ({ title: L(lang, '오늘은 휴가예요', "You're off today"), body: L(lang, '휴가인 날에는 아침 브리핑을 보내지 않아요.', 'Morning briefings skip your days off.'), tag: 'brief-test', url: '/' })))
+}
+
 // 테스트 알림: 로그인한 사람의 토큰을 Supabase 에 확인해서 본인 기기로만 보냄
 async function onTest(authHeader: string) {
   const r = await fetch(`${SB}/auth/v1/user`, { headers: { apikey: ANON, Authorization: authHeader } })
@@ -306,10 +402,16 @@ export default async function handler(req: any, res: any) {
       res.status(200).json({ sent: n })
       return
     }
+    if (body.kind === 'brief-test') {
+      const n = await onBriefTest(String(req.headers.authorization || ''))
+      if (n < 0) { res.status(401).json({ error: 'login required' }); return }
+      res.status(200).json({ sent: n })
+      return
+    }
     if (!SECRET || req.headers['x-push-secret'] !== SECRET) { res.status(401).json({ error: 'unauthorized' }); return }
     const id = String(body.id || '')
     if (body.kind !== 'remind' && !/^[0-9a-f-]{36}$/.test(id)) { res.status(400).json({ error: 'bad id' }); return }
-    const n = body.kind === 'notice' ? await onNotice(id) : body.kind === 'message' ? await onMessage(id) : body.kind === 'remind' ? await onRemind() : 0
+    const n = body.kind === 'notice' ? await onNotice(id) : body.kind === 'message' ? await onMessage(id) : body.kind === 'remind' ? (await onRemind()) + (await onBrief().catch(() => 0)) : 0
     res.status(200).json({ sent: n })
   } catch (e: any) {
     res.status(500).json({ error: String((e && e.message) || e) })

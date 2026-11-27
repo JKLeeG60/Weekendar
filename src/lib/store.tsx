@@ -11,6 +11,7 @@ import type {
   AbsenceKind,
   Attendee,
   AutoApprove,
+  BriefDays,
   BusyEvent,
   Category,
   ChangeRequest,
@@ -330,6 +331,8 @@ export interface Store {
   finishTutorial: () => void
   /** 설정: 못 끝낸 할 일을 다음 날로 넘기기 (계정에 저장) */
   setTodoCarry: (on: boolean) => void
+  /** 아침 브리핑 설정 (켜기·시각·요일) */
+  setBriefing: (patch: { on?: boolean; time?: string; days?: BriefDays }) => void
   /** 설정: 내 단축키 저장 (바꾼 것만, 빈 값이면 모두 기본값) */
   setShortcuts: (map: Record<string, string>) => void
   /** 약관 동의 기록 (실서비스: 처음 로그인한 뒤 한 번) */
@@ -614,6 +617,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, tutorialSeen: true } : u)) })),
       setShortcuts: (map) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, shortcuts: map } : u)) })),
+      setBriefing: ({ on, time, days }) =>
+        set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, ...(on !== undefined ? { briefOn: on } : {}), ...(time ? { briefTime: time } : {}), ...(days ? { briefDays: days } : {}) } : u)) })),
       setTodoCarry: (on) =>
         set((p) => ({ ...p, users: p.users.map((u) => (u.id === p.currentUserId ? { ...u, todoCarry: on } : u)) })),
       agreeTerms: () =>

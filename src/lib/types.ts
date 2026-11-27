@@ -8,6 +8,10 @@ export interface User {
   tutorialSeen?: boolean
   /** 못 끝낸 할 일을 다음 날로 넘길지 (없으면 켜짐) */
   todoCarry?: boolean
+  /** 아침 브리핑: 켜짐(없으면 켜짐) · 보내는 시각("08:30") · 요일 */
+  briefOn?: boolean
+  briefTime?: string
+  briefDays?: BriefDays
   /** 바꾼 단축키만 (단축키 id → 키). 없으면 기본 단축키 */
   shortcuts?: Record<string, string>
   /** 동의한 약관 버전 (0 또는 없음 = 아직 동의 안 함) */
@@ -29,6 +33,9 @@ export interface Team {
 }
 
 export type AutoApprove = 'none' | 'all' | 'trip' | 'leave'
+
+/** 아침 브리핑 요일: 평일만 · 매일 */
+export type BriefDays = 'weekdays' | 'daily'
 
 /** 1인 1팀: userId 는 유일해야 한다 (Supabase 에서는 unique 제약). */
 export interface Member {

@@ -165,7 +165,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     for (const x of (rx.data ?? []) as any[]) (reactions[x.message_id] ??= {})[x.user_id] = x.emoji
     setDb({
       currentUserId: uid,
-      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
+      users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, briefOn: x.brief_on ?? true, briefTime: x.brief_time ?? '08:30', briefDays: x.brief_days ?? 'weekdays', shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal, autoApprove: x.auto_approve ?? 'none' })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map((x: any) => { const ev = evFrom(x); const a = attendeesOf.get(ev.id); return a ? { ...ev, attendees: a } : ev }),
@@ -496,6 +496,15 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       },
 
       // 할 일 넘기기 설정: 먼저 화면에 반영하고, 실패하면 되돌린다
+      setBriefing: async ({ on, time, days }) => {
+        if (!me) return
+        const before = { briefOn: me.briefOn, briefTime: me.briefTime, briefDays: me.briefDays }
+        const next = { ...(on !== undefined ? { briefOn: on } : {}), ...(time ? { briefTime: time } : {}), ...(days ? { briefDays: days } : {}) }
+        const put = (v: typeof next) => setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, ...v } : u)) }))
+        put(next)
+        const { error } = await supabase.from('profiles').update({ ...(on !== undefined ? { brief_on: on } : {}), ...(time ? { brief_time: time } : {}), ...(days ? { brief_days: days } : {}) }).eq('id', me.id)
+        if (error) { put(before); fail(error) }
+      },
       setTodoCarry: async (on) => {
         if (!me) return
         const put = (v: boolean) => setDb((p) => ({ ...p, users: p.users.map((u) => (u.id === me.id ? { ...u, todoCarry: v } : u)) }))

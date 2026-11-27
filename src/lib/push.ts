@@ -62,6 +62,19 @@ export async function disablePush() {
   try { localStorage.removeItem(FLAG) } catch { /* 무시 */ }
 }
 
+/** 아침 브리핑을 지금 내 기기로 받아 보기 */
+export async function sendBriefPush(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) return t('로그인이 필요해요.')
+  const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ kind: 'brief-test' }) })
+    .then((x) => x.json()).catch(() => null)
+  if (!r) return t('서버에 연결하지 못했어요.')
+  if (r.error) return t('서버 설정을 확인해주세요. ({error})', { error: r.error })
+  if (!r.sent) return t('등록된 기기가 없어요. 알림을 다시 켜주세요.')
+  return null
+}
+
 export async function sendTestPush(): Promise<string | null> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
