@@ -357,7 +357,12 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
     let pane: HTMLElement = el
     let mode: 'none' | 'wait' | 'pull' | 'swipe' = 'none'
     let canPull = false, canSwipe = false
-    const typing = (n: HTMLElement) => n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT' || n.tagName === 'SELECT'
+    // 지금 글을 쓰는 중인 칸 (커서가 있는 입력칸·메모장). 읽기만 하는 메모장 위에서는 밀어도 된다
+    const typing = (n: HTMLElement) => {
+      const a = document.activeElement as HTMLElement | null
+      const field = n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT' || n.tagName === 'SELECT'
+      return field && !!a && a !== document.body && (a === n || n.contains(a))
+    }
     const scan = (target: EventTarget | null) => {
       let top = true, side = true
       for (let n = target as HTMLElement | null; n && n !== el; n = n.parentElement) {
