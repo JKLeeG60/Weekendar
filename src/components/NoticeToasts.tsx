@@ -21,11 +21,11 @@ interface Item {
   title: string
   text: string
   tag?: string
-  icon?: 'clock' | 'cal'
+  icon?: 'clock' | 'cal' | 'check' | 'assign'
 }
 
 const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : k === 'confirm' ? '팀장이 일정을 변경했어요'
-  : k === 'invite' ? '회의 초대' : k === 'decline' ? '회의 불참' : '요청 결과')
+  : k === 'invite' ? '회의 초대' : k === 'decline' ? '회의 불참' : k === 'assign' ? '업무 배정' : k === 'done' ? '업무 완료' : '요청 결과')
 
 /**
  * 오른쪽 아래 알림 팝업 (5초).
@@ -91,7 +91,7 @@ export function NoticeToasts() {
       // 회의 초대(일정이 남아 있을 때)는 [불참]·[참석] 버튼이 있는 팝업
       kind: n.kind === 'confirm' ? 'confirm' : n.kind === 'invite' && n.eventId ? 'invite' : 'notice',
       title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId,
-      icon: n.kind === 'decline' ? 'cal' : undefined,
+      icon: n.kind === 'decline' ? 'cal' : n.kind === 'done' ? 'check' : n.kind === 'assign' ? 'assign' : undefined,
     })))
   }, [db.notices, me?.id])
 
@@ -161,13 +161,13 @@ export function NoticeToasts() {
       ) : (
         <button
           key={n.id}
-          className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' ? ' info' : '')}
+          className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' || n.icon === 'assign' ? ' info' : n.icon === 'check' ? ' ok' : '')}
           onClick={() => {
             setItems((p) => p.filter((x) => x.id !== n.id))
             if (n.kind === 'mention') setChatOpen(true)
           }}
         >
-          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name={n.kind === 'remind' ? n.icon ?? 'clock' : 'bell'} size={18} />}</span>
+          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name={n.kind === 'remind' ? n.icon ?? 'clock' : n.icon === 'check' || n.icon === 'assign' ? n.icon : 'bell'} size={18} />}</span>
           <span className="ntoast-body">
             <strong>{n.title}</strong>
             <span>{n.text}</span>

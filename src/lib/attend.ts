@@ -99,3 +99,15 @@ export function respondDemo(p: DB, eventId: string, status: 'accepted' | 'declin
       : notices,
   }
 }
+
+// ───────── 업무 배정 ─────────
+/** 두 날짜 사이 날 수 (b - a) */
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000)
+
+/** 마감까지 상태: 끝남 · 지남(n일) · 오늘 · D-n · 마감 없음 */
+export function dueState(t: { done: boolean; dueDate?: string }, today: string): { kind: 'done' | 'late' | 'today' | 'soon' | 'none'; days: number } {
+  if (t.done) return { kind: 'done', days: 0 }
+  if (!t.dueDate) return { kind: 'none', days: 0 }
+  const d = daysBetween(today, t.dueDate)
+  return { kind: d < 0 ? 'late' : d === 0 ? 'today' : 'soon', days: Math.abs(d) }
+}

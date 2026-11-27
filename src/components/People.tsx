@@ -12,11 +12,13 @@ import { Avatar, Icon, Modal } from './ui'
 
 /* ─────────── 팀원 메뉴: 월간 일정 보기 / 1:1 대화 / 메일 보내기 ─────────── */
 export function MemberMenu({ userId, x, y }: { userId: string; x?: number; y?: number }) {
-  const { userOf, tableMembers, me } = useStore()
+  const { userOf, tableMembers, me, isLeader, isAdmin, solo } = useStore()
   const { closeModal, openModal, openDM } = useUI()
   const u = userOf(userId)
   const m = tableMembers.find((x) => x.userId === userId)
   const mine = userId === me?.id
+  // 업무 배정: 팀장·관리자가 다른 팀원에게
+  const canAssign = (isLeader || isAdmin) && !solo && !mine && m?.role !== 'pending'
   const role = m?.role === 'leader' ? t('팀장') : m?.title || ''
   // 누른 자리 옆에 말풍선처럼 (휴대폰 팀 주간표도 이름 오른쪽에)
   const at = x !== undefined && y !== undefined ? { x, y } : undefined
@@ -30,6 +32,11 @@ export function MemberMenu({ userId, x, y }: { userId: string; x?: number; y?: n
         </div>
       </div>
       <div className="mm-list">
+        {canAssign && (
+          <button className="mm-item accent" onClick={() => openModal({ type: 'assign', userIds: [userId] })}>
+            <Icon name="assign" size={18} /> {t('업무 배정')}
+          </button>
+        )}
         <button className="mm-item" onClick={() => openModal({ type: 'month', userId })}>
           <Icon name="cal" size={18} /> {mine ? t('내 월간 일정 보기') : t('월간 일정 보기')}
         </button>

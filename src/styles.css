@@ -2056,3 +2056,36 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 
 /* 부재자 이름표: 마우스만 올렸을 때는 말풍선이 마우스를 가로막지 않게 */
 .abs-pop.peek { pointer-events: none; }
+
+/* ───────── 업무 배정 ───────── */
+.mm-item.accent { color: var(--accent); font-weight: 650; }
+.assign-note { width: 100%; border: 0; background: transparent; resize: vertical; padding: 0.75rem 0.9rem; font: inherit; font-size: 0.95rem; color: var(--text); min-height: 4.2rem; }
+.assign-note:focus { outline: none; }
+/* 할 일: 배정받은 업무 */
+.asg-sec { margin: 0.5rem 0 0.7rem; }
+.asg-h { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; color: var(--accent); margin: 0 0.15rem 0.35rem; }
+.asg-card { display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.6rem 0.7rem; margin-bottom: 0.4rem; border-radius: 0.8rem; background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.asg-card .check { margin-top: 0.05rem; background: var(--surface); }
+.asg-card.late { background: color-mix(in srgb, var(--red) 8%, transparent); box-shadow: inset 3px 0 0 var(--red); }
+.asg-card.late em { color: var(--red); }
+.asg-card.done { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--faint); }
+.asg-card.done .check { background: var(--faint); border-color: var(--faint); }
+.asg-card.done b { color: var(--faint); text-decoration: line-through; }
+.asg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; }
+.asg-body b { font-size: 0.95rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asg-body small { font-size: 0.76rem; color: var(--muted); margin-top: 0.1rem; }
+.asg-body em { font-style: normal; font-weight: 700; color: var(--accent); }
+.asg-body p { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text); background: var(--surface); border-radius: 0.5rem; padding: 0.3rem 0.5rem; white-space: pre-wrap; }
+/* 할 일: 내가 배정한 업무 */
+.asg-mine { margin: 0.5rem 0 0.7rem; padding: 0.65rem 0.6rem 0.35rem; border-radius: 0.9rem; background: var(--surface-2); }
+.asg-mine .asg-h { justify-content: space-between; color: var(--text); }
+.asg-mine .asg-h .c { color: var(--muted); font-weight: 600; }
+.asg-row { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.4rem 0.15rem; border-radius: 0.6rem; }
+.asg-row:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.asg-st { flex: none; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 99px; color: var(--accent); background: var(--accent-soft); }
+.asg-row.late .asg-st { color: var(--red); background: color-mix(in srgb, var(--red) 13%, transparent); }
+.asg-row.today .asg-st { color: #c76b00; background: rgba(255, 149, 0, 0.16); }
+.asg-row.done .asg-st { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.asg-row.done b { color: var(--muted); text-decoration: line-through; }
+/* 오른쪽 아래 팝업: 업무 완료는 초록 */
+.ntoast.ok .ntoast-ico { background: var(--green); }

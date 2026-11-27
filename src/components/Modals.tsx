@@ -60,6 +60,7 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'calendar': return <CalendarModal />
     case 'leave': return <LeaveModal />
     case 'teamup': return <TeamUpModal />
+    case 'assign': return <AssignModal userIds={modal.userIds} todoId={modal.todoId} />
     case 'push': return <PushModal />
     case 'member': return <MemberMenu userId={modal.userId} x={modal.x} y={modal.y} />
     case 'month': return <MonthModal userId={modal.userId} date={modal.date} />
@@ -926,5 +927,87 @@ export function GcalIcon({ size = 16 }: { size?: number }) {
       <rect x="3" y="4" width="18" height="5" rx="2" fill="#4285f4" />
       <text x="12" y="18.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="#4285f4" fontFamily="Arial">31</text>
     </svg>
+  )
+}
+
+/**
+ * 업무 배정 (팀장·관리자): 업무 · 담당자(여러 명) · 마감 날짜(·시각) · 메모.
+ * todoId 가 있으면 내가 배정한 업무 고치기 (담당자는 바꿀 수 없음) / 업무 취소.
+ */
+function AssignModal({ userIds, todoId }: { userIds?: string[]; todoId?: string }) {
+  const { db, assignTask, editAssigned, removeTodo, userOf } = useStore()
+  const { closeModal, showToast } = useUI()
+  const base = todoId ? db.todos.find((x) => x.id === todoId) : undefined
+  const [text, setText] = useState(base?.text ?? '')
+  const [who, setWho] = useState<string[]>(base ? [base.ownerId] : userIds ?? [])
+  // 마감 기본값: 다음 평일 (주말·공휴일 건너뜀)
+  const [due, setDue] = useState(() => {
+    if (base?.dueDate) return base.dueDate
+    let d = addDays(todayStr(), 1)
+    while (isWeekend(d) || holidayName(d)) d = addDays(d, 1)
+    return d
+  })
+  const [timed, setTimed] = useState(!!base?.dueTime)
+  const [time, setTime] = useState(base?.dueTime ?? '18:00')
+  const [note, setNote] = useState(base?.note ?? '')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const ok = !!text.trim() && who.length > 0
+  const save = async () => {
+    if (!ok || busy) return
+    if (base) {
+      editAssigned(base.id, { text: text.trim(), dueDate: due, dueTime: timed ? time : '', note })
+      closeModal(); showToast(t('업무를 고쳤어요. {name}님에게 알렸어요.', { name: userOf(base.ownerId).name }))
+      return
+    }
+    setBusy(true)
+    const e = await assignTask({ text: text.trim(), userIds: who, dueDate: due, dueTime: timed ? time : undefined, note })
+    setBusy(false)
+    if (e) { setErr(e); return }
+    closeModal(); showToast(t('{n}명에게 업무를 배정했어요.', { n: who.length }))
+  }
+  return (
+    <Modal
+      title={base ? t('배정한 업무') : t('업무 배정')}
+      onClose={closeModal}
+      footer={
+        <>
+          {base && !base.done && (
+            <button className="btn danger-ghost left" onClick={() => { removeTodo(base.id); closeModal(); showToast(t('업무를 취소했어요. {name}님에게 알렸어요.', { name: userOf(base.ownerId).name })) }}>{t('업무 취소')}</button>
+          )}
+          <button className="btn ghost" onClick={closeModal}>{t('닫기')}</button>
+          {!base?.done && <button className="btn primary" disabled={!ok || busy} onClick={() => void save()}>{base ? t('저장') : t('배정하기')}</button>}
+        </>
+      }
+    >
+      <div className="form">
+        <input className="title-input" autoFocus data-autofocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('업무 (예: 12월 예산안 작성)')} disabled={base?.done} />
+        <AttendeeField
+          value={who}
+          onChange={setWho}
+          label={t('담당자')}
+          locked={!!base}
+          note={base ? (base.done ? t('끝냈어요') : t('진행 중')) : who.length > 1 ? t('{n}명 · 각자 할 일로 들어가요', { n: who.length }) : ''}
+        />
+        <div className="group">
+          <div className="gr">
+            <span>{t('마감')}</span>
+            <span className="pills"><PickerField kind="date" value={due} onChange={setDue} label={t('마감 날짜')} /></span>
+          </div>
+          <div className="gr">
+            <span>{t('마감 시각')}</span>
+            <span className="pills">
+              {timed && <PickerField kind="time" value={time} onChange={setTime} label={t('마감 시각')} />}
+              <Switch on={timed} onChange={setTimed} label={t('마감 시각')} />
+            </span>
+          </div>
+        </div>
+        <div className="group">
+          <textarea className="assign-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('메모 (선택)')} rows={3} disabled={base?.done} />
+        </div>
+        {err && <p className="error">{err}</p>}
+        {!base && <p className="hint">{t('배정하면 담당자에게 알림이 가고, 끝내면 알려 드려요.')}</p>}
+      </div>
+    </Modal>
   )
 }

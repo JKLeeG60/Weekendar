@@ -52,6 +52,11 @@ function noticeText(text: string, lang: Lang): string {
   if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청에 동의했습니다\. \(([\s\S]*)\)$/))) return `Your team lead approved your request to ${VERB[m[1]]} an event. (${m[2]})`
   if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청을 거절했습니다\. \(([\s\S]*?)\)(?: 사유: ([\s\S]*))?$/)))
     return `Your team lead declined your request to ${VERB[m[1]]} an event. (${m[2]})` + (m[3] ? ` Reason: ${m[3]}` : '')
+  // 업무 배정·수정·취소·완료 (migration_035)
+  if ((m = text.match(/^(.+)님이 업무를 배정했어요: ([\s\S]+)$/))) return `${m[1]} assigned you a task: ${m[2].replace(/ \((\S+)( \S+)? 마감\)$/, ' (due $1$2)')}`
+  if ((m = text.match(/^(.+)님이 배정한 업무를 바꿨어요: ([\s\S]+)$/))) return `${m[1]} updated a task: ${m[2].replace(/ \((\S+)( \S+)? 마감\)$/, ' (due $1$2)')}`
+  if ((m = text.match(/^(.+)님이 배정한 업무를 취소했어요: ([\s\S]+)$/))) return `${m[1]} canceled a task: ${m[2]}`
+  if ((m = text.match(/^(.+)님이 배정한 업무를 끝냈어요: ([\s\S]+)$/))) return `${m[1]} finished a task you assigned: ${m[2]}`
   // 회의 초대·시간 변경·취소·불참 (migration_034)
   if ((m = text.match(/^(.+)님이 회의에 초대했어요: ([\s\S]+) \(([^()]+)\)$/))) return `${m[1]} invited you to a meeting: ${m[2]} (${m[3]})`
   if ((m = text.match(/^(.+)님이 회의 시간을 바꿨어요: ([\s\S]+) \(([^()]+)\)$/))) return `${m[1]} moved a meeting: ${m[2]} (${m[3]})`

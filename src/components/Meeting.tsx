@@ -7,8 +7,12 @@ import { busyOn, DAY_FROM, DAY_TO, fmtMin, freeRanges, LUNCH } from '../lib/atte
 import type { BusyEvent } from '../lib/types'
 import { Avatar, Icon } from './ui'
 
-/** 참석자 칸: 고른 사람 칩 + [+ 추가] 목록 + "모두 비는 시간 찾기" */
-export function AttendeeField({ value, onChange, onFind }: { value: string[]; onChange: (v: string[]) => void; onFind: () => void }) {
+/** 참석자 칸: 고른 사람 칩 + [+ 추가] 목록 + "모두 비는 시간 찾기" (업무 배정의 담당자 칸으로도 씀) */
+export function AttendeeField({ value, onChange, onFind, label, note, locked }: {
+  value: string[]; onChange: (v: string[]) => void; onFind?: () => void
+  /** 칸 이름 (기본 "참석자") · 오른쪽 작은 설명 · 고칠 수 없음 */
+  label?: string; note?: string; locked?: boolean
+}) {
   const { me, tableMembers, userOf } = useStore()
   const [open, setOpen] = useState(false)
   const others = tableMembers.filter((m) => m.userId !== me?.id && m.role !== 'pending')
@@ -17,18 +21,18 @@ export function AttendeeField({ value, onChange, onFind }: { value: string[]; on
     <div className="group">
       <div className="gr col att-field">
         <div className="att-head">
-          <span>{t('참석자')}</span>
-          {value.length > 0 && <small>{t('나 포함 {n}명', { n: value.length + 1 })}</small>}
+          <span>{label ?? t('참석자')}</span>
+          {note !== undefined ? note && <small>{note}</small> : value.length > 0 && <small>{t('나 포함 {n}명', { n: value.length + 1 })}</small>}
         </div>
         <div className="att-chips">
           {value.map((id) => (
             <span key={id} className="att-chip">
               <Avatar name={userOf(id).name} size={22} />
               {userOf(id).name}
-              <button type="button" className="att-x" onClick={() => toggle(id)} aria-label={t('{name} 빼기', { name: userOf(id).name })}>×</button>
+              {!locked && <button type="button" className="att-x" onClick={() => toggle(id)} aria-label={t('{name} 빼기', { name: userOf(id).name })}>×</button>}
             </span>
           ))}
-          <button type="button" className="att-chip add" onClick={() => setOpen((v) => !v)} aria-expanded={open}>+ {t('추가')}</button>
+          {!locked && <button type="button" className="att-chip add" onClick={() => setOpen((v) => !v)} aria-expanded={open}>+ {t('추가')}</button>}
         </div>
         {open && (
           <div className="att-pick" role="listbox" aria-multiselectable="true">
@@ -46,7 +50,7 @@ export function AttendeeField({ value, onChange, onFind }: { value: string[]; on
           </div>
         )}
       </div>
-      {value.length > 0 && (
+      {onFind && value.length > 0 && (
         <button type="button" className="gr att-find" onClick={onFind}>
           <span className="att-find-l"><Icon name="cal" size={18} />{t('모두 비는 시간 찾기')}</span>
           <Icon name="chevR" size={16} />

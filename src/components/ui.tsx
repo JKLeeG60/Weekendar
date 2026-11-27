@@ -135,6 +135,14 @@ const PATHS: Record<string, ReactNode> = {
   copy: <path d="M9 9h11v11H9zM5 15V4h11" />,
   cal: <path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4" />,
   // 일정 카드 묶음: 둥근 큰 네모 안에 연한 일정 카드 2개 + 왼쪽 색 띠 (팀 일정 카드 모양)
+  // 업무 배정: 클립보드 + 체크
+  assign: (
+    <>
+      <rect x="4.5" y="4.5" width="15" height="16" rx="3" />
+      <path d="M9 3.5h6v3H9z" />
+      <path d="M8.8 13.2l2.2 2.2 4.4-4.6" />
+    </>
+  ),
   eventCards: (
     <>
       <rect x="3.5" y="3.5" width="17" height="17" rx="4.2" />

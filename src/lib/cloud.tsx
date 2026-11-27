@@ -37,6 +37,9 @@ const evTo = (e: Partial<EventItem>) => {
 const todoFrom = (r: any): Todo => ({
   id: r.id, ownerId: r.owner_id, text: r.title, date: r.date, done: r.done, priority: r.priority,
   ...(r.parent_id ? { parentId: r.parent_id } : {}), ...(r.position != null ? { position: r.position } : {}),
+  // 업무 배정 (migration_035)
+  ...(r.assigned_by ? { assignedBy: r.assigned_by } : {}), ...(r.due_date ? { dueDate: r.due_date } : {}),
+  ...(r.due_time ? { dueTime: r.due_time } : {}), ...(r.note ? { note: r.note } : {}),
 })
 const reqFrom = (r: any): ChangeRequest => ({
   id: r.id, requesterId: r.requester_id, leaderId: r.leader_id, type: r.type,
@@ -214,6 +217,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     on('event_attendees')
     on('notices', `user_id=eq.${me}`)
     on('todos', `owner_id=eq.${me}`)
+    on('todos', `assigned_by=eq.${me}`)
     on('week_goals', `owner_id=eq.${me}`)
     on('members', teamId ? `team_id=eq.${teamId}` : `user_id=eq.${me}`)
     // 대화방에 초대되거나 누가 나가면 (서버 규칙상 내 방의 변화만 온다)
@@ -605,6 +609,20 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         run(() => supabase.rpc('decide_request', { p_id: id, p_accept: accept, p_reason: reason ?? '' }))
       },
 
+      assignTask: async ({ text, userIds, dueDate, dueTime, note }) => {
+        const { error } = await supabase.rpc('assign_task', { p_title: text, p_users: userIds, p_due_date: dueDate || null, p_due_time: dueTime || null, p_note: note || null })
+        if (error) return localize(error.message)
+        await refresh()
+      },
+      editAssigned: (id, patch) => {
+        const body: Record<string, unknown> = {}
+        if ('text' in patch) body.title = patch.text
+        if ('dueDate' in patch) body.due_date = patch.dueDate || null
+        if ('dueTime' in patch) body.due_time = patch.dueTime || null
+        if ('note' in patch) body.note = patch.note?.trim() || null
+        setDb((p) => ({ ...p, todos: p.todos.map((x) => (x.id === id ? { ...x, ...patch, note: patch.note?.trim() || (('note' in patch) ? undefined : x.note) } : x)) }))
+        run(() => supabase.from('todos').update(body).eq('id', id))
+      },
       addTodo: (text, date, priority = false) => run(() => supabase.from('todos').insert({ owner_id: me_id, title: text, date, ...(priority ? { priority: true } : {}) })) as unknown as void,
       // 체크/중요 표시는 즉시 반영하고 서버에 저장
       // 상위 할 일을 끝내면 하위 할 일도 모두 끝낸다

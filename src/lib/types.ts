@@ -140,6 +140,12 @@ export interface Todo {
   parentId?: string
   /** 목록 안 순서 (작을수록 위). 없으면 예전 순서(중요 → 만든 순) */
   position?: number
+  /** 업무 배정: 맡긴 사람 (팀장·관리자). 있으면 "배정받은 업무" */
+  assignedBy?: string
+  /** 업무 배정: 마감 날짜·시각("HH:MM")·메모 */
+  dueDate?: string
+  dueTime?: string
+  note?: string
 }
 
 /** 날짜별 메모 (마크다운, 나만 보임) */
@@ -161,7 +167,7 @@ export interface WeekGoal {
 export interface Notice {
   id: string
   userId: string
-  kind: 'request' | 'result' | 'join' | 'confirm' | 'invite' | 'decline'
+  kind: 'request' | 'result' | 'join' | 'confirm' | 'invite' | 'decline' | 'assign' | 'done'
   text: string
   refId?: string
   /** 'confirm' 알림이 가리키는 일정 */

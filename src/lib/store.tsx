@@ -81,6 +81,11 @@ function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
   return { ...p, events, confirms, notices }
 }
 
+/** 체험 모드 알림 하나 */
+function demoNotice(userId: string, kind: Notice['kind'], text: string): Notice {
+  return { id: 'n_' + Math.random().toString(36).slice(2, 10), userId, kind, text, read: false, createdAt: Date.now() }
+}
+
 /** 참석자 목록 정리: 나는 빼고, 이미 있던 사람은 응답을 그대로, 새 사람은 "응답 대기" */
 function cleanAttendees(list: Attendee[] | undefined, ownerId: string | null, prev: Attendee[]): Attendee[] | undefined {
   const out = (list ?? []).filter((a) => a.userId !== ownerId)
@@ -335,6 +340,10 @@ export interface Store {
   removeTodo: (id: string) => void
   /** 할 일을 다른 날로 옮기기 */
   moveTodo: (id: string, date: string) => void
+  /** 업무 배정 (팀장·관리자): 담당자마다 할 일 하나씩. 실패하면 오류 글 */
+  assignTask: (a: { text: string; userIds: string[]; dueDate?: string; dueTime?: string; note?: string }) => Promise<string | void>
+  /** 내가 배정한 업무 고치기 (담당자에게 알림) */
+  editAssigned: (id: string, patch: { text?: string; dueDate?: string; dueTime?: string; note?: string }) => void
   /** 지운 할 일 되살리기 (되돌리기) */
   /** 지운 할 일 되돌리기 (하위 할 일이 있었으면 함께) */
   restoreTodo: (t: Omit<Todo, 'id' | 'ownerId'>, children?: Omit<Todo, 'id' | 'ownerId'>[]) => void
@@ -873,12 +882,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const x = p.todos.find((t) => t.id === id)
           if (!x) return p
           const done = !x.done
-          return { ...p, todos: p.todos.map((t) => (t.id === id || (done && t.parentId === id) ? { ...t, done } : t)) }
+          const next = { ...p, todos: p.todos.map((t) => (t.id === id || (done && t.parentId === id) ? { ...t, done } : t)) }
+          // 배정받은 업무를 끝내면 배정한 사람에게 알림
+          if (done && x.assignedBy && x.assignedBy !== x.ownerId) {
+            const name = p.users.find((u) => u.id === x.ownerId)?.name ?? ''
+            return { ...next, notices: [demoNotice(x.assignedBy, 'done', `${name}님이 배정한 업무를 끝냈어요: ${x.text}`), ...p.notices] }
+          }
+          return next
         }),
       togglePriority: (id) =>
         set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id ? { ...t, priority: !t.priority } : t)) })),
       // 하위 할 일도 함께 지우고, 함께 옮긴다
-      removeTodo: (id) => set((p) => ({ ...p, todos: p.todos.filter((t) => t.id !== id && t.parentId !== id) })),
+      removeTodo: (id) => set((p) => {
+        const x = p.todos.find((t) => t.id === id)
+        const next = { ...p, todos: p.todos.filter((t) => t.id !== id && t.parentId !== id) }
+        // 배정한 사람이 끝나지 않은 업무를 지우면(취소) 담당자에게 알림
+        if (x?.assignedBy && x.assignedBy === p.currentUserId && x.ownerId !== p.currentUserId && !x.done) {
+          const name = p.users.find((u) => u.id === x.assignedBy)?.name ?? ''
+          return { ...next, notices: [demoNotice(x.ownerId, 'assign', `${name}님이 배정한 업무를 취소했어요: ${x.text}`), ...p.notices] }
+        }
+        return next
+      }),
+      assignTask: async ({ text, userIds, dueDate, dueTime, note }) => {
+        if (!isLeader && !isAdmin) return tr('팀장이나 관리자만 업무를 배정할 수 있어요')
+        if (!text.trim()) return tr('업무 내용을 적어 주세요')
+        set((p) => {
+          const me = p.currentUserId!
+          const name = p.users.find((u) => u.id === me)?.name ?? ''
+          const who = userIds.filter((u) => u !== me && p.members.some((m) => m.userId === u && m.teamId === myMember?.teamId && m.role !== 'pending'))
+          const due = dueDate ? ` (${Number(dueDate.slice(5, 7))}/${Number(dueDate.slice(8, 10))}${dueTime ? ' ' + dueTime : ''} 마감)` : ''
+          return {
+            ...p,
+            todos: [...p.todos, ...who.map((u): Todo => ({ id: uid(), ownerId: u, text: text.trim(), date: todayStr(), done: false, priority: false, assignedBy: me, dueDate, dueTime: dueTime || undefined, note: note?.trim() || undefined }))],
+            notices: [...who.map((u) => demoNotice(u, 'assign', `${name}님이 업무를 배정했어요: ${text.trim()}${due}`)), ...p.notices],
+          }
+        })
+      },
+      editAssigned: (id, patch) => set((p) => {
+        const x = p.todos.find((t) => t.id === id)
+        if (!x || x.assignedBy !== p.currentUserId) return p
+        const y: Todo = { ...x, ...('text' in patch ? { text: patch.text! } : {}), ...('dueDate' in patch ? { dueDate: patch.dueDate || undefined } : {}), ...('dueTime' in patch ? { dueTime: patch.dueTime || undefined } : {}), ...('note' in patch ? { note: patch.note?.trim() || undefined } : {}) }
+        const name = p.users.find((u) => u.id === x.assignedBy)?.name ?? ''
+        const due = y.dueDate ? ` (${Number(y.dueDate.slice(5, 7))}/${Number(y.dueDate.slice(8, 10))}${y.dueTime ? ' ' + y.dueTime : ''} 마감)` : ''
+        return { ...p, todos: p.todos.map((t) => (t.id === id ? y : t)), notices: [demoNotice(x.ownerId, 'assign', `${name}님이 배정한 업무를 바꿨어요: ${y.text}${due}`), ...p.notices] }
+      }),
       moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id || t.parentId === id ? { ...t, date } : t)) })),
       restoreTodo: (t, children = []) => set((p) => {
         const pid = uid()

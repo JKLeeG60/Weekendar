@@ -3,7 +3,7 @@ import { useLayout, clampTop, TOP_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
 import { popup } from '../lib/bus'
 import { useStore } from '../lib/store'
-import { goesTo } from '../lib/attend'
+import { dueState, goesTo } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
@@ -14,7 +14,7 @@ import { MemoDock } from './Memo'
 /** 할 일 목록 안에서는 변수 이름 t(할 일)와 겹치므로 tr 로 부른다 */
 const tr = t
 import { MiniCalendar } from './MiniCalendar'
-import { Icon } from './ui'
+import { Avatar, Icon } from './ui'
 import { GestureRow, useEventActions } from './DayDrop'
 import { endDayDrag, moveDayDrag, startDayDrag } from '../lib/dayDrag'
 
@@ -122,8 +122,16 @@ export function PersonalPanel() {
 const FOLD_KEY = 'weekendar-todo-fold'
 const readFold = (): string[] => { try { return JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]') } catch { return [] } }
 
+/** 배정받은 업무의 마감 글: "11.28.(금) 18:00 마감 · D-1" */
+function dueText(a: Todo, st: ReturnType<typeof dueState>) {
+  if (!a.dueDate) return ''
+  const when = ` · ${fmtHead(a.dueDate)}${a.dueTime ? ' ' + a.dueTime : ''} ${t('마감')}`
+  const tail = st.kind === 'late' ? t('{n}일 지남', { n: st.days }) : st.kind === 'today' ? t('오늘') : st.kind === 'soon' ? `D-${st.days}` : ''
+  return when + (tail ? ' · ' + tail : '')
+}
+
 export function Todos() {
-  const { db, me, addTodo, toggleTodo, togglePriority, arrangeTodos, moveTodo } = useStore()
+  const { db, me, addTodo, toggleTodo, togglePriority, arrangeTodos, moveTodo, userOf, tableMembers } = useStore()
   const { selected, openModal, isMobile, showToast } = useUI()
   const act = useEventActions()
   const [text, setText] = useState('')
@@ -142,11 +150,22 @@ export function Todos() {
   const list = db.todos
     // 넘기기 설정이 켜져 있으면 지난 날의 못 끝낸 할 일도 함께 보여준다
     .filter((t) => t.ownerId === me?.id && (t.date === selected || (carry && t.date < selected && !t.done)))
+    // 배정받은 업무는 위의 "배정받은 업무"에 따로 보여 준다
+    .filter((t) => !(t.assignedBy && t.assignedBy !== me?.id))
+  // 업무 배정: 받은 것 (안 끝난 것 + 오늘 끝낸 것) · 내가 맡긴 것 (안 끝난 것 + 최근 7일 안에 끝난 것)
+  const today = todayStr()
+  const dueOrder = (a: Todo, b: Todo) => Number(a.done) - Number(b.done) || (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') || (a.dueTime ?? '').localeCompare(b.dueTime ?? '')
+  const received = db.todos
+    .filter((t) => t.ownerId === me?.id && t.assignedBy && t.assignedBy !== me?.id && (!t.done || t.date === selected))
+    .sort(dueOrder)
+  const given = db.todos
+    .filter((t) => t.assignedBy === me?.id && t.ownerId !== me?.id && (!t.done || t.date >= addDays(today, -7)))
+    .sort(dueOrder)
   const shown = new Set(list.map((x) => x.id))
   // 상위가 안 보이는 하위 할 일은 맨 위 단계에 보여 준다
   const top = list.filter((x) => !x.parentId || !shown.has(x.parentId)).sort(byOrder)
   const kidsOf = (id: string) => list.filter((x) => x.parentId === id && shown.has(id)).sort(byOrder)
-  const left = list.filter((t) => !t.done).length
+  const left = list.filter((t) => !t.done).length + received.filter((t) => !t.done).length
   // 지난 날에서 넘어온 할 일을 끝내면 끝낸 날로 옮긴다 (안 그러면 '안 끝난 것만 넘기기' 때문에 화면에서 사라짐)
   const check = (t: Todo) => {
     const old = t.date < selected || list.some((k) => k.parentId === t.id && k.date < selected)
@@ -224,7 +243,45 @@ export function Todos() {
           <Icon name="plus" size={16} />
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('새로운 할 일')} aria-label={t('새로운 할 일')} data-todo-input />
         </form>
-        {list.length === 0 && (
+        {/* 배정받은 업무: 맨 위, 마감·배정한 사람·메모와 함께 */}
+        {received.length > 0 && (
+          <div className="asg-sec">
+            <div className="asg-h">{t('배정받은 업무')} <span>{received.filter((x) => !x.done).length}</span></div>
+            {received.map((a) => {
+              const st = dueState(a, today)
+              const by = tableMembers.find((m) => m.userId === a.assignedBy)?.role === 'leader' ? t('{name} 팀장 배정', { name: userOf(a.assignedBy!).name }) : t('{name}님 배정', { name: userOf(a.assignedBy!).name })
+              return (
+                <div key={a.id} className={'asg-card ' + st.kind}>
+                  <button className="check" role="checkbox" aria-checked={a.done} onClick={() => check(a)} aria-label={a.text}>
+                    {a.done && <Icon name="check" size={13} />}
+                  </button>
+                  <div className="asg-body">
+                    <b>{a.text}</b>
+                    <small><em>{by}</em>{dueText(a, st)}</small>
+                    {a.note && <p>{a.note}</p>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {/* 내가 배정한 업무: 진행 상황 (누르면 고치거나 취소) */}
+        {given.length > 0 && (
+          <div className="asg-mine">
+            <div className="asg-h"><span className="t">{t('내가 배정한 업무')}</span><span className="c">{t('완료 {a} / {b}', { a: given.filter((x) => x.done).length, b: given.length })}</span></div>
+            {given.map((g) => {
+              const st = dueState(g, today)
+              return (
+                <button key={g.id} className={'asg-row ' + st.kind} onClick={() => openModal({ type: 'assign', todoId: g.id })}>
+                  <Avatar name={userOf(g.ownerId).name} size={26} />
+                  <span className="asg-body"><b>{g.text}</b><small>{userOf(g.ownerId).name}{g.dueDate ? ' · ' + fmtHead(g.dueDate) + (g.dueTime ? ' ' + g.dueTime : '') : ''}</small></span>
+                  <span className="asg-st">{st.kind === 'done' ? t('완료') : st.kind === 'late' ? t('{n}일 지남', { n: st.days }) : st.kind === 'today' ? t('오늘 마감') : t('진행 중')}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {list.length === 0 && received.length === 0 && (
           <div className="empty-guide">
             <span className="eg-icon"><Icon name="check" size={18} /></span>
             <strong>{t('오늘 할 일이 없어요')}</strong>
