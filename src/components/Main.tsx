@@ -24,6 +24,7 @@ import { finishGcalConnect } from '../lib/gcal'
 import { useLayout, clampRight, RIGHT_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
 import { Icon } from './ui'
+import { useAppBadge } from '../lib/badge'
 
 export function Main() {
   const { selected, setSelected, modal, openModal, toast, panelOpen, togglePanel, isMobile, showToast, chatOpen, setChatOpen, monthView, setMonthView, searchOpen, setSearchOpen } = useUI()
@@ -31,6 +32,7 @@ export function Main() {
   const lay = useLayout()
   const appRef = useRef<HTMLDivElement>(null)
   const { myMember, team, me, mode, myTeams, joinTeam, solo } = useStore()
+  useAppBadge()
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {
     if (mode !== 'cloud' || !me) return

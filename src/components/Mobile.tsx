@@ -19,7 +19,7 @@ import { AbsencePill } from './AbsencePill'
 import { dayOff, KIND_LABEL, leaveName, OFF_CATS, offHides, waitingOn } from '../lib/absence'
 import { SearchSheet } from './Search'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
-import { useDayDrag } from '../lib/dayDrag'
+import { dayDragActive, useDayDrag } from '../lib/dayDrag'
 
 type Tab = 'team' | 'me' | 'todo' | 'memo' | 'chat'
 
@@ -47,11 +47,18 @@ export function MobileMain() {
     window.addEventListener('wk:mtab', h)
     return () => window.removeEventListener('wk:mtab', h)
   }, [])
-  const { selected, searchOpen } = useUI()
+  const { selected, setSelected, searchOpen } = useUI()
   const carry = me?.todoCarry !== false
   const left = db.todos.filter((t) => t.ownerId === me?.id && !t.done && (carry ? t.date <= selected : t.date === selected)).length
 
-  const ptr = usePullRefresh(bodyRef, tab !== 'chat', refresh)
+  // 옆으로 밀기: 팀 주간표는 평일만 (금 다음은 다음 주 월), 나머지는 하루씩
+  const swipeDay = (dir: 1 | -1) => {
+    if (tab !== 'team') { setSelected(addDays(selected, dir)); return }
+    let d = addDays(selected, dir)
+    while (parse(d).getDay() === 0 || parse(d).getDay() === 6) d = addDays(d, dir)
+    setSelected(d)
+  }
+  const ptr = useGestures(bodyRef, { pull: tab !== 'chat', swipe: tab !== 'chat', refresh, onSwipe: swipeDay })
 
   return (
     <div className="m-app">
@@ -68,6 +75,7 @@ export function MobileMain() {
         {tab === 'memo' && <MemoTab />}
         {tab === 'chat' && <ChatPanel />}
       </div>
+      {tab !== 'chat' && <Fab goTab={setTab} />}
       {/* 혼자 쓸 때는 대화 탭이 없다 (주간표·내 일정·할 일·메모 4탭) */}
       <nav className={'m-tabs' + (solo ? '' : ' five')} aria-label={t('화면 전환')}>
         {([
@@ -321,56 +329,137 @@ function MobileTeam() {
 
 /** 당기는 거리가 이만큼 넘으면 놓았을 때 새로고침 */
 const PTR_GO = 64
+/** 옆으로 이만큼 넘게 밀면 날짜를 넘긴다 */
+const SWIPE_GO = 60
 
 /**
- * 아래로 당겨 새로고침: 안쪽 목록이 맨 위일 때만 동작.
- * touchmove 를 막아야(passive: false) 화면 전체가 같이 끌려 내려오지 않는다.
+ * 휴대폰 손동작 (본문 영역)
+ * - 아래로 당겨 새로고침: 안쪽 목록이 맨 위일 때만
+ * - 옆으로 밀어 날짜 넘기기: 왼쪽 = 다음 날, 오른쪽 = 이전 날
+ * 처음 움직인 방향으로 둘 중 하나만 정한다. 입력 중·끌어 옮기는 중·가로 스크롤 영역에서는 동작하지 않음.
+ * touchmove 를 막아야(passive: false) 화면 전체가 같이 끌려가지 않는다.
  */
-function usePullRefresh(ref: RefObject<HTMLDivElement | null>, enabled: boolean, refresh: () => Promise<void>) {
+function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; swipe: boolean; refresh: () => Promise<void>; onSwipe: (dir: 1 | -1) => void }) {
   const [st, setSt] = useState({ dist: 0, busy: false })
   const busyRef = useRef(false)
+  const opt = useRef(o)
+  opt.current = o
   useEffect(() => {
     const el = ref.current
-    if (!el || !enabled) return
-    let startY = -1
-    let dist = 0
-    // 손가락 아래의 스크롤 영역이 전부 맨 위인지
-    const atTop = (target: EventTarget | null) => {
+    if (!el) return
+    let x0 = 0, y0 = 0, dist = 0, dx = 0
+    let mode: 'none' | 'wait' | 'pull' | 'swipe' = 'none'
+    let canPull = false, canSwipe = false
+    const typing = (n: HTMLElement) => n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT' || n.tagName === 'SELECT'
+    const scan = (target: EventTarget | null) => {
+      let top = true, side = true
       for (let n = target as HTMLElement | null; n && n !== el; n = n.parentElement) {
-        if (n.scrollTop > 0) return false
-        if (n.isContentEditable || n.tagName === 'TEXTAREA' || n.tagName === 'INPUT') return false
+        if (typing(n)) return { top: false, side: false }
+        if (n.scrollTop > 0) top = false
+        // 가로로 스크롤되는 영역(요일 칩 등) 안에서는 밀기를 양보
+        if (n.scrollWidth > n.clientWidth + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) side = false
       }
-      return true
+      return { top, side }
     }
-    const start = (e: TouchEvent) => { startY = !busyRef.current && e.touches.length === 1 && atTop(e.target) ? e.touches[0].clientY : -1; dist = 0 }
+    const reset = () => { el.style.transform = ''; el.style.transition = '' }
+    const start = (e: TouchEvent) => {
+      mode = 'none'
+      if (busyRef.current || e.touches.length !== 1 || dayDragActive()) return
+      const { top, side } = scan(e.target)
+      canPull = opt.current.pull && top
+      canSwipe = opt.current.swipe && side
+      if (!canPull && !canSwipe) return
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dist = 0; dx = 0
+      mode = 'wait'
+    }
     const move = (e: TouchEvent) => {
-      if (startY < 0) return
-      const dy = e.touches[0].clientY - startY
-      if (dy <= 0) { if (dist) { dist = 0; setSt({ dist: 0, busy: false }) } return }
+      if (mode === 'none') return
+      if (dayDragActive()) { mode = 'none'; reset(); setSt({ dist: 0, busy: false }); return }
+      const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0
+      if (mode === 'wait') {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return
+        // 처음 움직인 방향으로 정한다
+        if (canSwipe && Math.abs(mx) > Math.abs(my) * 1.3) mode = 'swipe'
+        else if (canPull && my > 0 && Math.abs(my) > Math.abs(mx)) mode = 'pull'
+        else { mode = 'none'; return }
+      }
       e.preventDefault()
-      dist = Math.min(110, dy * 0.5) // 당길수록 덜 따라오게
-      setSt({ dist, busy: false })
+      if (mode === 'pull') {
+        dist = Math.min(110, Math.max(0, my) * 0.5) // 당길수록 덜 따라오게
+        setSt({ dist, busy: false })
+      } else {
+        dx = mx
+        el.style.transition = 'none'
+        el.style.transform = `translateX(${dx * 0.35}px)`
+      }
     }
     const end = async () => {
-      if (startY < 0) return
-      startY = -1
+      const m = mode
+      mode = 'none'
+      if (m === 'swipe') {
+        reset()
+        if (Math.abs(dx) >= SWIPE_GO) {
+          const dir = dx < 0 ? 1 : -1
+          opt.current.onSwipe(dir)
+          // 새 날짜가 밀어 온 쪽에서 들어오는 느낌
+          el.classList.remove('slide-next', 'slide-prev')
+          void el.offsetWidth
+          el.classList.add(dir === 1 ? 'slide-next' : 'slide-prev')
+        }
+        return
+      }
+      if (m !== 'pull') return
       if (dist < PTR_GO) { setSt({ dist: 0, busy: false }); return }
       busyRef.current = true
       setSt({ dist: 48, busy: true })
-      await Promise.all([refresh().catch(() => {}), new Promise((r) => setTimeout(r, 600))])
+      await Promise.all([opt.current.refresh().catch(() => {}), new Promise((r) => setTimeout(r, 600))])
       busyRef.current = false
       setSt({ dist: 0, busy: false })
     }
+    const anim = () => el.classList.remove('slide-next', 'slide-prev')
     el.addEventListener('touchstart', start, { passive: true })
     el.addEventListener('touchmove', move, { passive: false })
     el.addEventListener('touchend', end)
     el.addEventListener('touchcancel', end)
+    el.addEventListener('animationend', anim)
     return () => {
       el.removeEventListener('touchstart', start)
       el.removeEventListener('touchmove', move)
       el.removeEventListener('touchend', end)
       el.removeEventListener('touchcancel', end)
+      el.removeEventListener('animationend', anim)
     }
-  }, [ref, enabled, refresh])
+  }, [ref])
   return st
+}
+
+/** 오른쪽 아래 ＋ : 일정·할 일·메모·휴가 신청을 어느 탭에서나 바로 */
+function Fab({ goTab }: { goTab: (t: Tab) => void }) {
+  const [open, setOpen] = useState(false)
+  const { openModal, selected } = useUI()
+  const { solo, myMember } = useStore()
+  const focusSoon = (sel: string) => setTimeout(() => document.querySelector<HTMLElement>(sel)?.focus(), 250)
+  const items: [string, string, string, () => void][] = [
+    ['일정 추가', 'cal', '#007aff', () => openModal({ type: 'event', date: selected })],
+    ['할 일 추가', 'check', '#34c759', () => { goTab('todo'); focusSoon('[data-todo-input]') }],
+    ['메모 쓰기', 'note', '#ff9f0a', () => { goTab('memo'); focusSoon('.m-body .ProseMirror, .m-body [contenteditable="true"]') }],
+    ...(!solo && myMember && myMember.role !== 'pending' ? [['휴가·출장 신청', 'suitcase', '#ff3b30', () => openModal({ type: 'absence' })] as [string, string, string, () => void]] : []),
+  ]
+  return (
+    <>
+      {open && <div className="m-fab-scrim" onClick={() => setOpen(false)} />}
+      {open && (
+        <div className="m-fab-menu" role="menu">
+          {items.map(([label, icon, color, run]) => (
+            <button key={label} role="menuitem" onClick={() => { setOpen(false); run() }}>
+              <span className="m-fab-ic" style={{ background: color }}><Icon name={icon} size={16} /></span>{t(label)}
+            </button>
+          ))}
+        </div>
+      )}
+      <button className={'m-fab' + (open ? ' open' : '')} onClick={() => setOpen((v) => !v)} aria-label={open ? t('닫기') : t('추가')} aria-expanded={open}>
+        <Icon name="plus" size={26} />
+      </button>
+    </>
+  )
 }

@@ -1107,4 +1107,6 @@ export const EN: Record<string, string | [string, string]> = {
   '오늘 부재: {list}': 'Away today: {list}',
   '좋은 아침이에요 · {date}': 'Good morning · {date}',
   '새로고침 중': 'Refreshing',
+  '할 일 추가': 'New to-do',
+  '메모 쓰기': 'Write memo',
 }

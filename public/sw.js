@@ -10,7 +10,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'wk-badge').map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   )
 })
 
@@ -46,7 +46,7 @@ self.addEventListener('push', (e) => {
   let data = {}
   try { data = e.data ? e.data.json() : {} } catch { data = { body: e.data && e.data.text() } }
   const title = data.title || 'Weekendar'
-  e.waitUntil(
+  e.waitUntil(Promise.all([
     self.registration.showNotification(title, {
       body: data.body || '',
       tag: data.tag || undefined,
@@ -54,8 +54,21 @@ self.addEventListener('push', (e) => {
       badge: '/icons/badge-96.png',
       data: { url: data.url || '/' },
     }),
-  )
+    bumpBadge(),
+  ]))
 })
+
+// 앱 아이콘 숫자 배지: 앱이 꺼져 있을 때 푸쉬가 오면 1 올린다 (앱을 열면 앱이 정확한 숫자로 다시 맞춤)
+async function bumpBadge() {
+  if (!self.navigator.setAppBadge) return
+  try {
+    const c = await caches.open('wk-badge')
+    const r = await c.match('/__badge')
+    const n = (r ? Number(await r.text()) || 0 : 0) + 1
+    await c.put('/__badge', new Response(String(n)))
+    await self.navigator.setAppBadge(n)
+  } catch { /* 지원 안 함 */ }
+}
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
