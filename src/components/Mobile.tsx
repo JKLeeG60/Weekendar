@@ -368,6 +368,8 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
       for (let n = target as HTMLElement | null; n && n !== el; n = n.parentElement) {
         if (typing(n)) return { top: false, side: false }
         if (n.scrollTop > 0) top = false
+        // 할 일 줄은 옆으로 밀면 삭제 버튼이 나오므로 그쪽에 양보
+        if (n.classList.contains('swipe-row')) side = false
         // 가로로 스크롤되는 영역(요일 칩 등) 안에서는 밀기를 양보
         if (n.scrollWidth > n.clientWidth + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) side = false
       }

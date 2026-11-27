@@ -6,7 +6,7 @@ import { useStore } from '../lib/store'
 import { dueState, goesTo } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, fmtHead, todayStr } from '../lib/date'
+import { addDays, dowLabel, fmtHead, parse, todayStr, weekDays } from '../lib/date'
 import type { Occurrence, Todo } from '../lib/types'
 import { Rich, t } from '../lib/i18n'
 import { WeekGoalSection } from './WeekGoals'
@@ -163,8 +163,12 @@ export function Todos() {
     .filter((t) => t.assignedBy === me?.id && t.ownerId !== me?.id && (!t.done || t.date >= addDays(today, -7)))
     .sort(dueOrder)
   const shown = new Set(list.map((x) => x.id))
+  // 지난 날에서 넘어온 (못 끝낸) 할 일은 아래에 따로 묶는다
+  const carried = (x: Todo) => !x.done && x.date < selected
   // 상위가 안 보이는 하위 할 일은 맨 위 단계에 보여 준다
-  const top = list.filter((x) => !x.parentId || !shown.has(x.parentId)).sort(byOrder)
+  const topAll = list.filter((x) => !x.parentId || !shown.has(x.parentId)).sort(byOrder)
+  const top = [...topAll.filter((x) => !carried(x)), ...topAll.filter(carried)]
+  const firstCarried = top.find(carried)?.id
   const kidsOf = (id: string) => list.filter((x) => x.parentId === id && shown.has(id)).sort(byOrder)
   const left = list.filter((t) => !t.done).length + received.filter((t) => !t.done).length
   // 지난 날에서 넘어온 할 일을 끝내면 끝낸 날로 옮긴다 (안 그러면 '안 끝난 것만 넘기기' 때문에 화면에서 사라짐)
@@ -226,6 +230,8 @@ export function Todos() {
 
   return (
     <section className="panel-half todo">
+      {/* 휴대폰: 할 일 탭만 따로 보이므로 날짜 줄 + 이번 주 요일 줄 */}
+      {isMobile && <TodoDateBar />}
       <WeekGoalSection />
       <div className="panel-head">
         <h3 className="section-label big">{t('할 일')}</h3>
@@ -297,8 +303,9 @@ export function Todos() {
             const isLast = isChild && rows[i + 1]?.parentId !== t.parentId
             const h = hint?.id === t.id ? hint.zone : null
             return (
+            <React.Fragment key={t.id}>
+            {t.id === firstCarried && <li className="todo-carried-h" aria-hidden>{tr('지난 날에서 넘어온 할 일')}</li>}
             <li
-              key={t.id}
               className={'todo-li' + (isChild ? ' child' + (isLast ? ' last' : '') : '') + (h ? ' drop-' + h : '') + (dragId === t.id ? ' drag-src' : '')}
               data-tid={t.id}
               onDragOver={(e) => {
@@ -352,6 +359,9 @@ export function Todos() {
               </button>
               <span className="todo-text">
                 {t.text}
+                {carried(t) && (
+                  <small className="todo-since">{tr('{date}부터 · {n}일째', { date: fmtHead(t.date), n: Math.round((parse(selected).getTime() - parse(t.date).getTime()) / 86400000) + 1 })}</small>
+                )}
                 {kids.length > 0 && (
                   <button
                     className={'todo-fold' + (fold.includes(t.id) ? ' folded' : '')}
@@ -383,11 +393,47 @@ export function Todos() {
               </button>
             </GestureRow>
             </li>
+            </React.Fragment>
             )
           })}
         </ul>
       </div>
     </section>
+  )
+}
+
+/** 휴대폰 할 일 탭 위: ‹ 날짜 › + 이번 주 요일 줄 (점 = 그날 남은 할 일 수) */
+function TodoDateBar() {
+  const { db, me } = useStore()
+  const { selected, setSelected } = useUI()
+  const [cal, setCal] = useState(false)
+  const today = todayStr()
+  const left = (d: string) => db.todos.filter((x) => x.ownerId === me?.id && !x.done && !x.parentId && x.date === d && !(x.assignedBy && x.assignedBy !== me?.id)).length
+  return (
+    <div className="todo-datebar">
+      <div className="datenav">
+        <button className="icon-btn" onClick={() => setSelected(addDays(selected, -1))} aria-label={t('전날')}><Icon name="chevL" /></button>
+        <div className="datebtn-wrap">
+          <button className="datebtn" onClick={() => setCal((v) => !v)} aria-haspopup="dialog" aria-expanded={cal}>{fmtHead(selected)}</button>
+          {cal && <MiniCalendar selected={selected} onPick={(d) => { setSelected(d); setCal(false) }} onClose={() => setCal(false)} />}
+        </div>
+        <button className="icon-btn" onClick={() => setSelected(addDays(selected, 1))} aria-label={t('다음날')}><Icon name="chevR" /></button>
+        {selected === today && <span className="today-tag">{t('오늘')}</span>}
+      </div>
+      <div className="todo-week" role="tablist" aria-label={t('이번 주')}>
+        {weekDays(selected).map((d) => {
+          const n = left(d)
+          return (
+            <button key={d} role="tab" aria-selected={d === selected} className={'tw-day' + (d === selected ? ' on' : '') + (d === today ? ' today' : '')} onClick={() => setSelected(d)}
+              aria-label={`${fmtHead(d)} · ${t('{n}개 남음', { n })}`}>
+              <small>{dowLabel(d)}</small>
+              <b>{Number(d.slice(8, 10))}</b>
+              <span className="tw-dots" aria-hidden>{Array.from({ length: Math.min(3, n) }, (_, i) => <i key={i} />)}{n > 3 && <em>+</em>}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

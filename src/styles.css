@@ -2284,3 +2284,24 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .m-tab.pressing .m-tab-ico { transform: scale(1.12); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .m-tab .m-tab-ico { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 [data-theme='dark'] .m-tab::before { background: rgba(120, 120, 128, 0.2); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.3); }
+
+/* 휴대폰 할 일 탭: 날짜 줄 + 이번 주 요일 줄 */
+.todo-datebar { padding: 0.1rem 0 0.4rem; }
+.todo-datebar .datenav { margin-bottom: 0.55rem; }
+.todo-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; padding: 0 0.85rem; }
+.tw-day { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.35rem 0 0.3rem; border-radius: 0.8rem; color: var(--muted); font: inherit; }
+.tw-day small { font-size: 0.72rem; }
+.tw-day b { font-size: 1rem; font-weight: 650; color: var(--text); }
+.tw-day.today b { color: var(--red); }
+.tw-day.on { background: var(--accent); color: #fff; }
+.tw-day.on b { color: #fff; }
+.tw-dots { display: flex; align-items: center; gap: 2px; height: 6px; }
+.tw-dots i { width: 5px; height: 5px; border-radius: 50%; background: #ff9500; }
+.tw-dots em { font-style: normal; font-size: 0.6rem; line-height: 1; color: #ff9500; font-weight: 700; }
+.tw-day.on .tw-dots i { background: #fff; }
+.tw-day.on .tw-dots em { color: #fff; }
+
+/* 지난 날에서 넘어온 할 일 (데스크톱·휴대폰 공통) */
+.todo-carried-h { list-style: none; font-size: 0.74rem; font-weight: 700; color: var(--muted); padding: 0.7rem 0.2rem 0.15rem; }
+.todo-since { display: block; font-size: 0.74rem; font-weight: 600; color: #c93400; margin-top: 0.1rem; }
+[data-theme='dark'] .todo-since { color: #ff9f5a; }

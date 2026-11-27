@@ -1109,4 +1109,6 @@ export const EN: Record<string, string | [string, string]> = {
   '새로고침 중': 'Refreshing',
   '할 일 추가': 'New to-do',
   '메모 쓰기': 'Write memo',
+  '지난 날에서 넘어온 할 일': 'Carried over from earlier',
+  '{date}부터 · {n}일째': 'Since {date} · day {n}',
 }
