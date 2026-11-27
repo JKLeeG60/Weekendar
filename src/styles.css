@@ -2305,3 +2305,6 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .todo-carried-h { list-style: none; font-size: 0.74rem; font-weight: 700; color: var(--muted); padding: 0.7rem 0.2rem 0.15rem; }
 .todo-since { display: block; font-size: 0.74rem; font-weight: 600; color: #c93400; margin-top: 0.1rem; }
 [data-theme='dark'] .todo-since { color: #ff9f5a; }
+/* 월간 일정: 고른 사람 파란 테두리가 목록 끝에서 잘리지 않게 오른쪽·위아래 여유 */
+.mo-people { padding-right: 0.35rem; padding-block: 4px; }
+.mo-person { padding: 4px 5px 2px; }
