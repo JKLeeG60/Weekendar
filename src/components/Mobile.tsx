@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
+import { inRowOf, inviteOf } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, dowLabel, holidayLabel, holidayName, isoWeek, mondayOf, parse, todayStr, weekDays, weekPill } from '../lib/date'
@@ -10,6 +11,7 @@ import { DayAgenda, Todos } from './PersonalPanel'
 import { MemoTab } from './Memo'
 import { Modals } from './Modals'
 import { NoticeToasts } from './NoticeToasts'
+import { TipLayer } from './Meeting'
 import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
@@ -82,6 +84,7 @@ export function MobileMain() {
       {toast && <Toast />}
       <DayDropStrip />
       <NoticeToasts />
+      <TipLayer />
       <Reminders />
     </div>
   )
@@ -107,13 +110,20 @@ function MobileTeam() {
     : `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? '' : b.getMonth() + 1 + '월 '}${b.getDate()}일`
 
   // 혼자 쓸 때는 내 일정을 모두 보여 준다
-  const shared = solo ? db.events : db.events.filter((e) => e.shared)
+  // 회의에 초대됐거나 내가 만든 회의는 "나만 보기"여도 참석자 카드에 보인다
+  const shared = solo ? db.events : db.events.filter((e) => e.shared || (!!e.attendees?.length && inRowOf(e, me?.id)))
   const waiting = myTeams.find((x) => x.role === 'pending')
   const myPending: ChangeRequest[] = db.requests.filter(
     (r) => r.status === 'pending' && (r.requesterId === me?.id || r.leaderId === me?.id),
   )
   const eventsOf = (userId: string, d: string): Occurrence[] =>
-    occurrencesOn(shared.filter((e) => e.ownerId === userId), d)
+    occurrencesOn(shared.filter((e) => inRowOf(e, userId)), d)
+  // 참석자 카드에서의 응답 표시
+  const invClass = (o: Occurrence, rowUser: string) => {
+    if (o.ownerId === rowUser) return ''
+    const a = inviteOf(o, rowUser)
+    return a?.status === 'pending' ? ' inv-wait' : a?.status === 'declined' ? ' inv-no' : ''
+  }
 
   const clickable = (m: Member) =>
     m.userId === me?.id || (m.role === 'leader' && myMember?.role === 'member')
@@ -238,10 +248,10 @@ function MobileTeam() {
                           <li key={en.ev!.id + en.ev!.date}>
                             {/* 내 일정: 왼쪽으로 밀면 삭제, 길게 눌러 끌면 다른 날로 */}
                             <GestureRow
-                              onDelete={mine ? () => act.removeEvent(en.ev!.baseId) : undefined}
-                              drag={mine ? { label: en.ev!.title, onDrop: (to) => act.moveEvent(en.ev!.baseId, day, to) } : undefined}
+                              onDelete={mine && en.ev!.ownerId === m.userId ? () => act.removeEvent(en.ev!.baseId) : undefined}
+                              drag={mine && en.ev!.ownerId === m.userId ? { label: en.ev!.title, onDrop: (to) => act.moveEvent(en.ev!.baseId, day, to) } : undefined}
                             >
-                            <button className="m-item" data-cat={en.ev!.category} data-base={en.ev!.baseId} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
+                            <button className={'m-item' + invClass(en.ev!, m.userId)} data-cat={en.ev!.category} data-base={en.ev!.baseId} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
                               {isMultiDay(en.ev!)
                                 ? <span className="m-time allday-time">{t('종일')}</span>
                                 : <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>}
@@ -251,7 +261,9 @@ function MobileTeam() {
                                   ? <small>{spanLabel(en.ev!)}{en.ev!.place ? ` · ${en.ev!.place}` : ''}</small>
                                   : en.ev!.place && <small>{en.ev!.place}</small>}
                               </span>
-                              <span className="cat-tag" data-cat={en.ev!.category}>{t(CATEGORY_LABEL[en.ev!.category])}</span>
+                              {invClass(en.ev!, m.userId) === ' inv-wait'
+                                ? <span className="wait-tag inv">{t('응답 대기')}</span>
+                                : <span className="cat-tag" data-cat={en.ev!.category}>{t(CATEGORY_LABEL[en.ev!.category])}</span>}
                             </button>
                             </GestureRow>
                           </li>

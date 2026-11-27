@@ -1966,3 +1966,93 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 /* ───────── 접속 상태: 사진 오른쪽 아래 초록 점 ───────── */
 .avatar.on { position: relative; }
 .avatar.on::after { content: ''; position: absolute; right: -0.08rem; bottom: -0.08rem; width: 0.66rem; height: 0.66rem; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 0.15rem var(--surface); }
+
+/* ───────── 회의 참석자 · 모두 비는 시간 ───────── */
+/* 일정 추가 창: 참석자 칸 */
+.att-field { align-items: stretch; padding-top: 0.6rem; padding-bottom: 0.45rem; }
+.att-head { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.att-head span { font-weight: 550; }
+.att-head small { color: var(--muted); font-size: 0.8rem; }
+.att-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.att-chip { display: inline-flex; align-items: center; gap: 0.35rem; height: 1.9rem; padding: 0 0.6rem 0 0.22rem; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-soft); font-size: 0.86rem; font-weight: 600; white-space: nowrap; }
+.att-chip.add { padding: 0 0.75rem; color: var(--accent); background: var(--accent-soft); box-shadow: none; }
+.att-x { color: var(--faint); font-size: 1.05rem; line-height: 1; padding: 0 0 0 0.15rem; }
+.att-x:hover { color: var(--red); }
+.att-pick { margin-top: 0.55rem; max-height: 13rem; overflow: auto; border-radius: 0.7rem; background: var(--surface); box-shadow: 0 0 0 1px var(--line-soft); padding: 0.25rem; }
+.att-opt { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.4rem 0.5rem; border-radius: 0.55rem; text-align: left; font-size: 0.92rem; }
+.att-opt:hover { background: var(--surface-2); }
+.att-opt .att-name { flex: 1; font-weight: 550; }
+.att-check { width: 1.2rem; color: var(--accent); display: grid; place-items: center; }
+.att-find { width: 100%; color: var(--accent); font-weight: 600; text-align: left; }
+.att-find:hover { background: var(--accent-soft); }
+.att-find-l { display: inline-flex; align-items: center; gap: 0.5rem; }
+.att-find > svg { color: var(--faint); }
+
+/* 모두 비는 시간 화면 */
+.ff-modal { max-width: calc(100vw - 2rem); }
+.ff-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.ff-who { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ff-week { display: flex; align-items: center; gap: 0.35rem; font-size: 0.88rem; }
+.ff-week b { min-width: 4.5rem; text-align: center; }
+.ff-dur { background: var(--surface-2); border-radius: 0.5rem; padding: 0.3rem 0.6rem; font-weight: 600; margin-right: 0.4rem; }
+.ff-body { display: flex; gap: 1.2rem; align-items: flex-start; }
+.ff-grid { flex: 1; min-width: 0; display: grid; grid-template-columns: 2.8rem repeat(var(--cols), 1fr); }
+.ff-day { text-align: center; padding-bottom: 0.45rem; white-space: nowrap; line-height: 1.2; }
+.ff-day b { display: block; font-size: 0.85rem; }
+.ff-day small { display: block; font-size: 0.72rem; color: var(--muted); }
+.ff-day.today b, .ff-day.today small { color: var(--red); }
+.ff-day.today { color: var(--red); }
+.ff-hours div { font-size: 0.7rem; color: var(--muted); text-align: right; padding-right: 0.45rem; transform: translateY(-0.4rem); }
+.ff-pick { position: absolute; left: 2px; right: 2px; border-radius: 0.45rem; background: rgba(0, 122, 255, 0.1); color: var(--accent); box-shadow: inset 0 0 0 2.5px var(--accent); font-size: 0.74rem; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; }
+.ff-side { width: 12rem; flex: none; }
+.ff-side-h { font-size: 0.78rem; font-weight: 650; color: var(--muted); margin-bottom: 0.5rem; }
+.ff-sug { display: block; width: 100%; text-align: left; padding: 0.6rem 0.75rem; border-radius: 0.75rem; background: var(--surface-2); margin-bottom: 0.45rem; }
+.ff-sug small { display: block; color: var(--muted); font-size: 0.76rem; }
+.ff-sug b { font-size: 0.95rem; }
+.ff-hint { margin-top: 0.8rem; }
+[data-mobile='true'] .ff-body, .m-app .ff-body { flex-direction: column; }
+[data-mobile='true'] .ff-side, .m-app .ff-side, [data-mobile='true'] .ff-grid, .m-app .ff-grid { width: 100%; }
+
+/* 팀 표·모바일: 참석자 줄의 회의 (응답 대기는 점선, 불참은 흐리게) */
+.chip.inv-wait, .m-item.inv-wait { background: var(--surface); box-shadow: none; border: 1.5px dashed color-mix(in srgb, var(--cc) 65%, transparent); }
+.chip.inv-no, .m-item.inv-no { opacity: 0.45; }
+.chip.inv-no .chip-title, .m-item.inv-no b { text-decoration: line-through; }
+.wait-tag.inv { color: var(--accent); background: var(--accent-soft); }
+.chip-att { display: inline-flex; align-items: center; gap: 0.15rem; margin-left: 0.35rem; }
+.chip-place:empty { display: none; }
+
+/* 일정 상세: 참석자와 응답 */
+.att-list { margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 0.35rem; }
+.att-row { display: flex; align-items: center; gap: 0.55rem; font-size: 0.9rem; }
+.att-row .att-name { flex: 1; font-weight: 550; }
+.att-st { font-size: 0.8rem; font-weight: 650; }
+.att-st.owner { color: var(--muted); }
+.att-st.accepted { color: var(--green); }
+.att-st.declined { color: var(--red); }
+.att-st.pending { color: var(--accent); }
+
+/* 오른쪽 아래 팝업: 회의 초대 [참석]·[불참] */
+.ntoast-actions .ntoast-later.no { color: var(--red); }
+
+/* 비는 시간: 30분 칸 농도 (흰색 = 모두 가능, 진한 주황 = 모두 바쁨) */
+.ff-col { position: relative; border-left: 1px solid var(--line-soft); background: var(--surface); }
+.ff-cell { position: absolute; left: 0; right: 0; border: 0; padding: 0; background: transparent; cursor: default; }
+.ff-cell.on-hour { box-shadow: inset 0 1px 0 var(--line-soft); }
+.ff-cell.ok { cursor: pointer; }
+.ff-cell.ok:hover { background: rgba(0, 122, 255, 0.08) !important; }
+.ff-cell.lunch { background: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.09) 0 6px, transparent 6px 12px); }
+.ff-cell.gone { background-color: var(--surface-2); opacity: 0.55; }
+.ff-sug.on { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.ff-scale-h { margin-top: 1rem; }
+.ff-scale { display: flex; height: 0.9rem; border-radius: 0.35rem; overflow: hidden; box-shadow: 0 0 0 1px var(--line-soft); background: var(--surface); }
+.ff-scale i { flex: 1; }
+.ff-scale-l { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; }
+
+/* 마우스를 올리면 뜨는 작은 설명 */
+.hover-tip { position: fixed; z-index: 400; transform: translate(-50%, 0); background: rgba(29, 29, 31, 0.94); color: #fff; font-size: 0.76rem; line-height: 1.45; padding: 0.4rem 0.6rem; border-radius: 0.5rem; pointer-events: none; white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+.hover-tip.up { transform: translate(-50%, -100%); }
+.hover-tip div:first-child { font-weight: 650; }
+.chip-att { cursor: help; }
+
+/* 부재자 이름표: 마우스만 올렸을 때는 말풍선이 마우스를 가로막지 않게 */
+.abs-pop.peek { pointer-events: none; }

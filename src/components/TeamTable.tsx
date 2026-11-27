@@ -6,7 +6,8 @@ import { fmtHead, holidayLabel, holidayName, todayStr, weekDays } from '../lib/d
 import { t } from '../lib/i18n'
 import { useEventActions } from './DayDrop'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type EventItem, type Member, type Occurrence } from '../lib/types'
-import { Avatar } from './ui'
+import { Avatar, Icon } from './ui'
+import { inRowOf, inviteOf } from '../lib/attend'
 import { AbsencePill } from './AbsencePill'
 import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 
@@ -77,7 +78,19 @@ export function TeamTable() {
       : {}
   const today = todayStr()
   // 혼자 쓸 때는 내 일정을 모두 보여 준다 (팀에 공유할 사람이 없음)
-  const shared = solo ? db.events : db.events.filter((e) => e.shared)
+  // 회의에 초대됐거나 내가 만든 회의는 "나만 보기"여도 참석자 줄에 보인다
+  const shared = solo ? db.events : db.events.filter((e) => e.shared || (!!e.attendees?.length && inRowOf(e, me?.id)))
+  // 참석자 명단 (마우스를 올리면 보이는 설명)
+  const attTip = (o: Occurrence) => [
+    `${userOf(o.ownerId).name} · ${t('주최')}`,
+    ...(o.attendees ?? []).map((a) => `${userOf(a.userId).name} · ${a.status === 'accepted' ? t('참석') : a.status === 'declined' ? t('불참') : t('응답 대기')}`),
+  ].join('\n')
+  // 참석자 줄에서의 응답 표시
+  const invClass = (o: Occurrence, rowUser: string) => {
+    if (o.ownerId === rowUser) return ''
+    const a = inviteOf(o, rowUser)
+    return a?.status === 'pending' ? ' inv-wait' : a?.status === 'declined' ? ' inv-no' : ''
+  }
 
   // 요청 대기 표시: 요청자 본인과 팀장에게만 보인다
   const myPending: ChangeRequest[] = db.requests.filter(
@@ -100,7 +113,7 @@ export function TeamTable() {
       : <span className="chg-tag">{t('변경')}</span>
 
   const eventsOf = (userId: string, day: string): Occurrence[] =>
-    occurrencesOn(shared.filter((e) => e.ownerId === userId), day)
+    occurrencesOn(shared.filter((e) => inRowOf(e, userId)), day)
   // 칸 안에 넣을 일정 (여러 날 일정은 막대로 따로 그림)
   const dayEventsOf = (userId: string, day: string): Occurrence[] => eventsOf(userId, day).filter((o) => !isMultiDay(o))
 
@@ -230,8 +243,8 @@ export function TeamTable() {
                           return (
                             <button
                               key={o.id + o.date}
-                              {...dragProps(o, d)}
-                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '')}
+                              {...(o.ownerId === m.userId ? dragProps(o, d) : {})}
+                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '') + invClass(o, m.userId)}
                               data-cat={o.category}
                               data-base={o.baseId}
                               data-date={d}
@@ -245,7 +258,13 @@ export function TeamTable() {
                               <span className="chip-title">{o.title}</span>
                               {mk && <span className="wait-tag">{mk.type === 'edit' ? t('수정 요청') : t('삭제 요청')}</span>}
                               {changeTag(ci)}
-                              {roomy && o.place && <span className="chip-place">{o.place}</span>}
+                              {invClass(o, m.userId) === ' inv-wait' && <span className="wait-tag inv">{t('응답 대기')}</span>}
+                              {roomy && (o.place || !!o.attendees?.length) && (
+                                <span className="chip-place">
+                                  {o.place}
+                                  {!!o.attendees?.length && <span className="chip-att" data-tip={attTip(o)}><Icon name="users" size={11} />{t('{n}명', { n: o.attendees.filter((a) => a.status !== 'declined').length + 1 })}</span>}
+                                </span>
+                              )}
                             </button>
                           )
                         })}

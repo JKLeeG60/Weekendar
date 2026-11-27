@@ -7,6 +7,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { chatCounts, chatScope, dmPeer, dmThreads, inviteNotice, leaveNotice, parseMentions, roomThreads, type RoomThread } from './chat'
 import type {
+  Attendee,
+  BusyEvent,
   Category,
   ChangeRequest,
   DB,
@@ -29,6 +31,7 @@ import { addDays, isWeekend, mondayOf, toStr, todayStr } from './date'
 import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
+import { goesTo, respondDemo, syncMeeting } from './attend'
 
 const KEY = 'weekendar-v1'
 export const uid = () => Math.random().toString(36).slice(2, 10)
@@ -76,6 +79,13 @@ function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
     return { ...e, changedAt: Date.now(), changeText: ch.changeText }
   })
   return { ...p, events, confirms, notices }
+}
+
+/** 참석자 목록 정리: 나는 빼고, 이미 있던 사람은 응답을 그대로, 새 사람은 "응답 대기" */
+function cleanAttendees(list: Attendee[] | undefined, ownerId: string | null, prev: Attendee[]): Attendee[] | undefined {
+  const out = (list ?? []).filter((a) => a.userId !== ownerId)
+    .map((a) => ({ userId: a.userId, status: prev.find((x) => x.userId === a.userId)?.status ?? ('pending' as const) }))
+  return out.length ? out : undefined
 }
 
 function seed(): DB {
@@ -308,6 +318,10 @@ export interface Store {
   addEvent: (e: Omit<EventItem, 'id' | 'ownerId'>) => void
   updateEvent: (id: string, patch: Partial<EventItem>) => void
   deleteEvent: (id: string) => void
+  /** 초대받은 회의에 참석 / 불참 (불참이면 만든 사람에게 알림) */
+  respondInvite: (eventId: string, status: 'accepted' | 'declined') => void | Promise<void>
+  /** 고른 사람들의 바쁜 시간 (모두 비는 시간 찾기용, 제목 없음) */
+  busyOf: (userIds: string[], from: string, to: string) => Promise<BusyEvent[]>
   /** 팀장이 바꾼 일정을 "확인했어요" (팀원) */
   confirmEvent: (id: string) => void
   // 팀장 일정 변경 요청
@@ -759,10 +773,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       addEvent: (e) =>
-        set((p) => ({ ...p, events: [...p.events, { ...e, id: uid(), ownerId: p.currentUserId! }] })),
+        set((p) => {
+          // 참석자는 모두 "응답 대기"로 시작 (나는 빼고)
+          const ev: EventItem = { ...e, id: uid(), ownerId: p.currentUserId!, attendees: cleanAttendees(e.attendees, p.currentUserId, []) }
+          return syncMeeting({ ...p, events: [...p.events, ev] }, undefined, ev)
+        }),
       updateEvent: (id, patch) =>
-        set((p) => flagLeaderChanges(p, p.events, p.events.map((e) => (e.id === id ? { ...e, ...patch } : e)))),
-      deleteEvent: (id) => set((p) => ({ ...p, events: p.events.filter((e) => e.id !== id) })),
+        set((p) => {
+          const before = p.events.find((e) => e.id === id)
+          const fix = (e: EventItem): EventItem => ({ ...e, ...patch, ...('attendees' in patch ? { attendees: cleanAttendees(patch.attendees, e.ownerId, e.attendees ?? []) } : {}) })
+          const next = flagLeaderChanges(p, p.events, p.events.map((e) => (e.id === id ? fix(e) : e)))
+          return syncMeeting(next, before, next.events.find((e) => e.id === id))
+        }),
+      deleteEvent: (id) => set((p) => syncMeeting({ ...p, events: p.events.filter((e) => e.id !== id) }, p.events.find((e) => e.id === id), undefined)),
+      respondInvite: (eventId, status) => set((p) => respondDemo(p, eventId, status)),
+      busyOf: async (userIds, from, to) =>
+        userIds.flatMap((u) => db.events
+          .filter((e) => goesTo(e, u) && e.date <= to && (e.repeat !== 'none' || (e.endDate ?? e.date) >= from) && (!e.until || e.until >= from))
+          .map((e): BusyEvent => ({ id: e.id, userId: u, date: e.date, endDate: e.endDate, start: e.start, end: e.end, repeat: e.repeat, until: e.until, category: e.category }))),
       confirmEvent: (id) =>
         set((p) => {
           const e = p.events.find((x) => x.id === id)

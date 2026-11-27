@@ -70,6 +70,28 @@ export interface EventItem {
   changedAt?: number
   /** 바뀐 내용 요약 (예: "14:00–15:00 → 15:00–16:00"). 시간이 안 바뀌고 제목·장소만 바뀌면 빈 글 */
   changeText?: string
+  /** 회의 참석자 (만든 사람은 빼고). 참석자 줄에도 이 일정이 보인다 */
+  attendees?: Attendee[]
+}
+
+/** 회의 참석자와 응답: 응답 대기 · 참석 · 불참 */
+export type AttendStatus = 'pending' | 'accepted' | 'declined'
+export interface Attendee {
+  userId: string
+  status: AttendStatus
+}
+
+/** "모두 비는 시간 찾기"에 쓰는 바쁜 시간 (제목 없이). 반복·여러 날 정보는 그대로 */
+export interface BusyEvent {
+  id: string
+  userId: string
+  date: string
+  endDate?: string
+  start: string
+  end: string
+  repeat: Repeat
+  until?: string
+  category: Category
 }
 
 /** 팀원이 "확인했어요"를 누른 기록 (changedAt 은 확인한 변경의 시각) */
@@ -139,7 +161,7 @@ export interface WeekGoal {
 export interface Notice {
   id: string
   userId: string
-  kind: 'request' | 'result' | 'join' | 'confirm'
+  kind: 'request' | 'result' | 'join' | 'confirm' | 'invite' | 'decline'
   text: string
   refId?: string
   /** 'confirm' 알림이 가리키는 일정 */

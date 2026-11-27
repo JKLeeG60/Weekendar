@@ -3,6 +3,7 @@ import { useLayout, clampTop, TOP_DEFAULT } from '../lib/layout'
 import { Resizer } from './Resizer'
 import { popup } from '../lib/bus'
 import { useStore } from '../lib/store'
+import { goesTo } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
 import { addDays, fmtHead, todayStr } from '../lib/date'
@@ -22,7 +23,8 @@ export function DayAgenda() {
   const { selected, setSelected, openModal, showToast } = useUI()
   const act = useEventActions()
   const [cal, setCal] = useState(false)
-  const all = occurrencesOn(db.events.filter((e) => e.ownerId === me?.id), selected)
+  // 내 일정 + 초대받아 가는 회의 (불참은 빼고)
+  const all = occurrencesOn(db.events.filter((e) => goesTo(e, me?.id)), selected)
   const allDay = all.filter((o) => isMultiDay(o))
   const mine = all.filter((o) => !isMultiDay(o))
   const isToday = selected === todayStr()
@@ -67,6 +69,7 @@ export function DayAgenda() {
         <Timeline
           occs={mine}
           date={selected}
+          fixed={(o) => o.ownerId !== me?.id}
           onAdd={(t) => openModal({ type: 'event', date: selected, start: t })}
           onOpen={(o) => openModal({ type: 'detail', occ: o })}
           onMoveDay={(o, day) => act.moveEvent(o.baseId, selected, day)}
@@ -361,8 +364,10 @@ function layout(occs: Occurrence[]) {
 type Drag = { id: string; mode: 'move' | 'resize'; y0: number; s0: number; e0: number; s: number; e: number; active: boolean }
 const SNAP = 15
 
-function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay }: {
+function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay, fixed }: {
   occs: Occurrence[]; date: string
+  /** 끌어서 옮길 수 없는 일정 (초대받은 회의: 만든 사람만 옮긴다) */
+  fixed?: (o: Occurrence) => boolean
   /** 끌어서 위 날짜 띠에 놓으면 그날로 옮기기 */
   onMoveDay: (o: Occurrence, day: string) => void
   onAdd: (t: string) => void
@@ -534,7 +539,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay }
                 left: live ? '3.6rem' : `calc(3.6rem + (100% - 3.8rem) * ${col / cols})`,
                 width: live ? 'calc(100% - 3.8rem)' : `calc((100% - 3.8rem) / ${cols} - 0.2rem)`,
               }}
-              onPointerDown={(ev) => begin(ev, o, s, e, 'move')}
+              onPointerDown={(ev) => { if (!fixed?.(o)) begin(ev, o, s, e, 'move') }}
               onPointerMove={move}
               onPointerUp={() => end(o)}
               onPointerCancel={() => { cancelHold(); setDrag(null); endDayDrag(false) }}
@@ -552,7 +557,7 @@ function Timeline({ occs, date, onAdd, onOpen, onChange, onDropTodo, onMoveDay }
               <span
                 className="tl-resize"
                 aria-hidden="true"
-                onPointerDown={(ev) => begin(ev, o, s, e, 'resize')}
+                onPointerDown={(ev) => { if (!fixed?.(o)) begin(ev, o, s, e, 'resize') }}
               />
             </button>
           )

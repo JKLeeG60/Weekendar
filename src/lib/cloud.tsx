@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, MyTeam, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
+import type { AttendStatus, Attendee, BusyEvent, ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, MyTeam, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
 import { chatCounts, chatScope, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { localize, t as tr, useLang } from './i18n'
 import { TERMS_VERSION } from './legal'
@@ -112,6 +112,15 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       r.members.push({ userId: x.user_id, joinedAt: Date.parse(x.joined_at), lastReadAt: Date.parse(x.last_read_at) })
       roomMap.set(x.room_id, r)
     }
+    // 회의 참석자와 응답 (migration_034 전이면 비어 있음)
+    const at = await supabase.from('event_attendees').select('event_id, user_id, status')
+    if (at.error) console.warn('참석자를 불러오지 못했어요', at.error.message)
+    const attendeesOf = new Map<string, Attendee[]>()
+    for (const x of (at.data ?? []) as any[]) {
+      const l = attendeesOf.get(x.event_id) ?? []
+      l.push({ userId: x.user_id, status: x.status as AttendStatus })
+      attendeesOf.set(x.event_id, l)
+    }
     // 팀장 일정 변경 확인 기록 (migration_023 전이면 비어 있음)
     const cf = await supabase.from('event_confirms').select('event_id, user_id, changed_at')
     if (cf.error) console.warn('확인 기록을 불러오지 못했어요', cf.error.message)
@@ -144,7 +153,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
       teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal })),
       members: (m.data ?? []).map(memberFrom),
-      events: (e.data ?? []).map(evFrom),
+      events: (e.data ?? []).map((x: any) => { const ev = evFrom(x); const a = attendeesOf.get(ev.id); return a ? { ...ev, attendees: a } : ev }),
       requests: (r.data ?? []).map(reqFrom),
       confirms,
       notices: (n.data ?? []).map(noticeFrom),
@@ -202,6 +211,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, kick)
     on('events')
     on('event_confirms')
+    on('event_attendees')
     on('notices', `user_id=eq.${me}`)
     on('todos', `owner_id=eq.${me}`)
     on('week_goals', `owner_id=eq.${me}`)
@@ -539,8 +549,36 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
       leaveTeam: (newAdmin) => run(() => supabase.rpc('leave_team', { p_new_admin: newAdmin ?? null })) as unknown as void,
       transferAdmin: (userId) => run(() => supabase.rpc('transfer_admin', { p_user: userId })) as unknown as void,
 
-      addEvent: (e) => run(() => supabase.from('events').insert({ ...evTo(e), owner_id: me_id })) as unknown as void,
-      updateEvent: (id, patch) => run(() => supabase.from('events').update(evTo(patch)).eq('id', id)) as unknown as void,
+      addEvent: (e) => {
+        // 참석자를 붙이려면 일정 id 가 먼저 있어야 해서, id 를 여기서 만든다
+        const id = crypto.randomUUID()
+        const who = (e.attendees ?? []).map((a) => a.userId)
+        return run(async () => {
+          const r = await supabase.from('events').insert({ ...evTo(e), id, owner_id: me_id })
+          if (r.error || who.length === 0) return r
+          return supabase.rpc('set_attendees', { p_event: id, p_users: who })
+        }) as unknown as void
+      },
+      updateEvent: (id, patch) =>
+        run(async () => {
+          const body = evTo(patch)
+          const r = Object.keys(body).length ? await supabase.from('events').update(body).eq('id', id) : { error: null }
+          if (r.error || !('attendees' in patch)) return r
+          return supabase.rpc('set_attendees', { p_event: id, p_users: (patch.attendees ?? []).map((a) => a.userId) })
+        }) as unknown as void,
+      respondInvite: (eventId, status) => {
+        // 바로 화면에 반영하고 서버에 보낸다
+        setDb((p) => ({ ...p, events: p.events.map((x) => (x.id === eventId ? { ...x, attendees: x.attendees?.map((a) => (a.userId === me_id ? { ...a, status } : a)) } : x)) }))
+        return run(() => supabase.rpc('respond_invite', { p_event: eventId, p_status: status }))
+      },
+      busyOf: async (userIds, from, to) => {
+        const { data, error } = await supabase.rpc('busy_events', { p_users: userIds, p_from: from, p_to: to })
+        if (error) { fail(error); return [] }
+        return ((data ?? []) as any[]).map((x): BusyEvent => ({
+          id: x.id, userId: x.user_id, date: x.date, endDate: x.end_date ?? undefined, start: x.start_time, end: x.end_time,
+          repeat: x.repeat_rule, until: x.until ?? undefined, category: x.category,
+        }))
+      },
       deleteEvent: (id) => run(() => supabase.from('events').delete().eq('id', id)) as unknown as void,
       confirmEvent: (id) => {
         // 눌렀을 때 바로 반영하고, 서버에 기록 (실패하면 다시 불러와 원래대로)

@@ -7,6 +7,7 @@ import { onPopup } from '../lib/bus'
 import { Icon } from './ui'
 import { localize, t } from '../lib/i18n'
 import { confirmedBy } from '../lib/confirm'
+import { inviteOf } from '../lib/attend'
 
 const SHOW_MS = 5000
 // 확인 버튼이 있는 알림은 눌러야 하므로 더 오래 둔다 (안 눌러도 팀 표에 "확인 필요" 표시가 남는다)
@@ -14,8 +15,8 @@ const CONFIRM_MS = 30000
 
 interface Item {
   id: string
-  kind: 'notice' | 'mention' | 'remind' | 'confirm'
-  /** 'confirm' 이 가리키는 일정 */
+  kind: 'notice' | 'mention' | 'remind' | 'confirm' | 'invite'
+  /** 'confirm'·'invite' 가 가리키는 일정 */
   eventId?: string
   title: string
   text: string
@@ -23,7 +24,8 @@ interface Item {
   icon?: 'clock' | 'cal'
 }
 
-const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : k === 'confirm' ? '팀장이 일정을 변경했어요' : '요청 결과')
+const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : k === 'confirm' ? '팀장이 일정을 변경했어요'
+  : k === 'invite' ? '회의 초대' : k === 'decline' ? '회의 불참' : '요청 결과')
 
 /**
  * 오른쪽 아래 알림 팝업 (5초).
@@ -33,7 +35,7 @@ const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === '
  * 일반 대화는 팝업 없이 말풍선 숫자만 올라간다.
  */
 export function NoticeToasts() {
-  const { db, me, messages, userOf, confirmEvent } = useStore()
+  const { db, me, messages, userOf, confirmEvent, respondInvite } = useStore()
   const { chatOpen, setChatOpen, modal } = useUI()
   const [items, setItems] = useState<Item[]>([])
   // 입력·상세 창(<dialog>)이 열려 있으면 알림을 그 창 안에 그린다.
@@ -60,7 +62,7 @@ export function NoticeToasts() {
   const push = (fresh: Item[]) => {
     if (fresh.length === 0) return
     setItems((prev) => [...prev, ...fresh].slice(-3))
-    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), n.kind === 'confirm' ? CONFIRM_MS : SHOW_MS))
+    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), n.kind === 'confirm' || n.kind === 'invite' ? CONFIRM_MS : SHOW_MS))
   }
 
   // 미리 알림 등 다른 곳에서 보낸 팝업
@@ -84,7 +86,13 @@ export function NoticeToasts() {
     }
     const fresh = mine.filter((n) => !seenNotice.current!.has(n.id) && !n.read)
     mine.forEach((n) => seenNotice.current!.add(n.id))
-    push(fresh.map((n): Item => ({ id: n.id, kind: n.kind === 'confirm' ? 'confirm' : 'notice', title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId })))
+    push(fresh.map((n): Item => ({
+      id: n.id,
+      // 회의 초대(일정이 남아 있을 때)는 [불참]·[참석] 버튼이 있는 팝업
+      kind: n.kind === 'confirm' ? 'confirm' : n.kind === 'invite' && n.eventId ? 'invite' : 'notice',
+      title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId,
+      icon: n.kind === 'decline' ? 'cal' : undefined,
+    })))
   }, [db.notices, me?.id])
 
   useEffect(() => {
@@ -105,6 +113,11 @@ export function NoticeToasts() {
   useEffect(() => {
     setItems((prev) => {
       const next = prev.filter((x) => {
+        if (x.kind === 'invite') {
+          // 이미 답했거나 일정이 없어졌으면 닫는다
+          const e = db.events.find((ev) => ev.id === x.eventId)
+          return !!e && inviteOf(e, me?.id)?.status === 'pending'
+        }
         if (x.kind !== 'confirm') return true
         const e = db.events.find((ev) => ev.id === x.eventId)
         return !!e && !confirmedBy(db, e, me?.id ?? '')
@@ -121,7 +134,19 @@ export function NoticeToasts() {
   if (items.length === 0) return null
   const stack = (
     <div className={'ntoast-stack' + (chatOpen ? ' beside-chat' : '')} role="status" aria-live="polite">
-      {items.map((n) => n.kind === 'confirm' ? (
+      {items.map((n) => n.kind === 'invite' ? (
+        <div key={n.id} className="ntoast confirm">
+          <span className="ntoast-ico"><Icon name="users" size={18} /></span>
+          <span className="ntoast-body">
+            <strong>{n.title}</strong>
+            <span>{n.text}</span>
+            <span className="ntoast-actions">
+              <button className="ntoast-ok" onClick={() => { void respondInvite(n.eventId!, 'accepted'); setItems((p) => p.filter((x) => x.id !== n.id)) }}>{t('참석')}</button>
+              <button className="ntoast-later no" onClick={() => { void respondInvite(n.eventId!, 'declined'); setItems((p) => p.filter((x) => x.id !== n.id)) }}>{t('불참')}</button>
+            </span>
+          </span>
+        </div>
+      ) : n.kind === 'confirm' ? (
         <div key={n.id} className="ntoast confirm">
           <span className="ntoast-ico"><Icon name="cal" size={18} /></span>
           <span className="ntoast-body">

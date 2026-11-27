@@ -92,6 +92,9 @@ export function localize(s: string): string {
     return m[3]
       ? t('{name} 팀장이 일정을 변경했어요: {title} ({change})', { name: m[1], title: m[2], change: m[3] })
       : t('{name} 팀장이 일정을 변경했어요: {title}', { name: m[1], title: m[2] })
+  // 회의 초대·시간 변경·취소·불참 (서버 migration_034 · 체험 모드가 만드는 문장)
+  if ((m = s.match(/^(.+)님이 (회의에 초대했어요|회의 시간을 바꿨어요|회의를 취소했어요|회의에 불참해요): ([\s\S]+) \(([^()]+)\)$/)))
+    return t('{name}님이 ' + m[2] + ': {title} ({when})', { name: m[1], title: m[3], when: m[4] })
   if ((m = s.match(/^팀장이 일정 (추가|수정|삭제) 요청에 동의했습니다\. \(([\s\S]*)\)$/)))
     return t('팀장이 일정 {verb} 요청에 동의했어요. ({title})', { verb: VERB[m[1]], title: m[2] })
   if ((m = s.match(/^팀장이 일정 (추가|수정|삭제) 요청을 거절했습니다\. \(([\s\S]*?)\)(?: 사유: ([\s\S]*))?$/)))

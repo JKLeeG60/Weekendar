@@ -10,6 +10,7 @@ import { PersonalPanel } from './PersonalPanel'
 import { Modals } from './Modals'
 import { MobileMain } from './Mobile'
 import { NoticeToasts } from './NoticeToasts'
+import { TipLayer } from './Meeting'
 import { ChatWindow } from './Chat'
 import { Reminders } from './Reminders'
 import { clearInvite, getInvite } from '../lib/invite'
@@ -155,6 +156,7 @@ export function Main() {
       <DayDropStrip />
       <ChatWindow />
       <NoticeToasts />
+      <TipLayer />
       <Reminders />
     </div>
   )

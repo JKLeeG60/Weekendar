@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { TeamUpModal } from './Onboarding'
+import { AttendeeField, FreeFinder } from './Meeting'
+import { fmtMin, inviteOf, toMin } from '../lib/attend'
 import { disablePush, enablePush, isIOS, isStandalone, pushState, pushSupported, sendTestPush } from '../lib/push'
 import { buildICS, downloadICS } from '../lib/ics'
 import { inviteLink } from '../lib/invite'
 import { useStore } from '../lib/store'
 import { useUI, type ModalState } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, fmtDate, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr } from '../lib/date'
+import { addDays, fmtDate, fmtHead, fmtLong, fmtMonthDay, fmtTime, holidayName, isWeekend, todayStr } from '../lib/date'
 import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
 import { localize, Rich, t } from '../lib/i18n'
 import { RETENTION, retentionLabel } from '../lib/chat'
@@ -102,6 +104,13 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
   const [multi, setMulti] = useState(draft ? !!draft.endDate : base ? isMultiDay(base) : false)
   const [endDate, setEndDate] = useState(draft?.endDate ?? (base?.endDate && base.endDate > base.date ? base.endDate : addDays(base?.date ?? date, 2)))
   const bad = !title.trim() || (multi ? endDate <= d : end <= start)
+  // 회의 참석자 (나는 빼고). 여러 날 일정·혼자 쓰기에는 없다
+  const [att, setAtt] = useState<string[]>((draft?.attendees ?? base?.attendees ?? []).map((a) => a.userId))
+  const withAtt = !solo && !multi
+  // 모두 비는 시간 화면 (창 안에서 넘어가는 화면)
+  const [finding, setFinding] = useState(false)
+  const [pick, setPick] = useState<{ date: string; start: number } | null>(null)
+  const dur = Math.max(30, toMin(end) - toMin(start))
 
   function pickCategory(c: Category) {
     setCategory(c)
@@ -112,17 +121,51 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
       ? { title: title.trim(), date: d, endDate, start: '00:00', end: '23:59', place: place.trim(), category, repeat: 'none' as Repeat, shared, remind: undefined, gcal }
       : { title: title.trim(), date: d, endDate: undefined, start, end, place: place.trim(), category, repeat, shared, remind, gcal }
     if (data.remind !== undefined) askNotifyPermission()
-    void (base ? updateEvent(base.id, data) : addEvent(data))
+    // 참석자: 있거나 원래 있었을 때만 보낸다 (응답은 저장소가 그대로 지킨다)
+    const people = withAtt ? att : []
+    const attendees = people.length || base?.attendees?.length ? { attendees: people.map((u) => ({ userId: u, status: 'pending' as const })) } : {}
+    void (base ? updateEvent(base.id, { ...data, ...attendees }) : addEvent({ ...data, ...attendees }))
     closeModal()
-    showToast(solo ? t('일정을 저장했어요.') : shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
+    const invited = people.filter((u) => !base?.attendees?.some((a) => a.userId === u)).length
+    showToast(invited > 0 ? t('일정을 저장하고 {n}명에게 초대를 보냈어요.', { n: invited })
+      : solo ? t('일정을 저장했어요.') : shared ? t('일정을 저장했어요. 팀 표에 공유됩니다.') : t('일정을 저장했어요. 나만 볼 수 있습니다.'))
   }
 
   // [연결]: 지금까지 쓴 내용을 잠깐 저장해 두고 구글 동의 화면으로 (돌아오면 토글이 켜진 채로 다시 열림)
   function linkGoogle() {
     const kept: Partial<EventItem> = multi
       ? { title, date: d, endDate, place, category, shared, gcal: true }
-      : { title, date: d, start, end, place, category, repeat, shared, remind, gcal: true }
+      : { title, date: d, start, end, place, category, repeat, shared, remind, gcal: true, attendees: att.map((u) => ({ userId: u, status: 'pending' as const })) }
     connectGcal({ type: 'event', date: d, event: occ, draft: kept }, me?.email)
+  }
+
+  // 모두 비는 시간: 고르면 날짜·시간을 채우고 일정 창으로 돌아간다
+  if (finding) {
+    return (
+      <Modal
+        title={t('모두 비는 시간')}
+        onClose={closeModal}
+        width={780}
+        className="ff-modal"
+        footer={
+          <>
+            <button className="btn ghost left" onClick={() => setFinding(false)}>‹ {t('일정으로')}</button>
+            <button
+              className="btn primary"
+              disabled={!pick}
+              onClick={() => {
+                if (!pick) return
+                setD(pick.date); setStart(fmtMin(pick.start)); setEnd(fmtMin(pick.start + dur)); setFinding(false)
+              }}
+            >
+              {pick ? t('{date} {a}–{b}로 정하기', { date: fmtHead(pick.date), a: fmtMin(pick.start), b: fmtMin(pick.start + dur) }) : t('시간을 골라 주세요')}
+            </button>
+          </>
+        }
+      >
+        <FreeFinder who={[me?.id ?? '', ...att]} dur={dur} skipId={base?.id} pick={pick} onPick={setPick} />
+      </Modal>
+    )
   }
 
   return (
@@ -143,6 +186,7 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
         <input className="title-input" autoFocus data-autofocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('제목 (예: 주간회의)')} />
         {/* 하루 일정의 날짜: 평소엔 누른 칸의 날짜 그대로, 바꾸고 싶을 때만 눌러서 변경 */}
         {!multi && <PickerField kind="date" value={d} onChange={setD} label={t('날짜')} variant="line" />}
+        {withAtt && <AttendeeField value={att} onChange={setAtt} onFind={() => { setPick(null); setFinding(true) }} />}
         <div className="group">
           <div className="gr">
             <div className="gr-text">
@@ -228,8 +272,15 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
 
 /* ───────── 일정 상세 ───────── */
 function EventDetail({ occ }: { occ: Occurrence }) {
-  const { me, myMember, userOf, db, deleteEvent, confirmEvent } = useStore()
+  const { me, myMember, userOf, db, deleteEvent, confirmEvent, respondInvite } = useStore()
   const { closeModal, openModal, showToast } = useUI()
+  // 회의 초대: 내가 초대받았으면 참석 / 불참
+  const inv = inviteOf(db.events.find((e) => e.id === occ.baseId) ?? occ, me?.id)
+  const people = (db.events.find((e) => e.id === occ.baseId) ?? occ).attendees ?? []
+  const answer = (s: 'accepted' | 'declined') => {
+    void respondInvite(occ.baseId, s)
+    showToast(s === 'accepted' ? t('참석으로 답했어요.') : t('불참으로 답했어요. {name}님에게 알렸어요.', { name: userOf(occ.ownerId).name }))
+  }
   // 지금 보고 있는 팀에서의 역할 (여러 팀에 속할 수 있음)
   const owner = db.members.find((m) => m.userId === occ.ownerId && m.teamId === myMember?.teamId)
   const mine = occ.ownerId === me?.id
@@ -251,7 +302,13 @@ function EventDetail({ occ }: { occ: Occurrence }) {
       className="no-blur"
       onClose={closeModal}
       footer={
-        mine ? (
+        inv ? (
+          <>
+            <span className="foot-note">{inv.status === 'pending' ? t('회의에 참석하나요?') : inv.status === 'accepted' ? t('참석으로 답했어요') : t('불참으로 답했어요')}</span>
+            <button className={'btn nowrap ' + (inv.status === 'declined' ? 'danger' : 'danger-ghost')} onClick={() => answer('declined')} aria-pressed={inv.status === 'declined'}>{t('불참')}</button>
+            <button className={'btn nowrap ' + (inv.status !== 'declined' ? 'primary' : 'ghost')} onClick={() => answer('accepted')} aria-pressed={inv.status === 'accepted'}>{t('참석')}</button>
+          </>
+        ) : mine ? (
           <>
             <button className="btn danger-ghost left" onClick={() => { deleteEvent(occ.baseId); closeModal(); showToast(t('일정을 삭제했어요.')) }}>{t('삭제')}</button>
             <button className="btn primary" onClick={() => openModal({ type: 'event', date: occ.date, event: occ })}>{t('수정')}</button>
@@ -276,6 +333,19 @@ function EventDetail({ occ }: { occ: Occurrence }) {
           <p className="detail-line"><Icon name="users" size={15} /> {userOf(occ.ownerId).name}{owner?.role === 'leader' ? ` (${t('팀장')})` : ''} · {occ.shared ? t('팀에 공유') : t('나만 보기')}</p>
           {occ.gcal && occ.ownerId === me?.id && <p className="detail-line"><GcalIcon /> {t('구글 캘린더에도 저장된 일정')}</p>}
           <span className="cat-tag" data-cat={occ.category}>{t(CATEGORY_LABEL[occ.category])}</span>
+          {/* 회의 참석자와 응답 */}
+          {people.length > 0 && (
+            <div className="att-list">
+              <div className="att-row"><Avatar name={userOf(occ.ownerId).name} size={24} /><span className="att-name">{userOf(occ.ownerId).name}{occ.ownerId === me?.id ? ` (${t('나')})` : ''}</span><span className="att-st owner">{t('주최')}</span></div>
+              {people.map((a) => (
+                <div key={a.userId} className="att-row">
+                  <Avatar name={userOf(a.userId).name} size={24} />
+                  <span className="att-name">{userOf(a.userId).name}{a.userId === me?.id ? ` (${t('나')})` : ''}</span>
+                  <span className={'att-st ' + a.status}>{a.status === 'accepted' ? t('참석') : a.status === 'declined' ? t('불참') : t('응답 대기')}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {changed && base && (
             <div className="change-box">
               <p className="change-head">
