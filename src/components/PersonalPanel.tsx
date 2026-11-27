@@ -19,7 +19,7 @@ import { GestureRow, useEventActions } from './DayDrop'
 import { endDayDrag, moveDayDrag, startDayDrag } from '../lib/dayDrag'
 
 export function DayAgenda() {
-  const { db, me, updateEvent, addEvent } = useStore()
+  const { db, me, updateEvent, addEvent, absences } = useStore()
   const { selected, setSelected, openModal, showToast } = useUI()
   const act = useEventActions()
   const [cal, setCal] = useState(false)
@@ -69,7 +69,8 @@ export function DayAgenda() {
         <Timeline
           occs={mine}
           date={selected}
-          fixed={(o) => o.ownerId !== me?.id}
+          // 초대받은 회의 · 휴가·출장 신청으로 생긴 일정은 끌어 옮기지 않는다 (부재 관리에서 바꿈)
+          fixed={(o) => o.ownerId !== me?.id || absences.some((a) => a.eventId === o.baseId && a.status === 'approved')}
           onAdd={(t) => openModal({ type: 'event', date: selected, start: t })}
           onOpen={(o) => openModal({ type: 'detail', occ: o })}
           onMoveDay={(o, day) => act.moveEvent(o.baseId, selected, day)}

@@ -24,7 +24,11 @@ export interface Team {
   chatRetentionDays?: number | null
   /** 혼자 쓰기 공간 (팀 없이 나 혼자). 팀 만들기를 하면 일반 팀으로 바뀐다 */
   personal?: boolean
+  /** 휴가·출장 자동 승인: none 끔 · all 휴가·출장 · trip 출장만 · leave 휴가만 */
+  autoApprove?: AutoApprove
 }
+
+export type AutoApprove = 'none' | 'all' | 'trip' | 'leave'
 
 /** 1인 1팀: userId 는 유일해야 한다 (Supabase 에서는 unique 제약). */
 export interface Member {
@@ -34,6 +38,8 @@ export interface Member {
   isAdmin: boolean
   title: string // 직급
   sort: number // 팀원 표시 순서
+  /** 올해 총 연차 (없으면 15일) */
+  leaveTotal?: number
 }
 
 export type Category =
@@ -148,6 +154,33 @@ export interface Todo {
   note?: string
 }
 
+/** 휴가·출장 신청 종류: 연차 · 오전 반차 · 오후 반차 · 병가 · 경조사 · 출장 */
+export type AbsenceKind = 'annual' | 'am' | 'pm' | 'sick' | 'family' | 'trip'
+export type AbsenceStatus = 'pending' | 'approved' | 'rejected' | 'canceled'
+
+/** 휴가·출장 신청 (승인되면 일정이 자동으로 생긴다) */
+export interface Absence {
+  id: string
+  teamId: string
+  userId: string
+  kind: AbsenceKind
+  date: string
+  /** 여러 날이면 마지막 날 */
+  endDate?: string
+  /** 출장지 */
+  place: string
+  reason: string
+  /** 평일 기준 일수 (반차 0.5). 연차에서 빠지는 건 연차·반차만 */
+  days: number
+  status: AbsenceStatus
+  rejectReason?: string
+  decidedBy?: string
+  /** 자동 승인으로 처리됨 */
+  auto?: boolean
+  eventId?: string
+  createdAt: number
+}
+
 /** 날짜별 메모 (마크다운, 나만 보임) */
 export interface Memo {
   ownerId: string
@@ -167,11 +200,13 @@ export interface WeekGoal {
 export interface Notice {
   id: string
   userId: string
-  kind: 'request' | 'result' | 'join' | 'confirm' | 'invite' | 'decline' | 'assign' | 'done'
+  kind: 'request' | 'result' | 'join' | 'confirm' | 'invite' | 'decline' | 'assign' | 'done' | 'absence'
   text: string
   refId?: string
   /** 'confirm' 알림이 가리키는 일정 */
   eventId?: string
+  /** 'absence' 알림이 가리키는 휴가·출장 신청 */
+  absenceId?: string
   read: boolean
   createdAt: number
 }
@@ -249,6 +284,8 @@ export interface DB {
   requests: ChangeRequest[]
   /** 팀장 일정 변경에 대한 팀원 확인 기록 */
   confirms?: EventConfirm[]
+  /** 휴가·출장 신청 (같은 팀) */
+  absences?: Absence[]
   todos: Todo[]
   /** 이번 주 목표 (없으면 빈 목록) */
   goals?: WeekGoal[]

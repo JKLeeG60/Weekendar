@@ -23,9 +23,13 @@ import { WeekStartModal } from './WeekGoals'
 import { SettingsModal } from './Settings'
 import { QuickAddModal } from './QuickAdd'
 import { ShortcutsModal } from './Shortcuts'
+import { AbsenceModal } from './Absence'
 import { connectGcal, gcalStatus } from '../lib/gcal'
 
 const CATS = Object.keys(CATEGORY_LABEL) as Category[]
+/** 휴가·반차·출장은 부재 관리에서 신청한다 (이미 그 분류인 일정을 고칠 때만 보인다) */
+const ABS_CATS: Category[] = ['leave', 'halfday', 'trip']
+const catsFor = (cur?: Category) => CATS.filter((c) => !ABS_CATS.includes(c) || c === cur)
 const REPEAT_LABEL: Record<Repeat, string> = { none: '반복 안 함', daily: '매일', weekly: '매주', monthly: '매월' }
 export const REMIND_OPTIONS: [number | undefined, string][] = [
   [undefined, '없음'], [0, '정각'], [5, '5분 전'], [10, '10분 전'], [15, '15분 전'], [30, '30분 전'],
@@ -61,6 +65,7 @@ function ModalSwitch({ modal }: { modal: ModalState }) {
     case 'leave': return <LeaveModal />
     case 'teamup': return <TeamUpModal />
     case 'assign': return <AssignModal userIds={modal.userIds} todoId={modal.todoId} />
+    case 'absence': return <AbsenceModal tab={modal.tab} />
     case 'push': return <PushModal />
     case 'member': return <MemberMenu userId={modal.userId} x={modal.x} y={modal.y} />
     case 'month': return <MonthModal userId={modal.userId} date={modal.date} />
@@ -221,12 +226,13 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
           <div className="gr col">
             <span>{t('카테고리')}</span>
             <div className="seg">
-              {CATS.map((c) => (
+              {catsFor(base?.category).map((c) => (
                 <button key={c} type="button" data-cat={c} className={'seg-item' + (category === c ? ' on' : '')} onClick={() => pickCategory(c)}>
                   {t(CATEGORY_LABEL[c])}
                 </button>
               ))}
             </div>
+            <AbsHint />
           </div>
           {!multi && <label className="gr">
             <span>{t('반복')}</span>
@@ -273,7 +279,7 @@ function EventModal({ date, start: startHint, occ, titleHint, sharedHint, draft 
 
 /* ───────── 일정 상세 ───────── */
 function EventDetail({ occ }: { occ: Occurrence }) {
-  const { me, myMember, userOf, db, deleteEvent, confirmEvent, respondInvite } = useStore()
+  const { me, myMember, userOf, db, deleteEvent, confirmEvent, respondInvite, absences, cancelAbsence } = useStore()
   const { closeModal, openModal, showToast } = useUI()
   // 회의 초대: 내가 초대받았으면 참석 / 불참
   const inv = inviteOf(db.events.find((e) => e.id === occ.baseId) ?? occ, me?.id)
@@ -295,6 +301,8 @@ function EventDetail({ occ }: { occ: Occurrence }) {
   const status = base && changed ? confirmStatus(db, base) : null
   const [from, to] = (base?.changeText ?? '').split(' → ')
   const names = (ids: string[]) => ids.map((id) => userOf(id).name).join(', ')
+  // 휴가·출장 신청으로 생긴 일정인지
+  const absOf = absences.find((a) => a.eventId === occ.baseId && a.status === 'approved')
 
   return (
     <Modal
@@ -308,6 +316,18 @@ function EventDetail({ occ }: { occ: Occurrence }) {
             <span className="foot-note">{inv.status === 'pending' ? t('회의에 참석하나요?') : inv.status === 'accepted' ? t('참석으로 답했어요') : t('불참으로 답했어요')}</span>
             <button className={'btn nowrap ' + (inv.status === 'declined' ? 'danger' : 'danger-ghost')} onClick={() => answer('declined')} aria-pressed={inv.status === 'declined'}>{t('불참')}</button>
             <button className={'btn nowrap ' + (inv.status !== 'declined' ? 'primary' : 'ghost')} onClick={() => answer('accepted')} aria-pressed={inv.status === 'accepted'}>{t('참석')}</button>
+          </>
+        ) : mine && absOf ? (
+          // 휴가·출장 신청으로 생긴 일정: 고치기는 부재 관리에서, 지우면 신청 취소
+          <>
+            {(absOf.endDate ?? absOf.date) >= todayStr() && (
+              <button className="btn danger-ghost left" onClick={async () => {
+                if (!window.confirm(t('승인된 신청을 취소할까요? 팀 일정에서도 지워져요.'))) return
+                const e = await cancelAbsence(absOf.id)
+                closeModal(); showToast(e || t('신청을 취소했어요.'))
+              }}>{absOf.kind === 'trip' ? t('출장 취소') : t('휴가 취소')}</button>
+            )}
+            <button className="btn primary" onClick={() => openModal({ type: 'absence', tab: absOf.kind === 'trip' ? 'trip' : 'leave' })}>{t('부재 관리')}</button>
           </>
         ) : mine ? (
           <>
@@ -461,7 +481,7 @@ function RequestModal({ mode, date, occ }: { mode: 'add' | 'edit' | 'delete'; da
               <div className="gr col">
                 <span>{t('카테고리')}</span>
                 <div className="seg">
-                  {CATS.map((c) => (
+                  {catsFor(occ?.category).map((c) => (
                     <button key={c} type="button" data-cat={c} className={'seg-item' + (category === c ? ' on' : '')} onClick={() => setCategory(c)}>
                       {t(CATEGORY_LABEL[c])}
                     </button>
@@ -836,7 +856,7 @@ function PushModal() {
 }
 
 /** 날짜·시간 칸: 브라우저 언어와 상관없이 "2026. 11. 9." / "오전 9:00" 형태의 알약 버튼으로 보여주고, 누르면 선택 창이 열림 */
-function PickerField({ kind, value, onChange, min, label, bad, variant }: { kind: 'date' | 'time'; value: string; onChange: (v: string) => void; min?: string; label: string; bad?: boolean; variant?: 'line' }) {
+export function PickerField({ kind, value, onChange, min, label, bad, variant }: { kind: 'date' | 'time'; value: string; onChange: (v: string) => void; min?: string; label: string; bad?: boolean; variant?: 'line' }) {
   const ref = useRef<HTMLInputElement>(null)
   let text = kind === 'date' ? t('날짜 선택') : t('시간 선택')
   if (value && kind === 'date') text = variant === 'line' ? fmtMonthDay(value) : fmtDate(value)
@@ -1009,5 +1029,17 @@ function AssignModal({ userIds, todoId }: { userIds?: string[]; todoId?: string 
         {!base && <p className="hint">{t('배정하면 담당자에게 알림이 가고, 끝내면 알려 드려요.')}</p>}
       </div>
     </Modal>
+  )
+}
+
+/** 일정 분류 아래 안내: 휴가·출장은 부재 관리에서 */
+function AbsHint() {
+  const { solo } = useStore()
+  const { openModal } = useUI()
+  if (solo) return null
+  return (
+    <p className="abs-hint">
+      {t('휴가·출장은')} <button type="button" className="link-btn" onClick={() => openModal({ type: 'absence' })}>{t('내 목록 → 부재 관리')}</button>{t('에서 신청해요')}
+    </p>
   )
 }

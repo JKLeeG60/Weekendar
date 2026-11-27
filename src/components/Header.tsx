@@ -5,12 +5,16 @@ import { addDays, isoWeek, mondayOf, monthTitle, parse, weekPill, weekRangeLabel
 import { t } from '../lib/i18n'
 import { Avatar, Icon } from './ui'
 import { PrintShareItems } from './PrintShare'
+import { canApprove, DEFAULT_LEAVE, leaveSummary } from '../lib/absence'
 import { Notifications } from './Notifications'
 import { ChatButton } from './Chat'
 
 /** 모바일에서는 탭마다 큰 제목이 바뀜 (팀 주간표 / 내 일정 / 할 일 / 대화) */
 export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: string; eyebrow?: string; teamMenu?: boolean } = {}) {
-  const { team, me, isAdmin, unreadCount, logout, login, db, mode, myTeams, solo } = useStore()
+  const { team, me, isAdmin, unreadCount, logout, login, db, mode, myTeams, solo, absences, myMember } = useStore()
+  // 내가 승인할 휴가·출장 신청 수
+  const toApprove = absences.filter((a) => canApprove(db.members, me?.id, a)).length
+  const leaveLeft = me && myMember ? leaveSummary(absences, me.id, myMember.teamId, myMember.leaveTotal ?? DEFAULT_LEAVE).left : 0
   // 두 팀에 속해 있으면 팀 전환 (데스크탑: 왼쪽 끝 버튼, 휴대폰: 제목을 눌러 목록)
   const multi = myTeams.length > 1
   const [teamOpen, setTeamOpen] = useState(false)
@@ -101,6 +105,7 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
         <div className="rel">
           <button className="avatar-btn" onClick={() => setPop(pop === 'menu' ? null : 'menu')} aria-label={t('계정 메뉴')}>
             <Avatar name={me?.name ?? '?'} size={32} />
+            {toApprove > 0 && <span className="dot-badge">{toApprove}</span>}
           </button>
           {pop === 'menu' && (
             <>
@@ -122,6 +127,13 @@ export function Header({ mobileTitle, eyebrow, teamMenu }: { mobileTitle?: strin
                   )
                 })}
                 <div className="menu-sep" />
+                {/* 휴가·출장 신청과 기록 (혼자 쓰기·참여 대기 중엔 없음) */}
+                {!solo && myMember && myMember.role !== 'pending' && (
+                  <button className="menu-item" onClick={() => { setPop(null); openModal({ type: 'absence' }) }}>
+                    <span><Icon name="suitcase" size={15} /> {t('부재 관리')}</span>
+                    {toApprove > 0 ? <span className="menu-count">{t('승인 {n}', { n: toApprove })}</span> : <small className="menu-sub">{t('연차 {n}일', { n: leaveLeft })}</small>}
+                  </button>
+                )}
                 {/* 인쇄·공유하기: 주간 보기면 이번 주 팀 표, 월간 보기면 그 달 */}
                 <PrintShareItems onDone={() => setPop(null)} />
                 {/* 화면·언어·할 일·알림 같은 설정은 "설정" 창에 모았다 */}

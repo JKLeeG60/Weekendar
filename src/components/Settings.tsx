@@ -5,6 +5,7 @@ import { useStore } from '../lib/store'
 import { useUI } from '../lib/ui'
 import { t, useLang, type LangPref } from '../lib/i18n'
 import { Icon, Modal, Switch } from './ui'
+import { AUTO_OPTIONS } from './Absence'
 import { startInstall, useInstallable } from './People'
 
 /**
@@ -13,7 +14,10 @@ import { startInstall, useInstallable } from './People'
  * - 휴대폰 알림·캘린더 등은 설정 위에 겹쳐 열어서, 닫으면 설정으로 돌아온다
  */
 export function SettingsModal() {
-  const { me, myMember, team, setTodoCarry, solo, deleteAccount } = useStore()
+  const { me, myMember, team, setTodoCarry, solo, deleteAccount, setAutoApprove } = useStore()
+  // 팀장·관리자: 휴가·출장 자동 승인
+  const approver = !!myMember && (myMember.role === 'leader' || myMember.isAdmin) && !solo
+  const auto = team?.autoApprove ?? 'none'
   const { closeModal, openModal, openLayer, showToast, themePref, setThemePref, narrow } = useUI()
   const { pref, setPref } = useLang()
   const installable = useInstallable()
@@ -51,6 +55,23 @@ export function SettingsModal() {
           <Switch on={carry} onChange={setTodoCarry} label={t('못 끝낸 할 일을 다음 날로 넘기기')} />
         </Row>
       </Group>
+
+      {approver && (
+        <Group label={t('휴가·출장 신청')}>
+          <Row icon="suitcase" color="#ff9500" label={t('자동 승인')} sub={auto === 'none' ? t('팀원 신청을 직접 승인해요') : t('신청하면 바로 승인되고, 알림만 와요')}>
+            <Switch on={auto !== 'none'} onChange={(v) => setAutoApprove(v ? 'all' : 'none')} label={t('자동 승인')} />
+          </Row>
+          {auto !== 'none' && (
+            <Row icon="check" color="#34c759" label={t('적용')}>
+              <div className="theme-seg" role="radiogroup" aria-label={t('적용')}>
+                {AUTO_OPTIONS.map(([v, l]) => (
+                  <button key={v} role="radio" aria-checked={auto === v} className={auto === v ? 'on' : ''} onClick={() => setAutoApprove(v)}>{t(l)}</button>
+                ))}
+              </div>
+            </Row>
+          )}
+        </Group>
+      )}
 
       <Group label={t('알림과 앱')}>
         <Row icon="bell" color="#ff3b30" label={t('휴대폰 알림')} onClick={() => openLayer({ type: 'push' })} />

@@ -2089,3 +2089,84 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .asg-row.done b { color: var(--muted); text-decoration: line-through; }
 /* 오른쪽 아래 팝업: 업무 완료는 초록 */
 .ntoast.ok .ntoast-ico { background: var(--green); }
+
+/* ───────── 휴가·출장 신청 (내 목록 → 부재 관리) ───────── */
+.avatar-btn { position: relative; }
+.menu-sub { color: var(--muted); font-size: 0.78rem; font-weight: 500; }
+.menu-count { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--red); border-radius: 99px; padding: 0.05rem 0.5rem; }
+.abs-seg { display: flex; width: 100%; margin-bottom: 0.9rem; }
+.abs-seg button { flex: 1; font-size: 0.88rem; padding: 0.38rem 0.6rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; }
+.abs-count { min-width: 1.1rem; height: 1.1rem; padding: 0 0.3rem; border-radius: 99px; background: var(--red); color: #fff; font-size: 0.68rem; font-weight: 700; display: inline-grid; place-items: center; }
+.abs-body { display: flex; flex-direction: column; }
+.abs-body .menu-label { padding-left: 0.1rem; }
+.abs-sum { background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 0.95rem; padding: 0.9rem 1rem; }
+.abs-sum-top { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+.abs-big { font-size: 1.9rem; font-weight: 750; letter-spacing: -0.02em; margin: 0.1rem 0 0.55rem; }
+.abs-big small { font-size: 0.92rem; font-weight: 500; color: var(--muted); }
+.abs-mid { font-size: 1.15rem; font-weight: 700; margin-top: 0.4rem; }
+.abs-trip-sum { display: flex; gap: 2rem; }
+.abs-trip-sum span { font-size: 0.8rem; color: var(--muted); }
+.abs-trip-sum .abs-big { margin-bottom: 0; }
+.abs-bar { height: 0.5rem; border-radius: 99px; background: var(--line-soft); overflow: hidden; display: flex; }
+.abs-bar i, .abs-legend i { display: block; height: 100%; }
+.abs-bar .used, .abs-legend .used { background: var(--c-leave); }
+.abs-bar .wait, .abs-legend .wait { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c-leave) 55%, transparent) 0 3px, color-mix(in srgb, var(--c-leave) 18%, transparent) 3px 6px); }
+.abs-legend { display: flex; gap: 0.9rem; margin-top: 0.45rem; font-size: 0.76rem; color: var(--muted); }
+.abs-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.abs-legend i { width: 0.6rem; height: 0.6rem; border-radius: 0.2rem; }
+.abs-new { margin: 0.8rem 0 0.2rem; width: 100%; justify-content: center; gap: 0.3rem; }
+.abs-empty { font-size: 0.86rem; color: var(--muted); padding: 0.4rem 0.2rem 0.6rem; }
+.abs-row, .abs-card { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.2rem; border-top: 1px solid var(--line-soft); }
+.abs-card { align-items: flex-start; }
+.abs-dot { flex: none; width: 0.3rem; align-self: stretch; min-height: 2.2rem; border-radius: 99px; background: var(--c-leave); }
+[data-kind='am'] > .abs-dot, [data-kind='pm'] > .abs-dot { background: var(--c-halfday); }
+[data-kind='trip'] > .abs-dot { background: var(--c-trip); }
+.abs-row.rejected > .abs-dot, .abs-row.canceled > .abs-dot { background: var(--faint); }
+.abs-row.pending > .abs-dot { opacity: 0.45; }
+.abs-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.abs-row-main b { font-size: 0.92rem; font-weight: 650; }
+.abs-row-main small { font-size: 0.8rem; color: var(--muted); }
+.abs-row.rejected b, .abs-row.canceled b { color: var(--muted); }
+.abs-row.canceled b { text-decoration: line-through; }
+.abs-card .row-end { margin-top: 0.45rem; }
+.abs-card .req-reject { margin-top: 0.45rem; }
+.abs-st { flex: none; font-size: 0.74rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 99px; }
+.abs-st.pending { background: rgba(255, 149, 0, 0.14); color: #c93400; }
+.abs-st.approved { background: rgba(52, 199, 89, 0.14); color: #248a3d; }
+.abs-st.rejected, .abs-st.canceled { background: var(--line-soft); color: var(--muted); }
+.abs-cancel { flex: none; font-size: 0.8rem; color: var(--muted); }
+.abs-auto { display: flex; justify-content: space-between; align-items: center; font-size: 0.84rem; background: rgba(52, 199, 89, 0.1); color: #248a3d; border-radius: 0.7rem; padding: 0.55rem 0.8rem; font-weight: 600; }
+.abs-team { display: flex; flex-direction: column; }
+.abs-mem { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.2rem; border-top: 1px solid var(--line-soft); font-size: 0.9rem; }
+.abs-mem-name { flex: 1; font-weight: 600; }
+.abs-mem-left { color: var(--muted); font-size: 0.82rem; }
+.abs-total { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
+.abs-total input { width: 3.4rem; text-align: right; padding: 0.25rem 0.4rem; border-radius: 0.45rem; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; }
+.abs-kinds { margin-bottom: 0.2rem; }
+.abs-days { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; font-weight: 600; }
+.abs-days small { font-size: 0.76rem; font-weight: 500; color: var(--muted); }
+.abs-days small.bad { color: var(--red); }
+.abs-approver { font-size: 0.8rem; color: var(--muted); margin-right: auto; }
+.abs-hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.55rem; }
+.abs-hint .link-btn { font-size: 0.8rem; font-weight: 600; }
+
+/* 팀 표: 휴가 칸은 회색 빗금, 반차는 반나절만, 출장은 연보라 */
+.team-table td.cell.off-leave { background-image: repeating-linear-gradient(135deg, rgba(120, 120, 128, 0.06) 0 6px, rgba(120, 120, 128, 0.13) 6px 12px); }
+.team-table td.cell.off-am, .team-table td.cell.off-pm { background-image: repeating-linear-gradient(135deg, rgba(120, 120, 128, 0.06) 0 6px, rgba(120, 120, 128, 0.13) 6px 12px); background-size: 100% 50%; background-repeat: no-repeat; background-position: top; }
+.team-table td.cell.off-pm { background-position: bottom; }
+.team-table td.cell.off-trip { background-image: linear-gradient(color-mix(in srgb, var(--c-trip) 6%, transparent), color-mix(in srgb, var(--c-trip) 6%, transparent)); }
+.chip.off-dim { filter: grayscale(1); opacity: 0.5; }
+.off-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.off-tag { font: inherit; font-size: 0.74rem; font-weight: 700; padding: 0.14rem 0.45rem; border-radius: 0.4rem; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.off-tag.leave { background: color-mix(in srgb, var(--c-leave) 13%, var(--surface)); color: var(--c-leave); }
+.off-tag.half { background: color-mix(in srgb, var(--c-halfday) 15%, var(--surface)); color: color-mix(in srgb, var(--c-halfday) 75%, var(--text)); }
+.off-tag.trip { background: color-mix(in srgb, var(--c-trip) 13%, var(--surface)); color: var(--c-trip); }
+.off-tag.wait { background: transparent; border: 1.2px dashed currentColor; font-weight: 650; color: var(--c-leave); }
+.off-tag.wait[data-kind='half'] { color: color-mix(in srgb, var(--c-halfday) 75%, var(--text)); }
+.off-tag.wait[data-kind='trip'] { color: var(--c-trip); }
+.abs-pill.wait { background: transparent; border: 1.5px dashed color-mix(in srgb, var(--cc) 70%, transparent); cursor: default; }
+/* 모바일 카드: 휴가는 회색 빗금 바탕, 출장은 연보라 */
+.m-card.off-leave { background-image: repeating-linear-gradient(135deg, rgba(120, 120, 128, 0.05) 0 6px, rgba(120, 120, 128, 0.1) 6px 12px); }
+.m-card.off-trip { background-image: linear-gradient(color-mix(in srgb, var(--c-trip) 5%, transparent), color-mix(in srgb, var(--c-trip) 5%, transparent)); }
+.m-item.off-dim { filter: grayscale(1); opacity: 0.5; }
+.m-off { flex: 1; justify-content: flex-end; min-width: 0; }

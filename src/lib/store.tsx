@@ -7,7 +7,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { chatCounts, chatScope, dmPeer, dmThreads, inviteNotice, leaveNotice, parseMentions, roomThreads, type RoomThread } from './chat'
 import type {
+  Absence,
+  AbsenceKind,
   Attendee,
+  AutoApprove,
   BusyEvent,
   Category,
   ChangeRequest,
@@ -32,6 +35,7 @@ import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
 import { goesTo, respondDemo, syncMeeting } from './attend'
+import { absenceEvent, absenceNoticeText, approversOf, autoCovers, canApprove, countDays, DEFAULT_LEAVE, deducts, isHalf, leaveSummary, overlaps } from './absence'
 
 const KEY = 'weekendar-v1'
 export const uid = () => Math.random().toString(36).slice(2, 10)
@@ -84,6 +88,26 @@ function flagLeaderChanges(p: DB, before: EventItem[], after: EventItem[]): DB {
 /** 체험 모드 알림 하나 */
 function demoNotice(userId: string, kind: Notice['kind'], text: string): Notice {
   return { id: 'n_' + Math.random().toString(36).slice(2, 10), userId, kind, text, read: false, createdAt: Date.now() }
+}
+
+/** 체험 모드: 휴가·출장 승인 (일정을 만들고 "승인"으로) — 서버 private.absence_apply 와 같은 일 */
+function applyAbsence(p: DB, id: string, by: string | undefined, auto: boolean): DB {
+  const a = (p.absences ?? []).find((x) => x.id === id)
+  if (!a) return p
+  const ev: EventItem = { id: uid(), ownerId: a.userId, ...absenceEvent(a) }
+  return { ...p, events: [...p.events, ev], absences: (p.absences ?? []).map((x) => (x.id === id ? { ...x, status: 'approved' as const, decidedBy: by, auto, eventId: ev.id } : x)) }
+}
+/** 승인자에게 보내는 취소 알림 */
+function cancelNotices(p: DB, a: Absence): Notice[] {
+  const name = p.users.find((u) => u.id === a.userId)?.name ?? ''
+  const text = `${name}님이 ${a.kind === 'trip' ? '출장' : '휴가'} 신청을 취소했어요: ${absenceNoticeText(a)}`
+  return approversOf(p.members, a.teamId, a.userId).map((u) => ({ ...demoNotice(u, 'absence', text), absenceId: a.id }))
+}
+/** 승인으로 생긴 일정을 지우면 신청도 "취소" (연차가 돌아온다) */
+function cancelByEvent(p: DB, eventId: string): DB {
+  const a = (p.absences ?? []).find((x) => x.eventId === eventId && x.status === 'approved')
+  if (!a) return p
+  return { ...p, absences: (p.absences ?? []).map((x) => (x.id === a.id ? { ...x, status: 'canceled' as const } : x)), notices: [...cancelNotices(p, a), ...p.notices] }
 }
 
 /** 참석자 목록 정리: 나는 빼고, 이미 있던 사람은 응답을 그대로, 새 사람은 "응답 대기" */
@@ -247,7 +271,26 @@ function seed(): DB {
     msg('u_m4', '네, 초안 오늘 오후에 올릴게요', 8, { roomId }),
   )
 
-  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, reactions, rooms, currentUserId: null }
+  // 휴가·출장 신청 예시: 이미 있는 휴가·반차·출장 일정은 승인된 신청으로, 최유리의 다음 주 연차는 승인 대기
+  const absences: Absence[] = []
+  const inTeam = (u: string) => members.some((m) => m.userId === u && m.teamId === teamId && m.role !== 'pending')
+  for (const e of events) {
+    if (!inTeam(e.ownerId) || !(e.category === 'leave' || e.category === 'halfday' || e.category === 'trip')) continue
+    const kind: AbsenceKind = e.category === 'trip' ? 'trip' : e.category === 'halfday' ? (e.start < '12:00' ? 'am' : 'pm') : 'annual'
+    absences.push({ id: uid(), teamId, userId: e.ownerId, kind, date: e.date, place: e.place, reason: '', days: kind === 'am' || kind === 'pm' ? 0.5 : 1, status: 'approved', decidedBy: e.ownerId === 'u_leader' ? 'u_admin' : 'u_leader', eventId: e.id, createdAt: ago(60 * 24 * 7) })
+  }
+  // 지난달 출장 · 연차 기록
+  const past = (i: number, title: string, cat: Category, place = '') => { const e = ev('u_m3', d(i), '09:00', '18:00', title, cat, true, place); events.push(e); return e }
+  const p1 = past(-17, '출장', 'trip', '판교'), p2 = past(-24, '연차', 'leave')
+  absences.push(
+    { id: uid(), teamId, userId: 'u_m3', kind: 'trip', date: p1.date, place: '판교', reason: '파트너사 미팅', days: 1, status: 'approved', decidedBy: 'u_leader', eventId: p1.id, createdAt: ago(60 * 24 * 20) },
+    { id: uid(), teamId, userId: 'u_m3', kind: 'annual', date: p2.date, place: '', reason: '개인 사유', days: 1, status: 'approved', decidedBy: 'u_leader', eventId: p2.id, createdAt: ago(60 * 24 * 30) },
+  )
+  const wait: Absence = { id: uid(), teamId, userId: 'u_m3', kind: 'annual', date: d(9), endDate: d(10), place: '', reason: '가족 여행', days: 2, status: 'pending', createdAt: ago(40) }
+  absences.unshift(wait)
+  for (const u of ['u_leader', 'u_admin']) notices.push({ id: uid(), userId: u, kind: 'absence', absenceId: wait.id, read: false, text: `최유리님이 휴가를 신청했어요: ${absenceNoticeText(wait)}`, createdAt: ago(40) })
+
+  return { users, teams, members, events, requests, todos, notices, messages, chatReads, messageReads: {}, reactions, rooms, absences, currentUserId: null }
 }
 
 function load(): DB {
@@ -342,6 +385,18 @@ export interface Store {
   moveTodo: (id: string, date: string) => void
   /** 업무 배정 (팀장·관리자): 담당자마다 할 일 하나씩. 실패하면 오류 글 */
   assignTask: (a: { text: string; userIds: string[]; dueDate?: string; dueTime?: string; note?: string }) => Promise<string | void>
+  /** 휴가·출장 신청 (지금 팀) */
+  absences: Absence[]
+  /** 휴가·출장 신청. 실패하면 오류 글 */
+  requestAbsence: (a: { kind: AbsenceKind; date: string; endDate?: string; place?: string; reason?: string }) => Promise<string | void>
+  /** 승인·반려 (팀장·관리자) */
+  decideAbsence: (id: string, ok: boolean, reason?: string) => Promise<string | void>
+  /** 내 신청 취소 (승인된 건은 일정도 지움) */
+  cancelAbsence: (id: string) => Promise<string | void>
+  /** 휴가·출장 자동 승인 (팀장·관리자) */
+  setAutoApprove: (mode: AutoApprove) => void
+  /** 팀원 총 연차 (팀장·관리자) */
+  setLeaveTotal: (userId: string, total: number) => void
   /** 내가 배정한 업무 고치기 (담당자에게 알림) */
   editAssigned: (id: string, patch: { text?: string; dueDate?: string; dueTime?: string; note?: string }) => void
   /** 지운 할 일 되살리기 (되돌리기) */
@@ -794,7 +849,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const next = flagLeaderChanges(p, p.events, p.events.map((e) => (e.id === id ? fix(e) : e)))
           return syncMeeting(next, before, next.events.find((e) => e.id === id))
         }),
-      deleteEvent: (id) => set((p) => syncMeeting({ ...p, events: p.events.filter((e) => e.id !== id) }, p.events.find((e) => e.id === id), undefined)),
+      deleteEvent: (id) => set((p) => cancelByEvent(syncMeeting({ ...p, events: p.events.filter((e) => e.id !== id) }, p.events.find((e) => e.id === id), undefined), id)),
       respondInvite: (eventId, status) => set((p) => respondDemo(p, eventId, status)),
       busyOf: async (userIds, from, to) =>
         userIds.flatMap((u) => db.events
@@ -903,6 +958,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return next
       }),
+      absences: (db.absences ?? []).filter((a) => a.teamId === myMember?.teamId),
+      requestAbsence: async ({ kind, date, endDate, place = '', reason = '' }) => {
+        const meId = db.currentUserId
+        if (!meId || !myMember || myMember.role === 'pending') return tr('팀에 참여한 뒤에 신청할 수 있어요')
+        if (kind === 'trip' && !place.trim()) return tr('출장지를 적어 주세요')
+        const end = isHalf(kind) || !endDate || endDate <= date ? undefined : endDate
+        const list = db.absences ?? []
+        if (overlaps(list, meId, myMember.teamId, kind, date, end)) return tr('이미 신청한 기간과 겹쳐요')
+        const days = countDays(kind, date, end)
+        if (deducts(kind) && leaveSummary(list, meId, myMember.teamId, myMember.leaveTotal ?? DEFAULT_LEAVE, date.slice(0, 4)).left < days) return tr('남은 연차가 부족해요')
+        set((p) => {
+          const a: Absence = { id: uid(), teamId: myMember.teamId, userId: meId, kind, date, endDate: end, place: place.trim(), reason: reason.trim(), days, status: 'pending', createdAt: Date.now() }
+          const name = p.users.find((u) => u.id === meId)?.name ?? ''
+          const who = approversOf(p.members, a.teamId, meId)
+          // 관리자 본인 · 자동 승인 · 승인할 사람이 없으면 바로 승인
+          const now = myMember.isAdmin || autoCovers(team?.autoApprove, kind) || who.length === 0
+          let next: DB = { ...p, absences: [a, ...(p.absences ?? [])] }
+          if (now) next = applyAbsence(next, a.id, myMember.isAdmin ? meId : undefined, !myMember.isAdmin)
+          const noun = kind === 'trip' ? ['출장을', '출장이'] : ['휴가를', '휴가가']
+          const text = now ? `${name}님의 ${noun[1]} ${myMember.isAdmin ? '등록됐어요' : '자동 승인됐어요'}: ${absenceNoticeText(a)}` : `${name}님이 ${noun[0]} 신청했어요: ${absenceNoticeText(a)}`
+          return { ...next, notices: [...who.map((u) => ({ ...demoNotice(u, 'absence', text), absenceId: a.id })), ...next.notices] }
+        })
+      },
+      decideAbsence: async (id, ok, reason) => {
+        const a = (db.absences ?? []).find((x) => x.id === id)
+        if (!a || a.status !== 'pending') return tr('이미 처리된 신청이에요')
+        if (!canApprove(db.members, db.currentUserId, a)) return tr('승인 권한이 없어요')
+        set((p) => {
+          const meId = p.currentUserId!
+          const noun = a.kind === 'trip' ? '출장' : '휴가'
+          let next: DB = ok ? applyAbsence(p, id, meId, false)
+            : { ...p, absences: (p.absences ?? []).map((x) => (x.id === id ? { ...x, status: 'rejected' as const, rejectReason: reason?.trim() || undefined, decidedBy: meId } : x)) }
+          const text = ok ? `${noun} 신청이 승인됐어요: ${absenceNoticeText(a)}` : `${noun} 신청이 반려됐어요: ${absenceNoticeText(a)}${reason?.trim() ? ` 사유: ${reason.trim()}` : ''}`
+          next = { ...next, notices: next.notices.map((n) => (n.absenceId === id && n.userId !== a.userId ? { ...n, read: true } : n)) }
+          return { ...next, notices: [{ ...demoNotice(a.userId, 'absence', text), absenceId: id }, ...next.notices] }
+        })
+      },
+      cancelAbsence: async (id) => {
+        const a = (db.absences ?? []).find((x) => x.id === id)
+        if (!a || a.userId !== db.currentUserId) return tr('신청을 찾을 수 없어요')
+        if (a.status !== 'pending' && a.status !== 'approved') return tr('이미 처리된 신청이에요')
+        if (a.status === 'approved' && (a.endDate ?? a.date) < todayStr()) return tr('지난 기간은 취소할 수 없어요')
+        set((p) => {
+          if (a.status === 'approved' && a.eventId) return cancelByEvent({ ...p, events: p.events.filter((e) => e.id !== a.eventId) }, a.eventId)
+          const next = { ...p, absences: (p.absences ?? []).map((x) => (x.id === id ? { ...x, status: 'canceled' as const } : x)), notices: p.notices.map((n) => (n.absenceId === id ? { ...n, read: true } : n)) }
+          return { ...next, notices: [...cancelNotices(next, a), ...next.notices] }
+        })
+      },
+      setAutoApprove: (mode) => set((p) => ({ ...p, teams: p.teams.map((x) => (x.id === myMember?.teamId ? { ...x, autoApprove: mode } : x)) })),
+      setLeaveTotal: (userId, total) => set((p) => ({ ...p, members: p.members.map((m) => (m.userId === userId && m.teamId === myMember?.teamId ? { ...m, leaveTotal: total } : m)) })),
       assignTask: async ({ text, userIds, dueDate, dueTime, note }) => {
         if (!isLeader && !isAdmin) return tr('팀장이나 관리자만 업무를 배정할 수 있어요')
         if (!text.trim()) return tr('업무 내용을 적어 주세요')

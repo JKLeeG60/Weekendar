@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { Ctx, type Store } from './store'
-import type { AttendStatus, Attendee, BusyEvent, ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, MyTeam, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
+import type { Absence, AttendStatus, Attendee, BusyEvent, ChangeRequest, ChatPin, ChatRoom, DB, EventConfirm, EventItem, Member, Message, MyTeam, Notice, Role, ScheduledMessage, Todo, WeekGoal } from './types'
 import { chatCounts, chatScope, dmPeer, dmThreads, parseMentions, roomThreads } from './chat'
 import { localize, t as tr, useLang } from './i18n'
 import { TERMS_VERSION } from './legal'
+import { countDays } from './absence'
 
 const EMPTY: DB = { users: [], teams: [], members: [], events: [], requests: [], todos: [], goals: [], notices: [], messages: [], chatReads: {}, messageReads: {}, currentUserId: null }
 
@@ -47,7 +48,7 @@ const reqFrom = (r: any): ChangeRequest => ({
   reason: r.reason || undefined, createdAt: Date.parse(r.created_at),
 })
 const noticeFrom = (r: any): Notice => ({
-  id: r.id, userId: r.user_id, kind: r.kind, text: r.text, refId: r.request_id ?? undefined, eventId: r.event_id ?? undefined,
+  id: r.id, userId: r.user_id, kind: r.kind, text: r.text, refId: r.request_id ?? undefined, eventId: r.event_id ?? undefined, absenceId: r.absence_id ?? undefined,
   read: r.read, createdAt: Date.parse(r.created_at),
 })
 const msgFrom = (r: any): Message => ({
@@ -69,6 +70,13 @@ const mergeMsgs = (list: Message[], add: Message[]) => {
 
 const memberFrom = (r: any): Member => ({
   userId: r.user_id, teamId: r.team_id, role: r.role as Role, isAdmin: r.is_admin, title: r.title, sort: r.sort,
+  ...(r.leave_total != null ? { leaveTotal: Number(r.leave_total) } : {}),
+})
+const absenceFrom = (x: any): Absence => ({
+  id: x.id, teamId: x.team_id, userId: x.user_id, kind: x.kind, date: x.date, ...(x.end_date ? { endDate: x.end_date } : {}),
+  place: x.place ?? '', reason: x.reason ?? '', days: Number(x.days), status: x.status,
+  ...(x.reject_reason ? { rejectReason: x.reject_reason } : {}), ...(x.decided_by ? { decidedBy: x.decided_by } : {}),
+  ...(x.auto ? { auto: true } : {}), ...(x.event_id ? { eventId: x.event_id } : {}), createdAt: Date.parse(x.created_at),
 })
 
 const schedFrom = (x: any): ScheduledMessage => ({
@@ -128,6 +136,10 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     const cf = await supabase.from('event_confirms').select('event_id, user_id, changed_at')
     if (cf.error) console.warn('확인 기록을 불러오지 못했어요', cf.error.message)
     const confirms: EventConfirm[] = ((cf.data ?? []) as any[]).map((x) => ({ eventId: x.event_id, userId: x.user_id, changedAt: Date.parse(x.changed_at) }))
+    // 휴가·출장 신청 (migration_037 전이면 비어 있음)
+    const ab = await supabase.from('absence_requests').select('*').order('date', { ascending: false })
+    if (ab.error) console.warn('휴가·출장 신청을 불러오지 못했어요', ab.error.message)
+    const absences: Absence[] = ((ab.data ?? []) as any[]).map(absenceFrom)
     // 이번 주 목표 (migration_025 전이면 비어 있음)
     const gl = await supabase.from('week_goals').select('id, owner_id, week, title, done')
     if (gl.error) console.warn('이번 주 목표를 불러오지 못했어요', gl.error.message)
@@ -154,11 +166,12 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     setDb({
       currentUserId: uid,
       users: (p.data ?? []).map((x: any) => ({ id: x.id, name: x.name || x.email || tr('이름 없음'), email: x.email ?? '', tutorialSeen: x.tutorial_seen ?? true, todoCarry: x.todo_carry ?? true, shortcuts: x.shortcuts ?? {}, termsVersion: x.terms_version ?? 0, weekCardSeen: x.week_card_seen ?? undefined })),
-      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal })),
+      teams: (t.data ?? []).map((x: any) => ({ id: x.id, name: x.name, inviteCode: x.invite_code, chatRetentionDays: x.chat_retention_days ?? null, personal: !!x.personal, autoApprove: x.auto_approve ?? 'none' })),
       members: (m.data ?? []).map(memberFrom),
       events: (e.data ?? []).map((x: any) => { const ev = evFrom(x); const a = attendeesOf.get(ev.id); return a ? { ...ev, attendees: a } : ev }),
       requests: (r.data ?? []).map(reqFrom),
       confirms,
+      absences,
       notices: (n.data ?? []).map(noticeFrom),
       todos: (td.data ?? []).map(todoFrom),
       goals,
@@ -226,6 +239,7 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
     if (teamId) {
       on('chat_pins', `team_id=eq.${teamId}`)
       on('requests', `team_id=eq.${teamId}`)
+      on('absence_requests', `team_id=eq.${teamId}`)
       on('teams', `id=eq.${teamId}`)
     }
     ch.subscribe()
@@ -609,6 +623,31 @@ export function CloudStoreProvider({ children }: { children: ReactNode }) {
         run(() => supabase.rpc('decide_request', { p_id: id, p_accept: accept, p_reason: reason ?? '' }))
       },
 
+      absences: (db.absences ?? []).filter((a) => a.teamId === myMember?.teamId),
+      requestAbsence: async ({ kind, date, endDate, place = '', reason = '' }) => {
+        const days = countDays(kind, date, endDate)
+        const { error } = await supabase.rpc('request_absence', { p_kind: kind, p_date: date, p_end: endDate || null, p_place: place, p_reason: reason, p_days: days })
+        if (error) return localize(error.message)
+        await refresh()
+      },
+      decideAbsence: async (id, ok, reason) => {
+        const { error } = await supabase.rpc('decide_absence', { p_id: id, p_ok: ok, p_reason: reason ?? '' })
+        if (error) { await refresh(); return localize(error.message) }
+        await refresh()
+      },
+      cancelAbsence: async (id) => {
+        const { error } = await supabase.rpc('cancel_absence', { p_id: id })
+        if (error) return localize(error.message)
+        await refresh()
+      },
+      setAutoApprove: (mode) => {
+        setDb((p) => ({ ...p, teams: p.teams.map((x) => (x.id === team?.id ? { ...x, autoApprove: mode } : x)) }))
+        run(() => supabase.rpc('set_auto_approve', { p_mode: mode }))
+      },
+      setLeaveTotal: (userId, total) => {
+        setDb((p) => ({ ...p, members: p.members.map((m) => (m.userId === userId && m.teamId === team?.id ? { ...m, leaveTotal: total } : m)) }))
+        run(() => supabase.rpc('set_leave_total', { p_user: userId, p_total: total }))
+      },
       assignTask: async ({ text, userIds, dueDate, dueTime, note }) => {
         const { error } = await supabase.rpc('assign_task', { p_title: text, p_users: userIds, p_due_date: dueDate || null, p_due_time: dueTime || null, p_note: note || null })
         if (error) return localize(error.message)

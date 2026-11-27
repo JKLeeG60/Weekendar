@@ -59,6 +59,14 @@ function noticeText(text: string, lang: Lang): string {
   if ((m = text.match(/^(.+)님이 배정한 업무를 바꿨어요: ([\s\S]+)$/))) return `${m[1]} updated a task: ${m[2].replace(/ \(([^()]+?)( \d{1,2}:\d{2})? 마감\)$/, ' (due $1$2)')}`
   if ((m = text.match(/^(.+)님이 배정한 업무를 취소했어요: ([\s\S]+)$/))) return `${m[1]} canceled a task: ${m[2]}`
   if ((m = text.match(/^(.+)님이 배정한 업무를 끝냈어요: ([\s\S]+)$/))) return `${m[1]} finished a task you assigned: ${m[2]}`
+  // 휴가·출장 신청 (migration_037)
+  const what = (x: string) => x.replace(/^연차 ([\d.]+)일/, '$1d leave').replace(/^오전 반차/, 'Morning off').replace(/^오후 반차/, 'Afternoon off')
+    .replace(/^병가/, 'Sick leave').replace(/^경조사/, 'Family event').replace(/ 사유: /, ' · Reason: ')
+  const noun = (k: string) => (k === '휴가' ? 'time off' : 'a trip')
+  if ((m = text.match(/^(.+)님이 (휴가|출장)[을를] 신청했어요: ([\s\S]+)$/))) return `${m[1]} requested ${noun(m[2])}: ${what(m[3])}`
+  if ((m = text.match(/^(.+)님의 (휴가|출장)[이가] (자동 승인됐어요|등록됐어요): ([\s\S]+)$/))) return `${m[1]}'s ${m[2] === '휴가' ? 'time off' : 'trip'} was ${m[3] === '등록됐어요' ? 'added' : 'auto-approved'}: ${what(m[4])}`
+  if ((m = text.match(/^(휴가|출장) 신청이 (승인됐어요|반려됐어요): ([\s\S]+)$/))) return `Your ${m[1] === '휴가' ? 'time off' : 'trip'} was ${m[2] === '승인됐어요' ? 'approved' : 'declined'}: ${what(m[3])}`
+  if ((m = text.match(/^(.+)님이 (휴가|출장) 신청을 취소했어요: ([\s\S]+)$/))) return `${m[1]} canceled ${noun(m[2])}: ${what(m[3])}`
   // 회의 초대·시간 변경·취소·불참 (migration_034)
   if ((m = text.match(/^(.+)님이 회의에 초대했어요: ([\s\S]+) \(([^()]+)\)$/))) return `${m[1]} invited you to a meeting: ${m[2]} (${m[3]})`
   if ((m = text.match(/^(.+)님이 회의 시간을 바꿨어요: ([\s\S]+) \(([^()]+)\)$/))) return `${m[1]} moved a meeting: ${m[2]} (${m[3]})`

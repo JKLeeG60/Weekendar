@@ -7,6 +7,8 @@ import { fmtHead } from '../lib/date'
 import type { ChangeRequest } from '../lib/types'
 import { localize, t } from '../lib/i18n'
 import { confirmedBy } from '../lib/confirm'
+import { canApprove } from '../lib/absence'
+import { DecideCard } from './Absence'
 
 const TYPE_LABEL = { add: '추가', edit: '수정', delete: '삭제' } as const
 
@@ -18,13 +20,16 @@ function ago(at: number): string {
 }
 
 export function Notifications({ onClose }: { onClose: () => void }) {
-  const { db, me, isLeader, userOf, decideRequest, markAllRead, confirmEvent } = useStore()
+  const { db, me, isLeader, userOf, decideRequest, markAllRead, confirmEvent, absences } = useStore()
   const { openModal, showToast } = useUI()
   const pending = isLeader
     ? db.requests.filter((r) => r.leaderId === me?.id && r.status === 'pending')
     : []
   const pendingIds = new Set(pending.map((r) => r.id))
-  const notices = db.notices.filter((n) => n.userId === me?.id && !(n.kind === 'request' && pendingIds.has(n.refId ?? '')))
+  // 내가 승인할 휴가·출장 신청 (카드로 보여 주므로 같은 알림은 목록에서 뺀다)
+  const toApprove = absences.filter((a) => canApprove(db.members, me?.id, a)).sort((a, b) => a.date.localeCompare(b.date))
+  const absIds = new Set(toApprove.map((a) => a.id))
+  const notices = db.notices.filter((n) => n.userId === me?.id && !(n.kind === 'request' && pendingIds.has(n.refId ?? '')) && !(n.kind === 'absence' && absIds.has(n.absenceId ?? '')))
 
   return (
     <>
@@ -38,6 +43,8 @@ export function Notifications({ onClose }: { onClose: () => void }) {
           {pending.length > 0 && (
             <>
               <div className="menu-label">{t('처리할 일정 요청 {n}건', { n: pending.length })}</div>
+              {/* 요청 카드는 한 묶음으로 (아래 휴가·출장 카드와 섞이지 않게) */}
+              <div className="req-list">
               {pending.map((r) => (
                 <RequestCard
                   key={r.id}
@@ -49,6 +56,13 @@ export function Notifications({ onClose }: { onClose: () => void }) {
                   }}
                 />
               ))}
+              </div>
+            </>
+          )}
+          {toApprove.length > 0 && (
+            <>
+              <div className="menu-label">{t('승인할 휴가·출장 {n}건', { n: toApprove.length })}</div>
+              {toApprove.map((a) => <DecideCard key={a.id} a={a} />)}
             </>
           )}
           {notices.length > 0 && <div className="menu-label">{t('최근 알림')}</div>}
@@ -64,13 +78,16 @@ export function Notifications({ onClose }: { onClose: () => void }) {
                     ? <button className="link-btn" onClick={() => confirmEvent(e.id)}>✅ {t('확인했어요')}</button>
                     : null
                 })()}
+                {n.kind === 'absence' && (
+                  <button className="link-btn" onClick={() => { onClose(); openModal({ type: 'absence' }) }}>{t('부재 관리 열기')}</button>
+                )}
                 {n.kind === 'join' && (
                   <button className="link-btn" onClick={() => { onClose(); openModal({ type: 'admin' }) }}>{t('팀 관리에서 승인하기')}</button>
                 )}
               </div>
             </div>
           ))}
-          {pending.length === 0 && notices.length === 0 && <div className="empty">{t('새로운 알림이 없어요.')}</div>}
+          {pending.length === 0 && toApprove.length === 0 && notices.length === 0 && <div className="empty">{t('새로운 알림이 없어요.')}</div>}
         </div>
       </div>
     </>

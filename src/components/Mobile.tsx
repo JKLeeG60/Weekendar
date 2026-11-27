@@ -16,6 +16,7 @@ import { ChatPanel } from './Chat'
 import { Reminders } from './Reminders'
 import { Avatar, Icon } from './ui'
 import { AbsencePill } from './AbsencePill'
+import { dayOff, KIND_LABEL, leaveName, OFF_CATS, offHides, waitingOn } from '../lib/absence'
 import { SearchSheet } from './Search'
 import { DayDropStrip, GestureRow, Toast, useEventActions } from './DayDrop'
 import { useDayDrag } from '../lib/dayDrag'
@@ -91,7 +92,7 @@ export function MobileMain() {
 }
 
 function MobileTeam() {
-  const { db, me, myMember, tableMembers, userOf, solo, myTeams, online } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo, myTeams, online, absences } = useStore()
   const { selected, setSelected, openModal } = useUI()
   const act = useEventActions()
   const days = weekDays(selected)
@@ -138,6 +139,8 @@ function MobileTeam() {
         return o ? [{ m, o }] : []
       })
     : []
+  // 승인 대기 중인 휴가·출장 (점선)
+  const waits = day && !solo ? tableMembers.flatMap((m) => absent.some((x) => x.m.userId === m.userId) ? [] : waitingOn(absences, m.userId, day)) : []
 
   return (
     <div className="m-team">
@@ -180,9 +183,14 @@ function MobileTeam() {
             {!solo && <section className="m-absent">
               <h3>{t('부재자')}</h3>
               <div className="m-pills">
-                {absent.length === 0 && <span className="none">{t('없음')}</span>}
+                {absent.length === 0 && waits.length === 0 && <span className="none">{t('없음')}</span>}
                 {absent.map(({ m, o }) => (
                   <AbsencePill key={m.userId} name={userOf(m.userId).name} o={o} />
+                ))}
+                {waits.map((a) => (
+                  <span key={a.id} className="pill abs-pill wait" data-cat={a.kind === 'trip' ? 'trip' : a.kind === 'am' || a.kind === 'pm' ? 'halfday' : 'leave'}>
+                    {userOf(a.userId).name}<em>{a.kind === 'trip' ? t('출장') : t(KIND_LABEL[a.kind])} · {t('대기')}</em>
+                  </span>
                 ))}
               </div>
             </section>}
@@ -191,6 +199,10 @@ function MobileTeam() {
               const u = userOf(m.userId)
               const mine = m.userId === me?.id
               const evs = eventsOf(m.userId, day)
+              // 휴가·반차·출장: 이름 옆 표시 + 쉬는 동안 일정은 흐리게
+              const off = solo ? null : dayOff(shared, m.userId, day)
+              const wait = solo ? [] : waitingOn(absences, m.userId, day)
+              const dim = (o: Occurrence) => !OFF_CATS.includes(o.category) && offHides(off, o)
               const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && (r.payload.endDate && r.payload.endDate > r.payload.date ? r.payload.date <= day && day <= r.payload.endDate : r.payload.date === day))
               type Entry = { start: string; ev?: Occurrence; req?: ChangeRequest }
               const entries: Entry[] = [
@@ -198,7 +210,7 @@ function MobileTeam() {
                 ...reqs.map((req) => ({ start: req.payload.start, req })),
               ].sort((x, y) => x.start.localeCompare(y.start))
               return (
-                <section key={m.userId} className={'m-card' + (mine ? ' mine' : '')}>
+                <section key={m.userId} className={'m-card' + (mine ? ' mine' : '') + (off?.leave ? ' off-leave' : off?.half ? ' off-half' : '') + (off?.trip ? ' off-trip' : '')}>
                   <header>
                     {/* 이름을 누르면 팀원 메뉴 (월간 일정·1:1 대화·메일) */}
                     <button className={'m-who-btn' + (mine ? '' : ' who-btn')} onClick={(e) => {
@@ -222,6 +234,14 @@ function MobileTeam() {
                         {m.role !== 'leader' && !solo && <small>{m.title || t('직급 미지정')}</small>}
                       </div>
                     </button>
+                    {(off || wait.length > 0) && (
+                      <span className="off-tags m-off">
+                        {off?.leave && <span className="off-tag leave">🌴 {leaveName(off.leave)}</span>}
+                        {off?.half && <span className="off-tag half">{t(off.half.title)}</span>}
+                        {off?.trip && <span className="off-tag trip">✈︎ {t('출장')}{off.trip.place ? ` · ${off.trip.place}` : ''}</span>}
+                        {wait.map((a) => <span key={a.id} className="off-tag wait" data-kind={a.kind === 'trip' ? 'trip' : a.kind === 'am' || a.kind === 'pm' ? 'half' : 'leave'}>{a.kind === 'trip' ? t('출장') : t(KIND_LABEL[a.kind])} · {t('대기')}</span>)}
+                      </span>
+                    )}
                     {clickable(m) && (
                       <button className="m-add" onClick={() => onAdd(m)} aria-label={mine ? t('일정 추가') : t('팀장에게 일정 요청')}>
                         <Icon name="plus" size={14} /> {mine ? t('추가') : t('요청')}
@@ -251,7 +271,7 @@ function MobileTeam() {
                               onDelete={mine && en.ev!.ownerId === m.userId ? () => act.removeEvent(en.ev!.baseId) : undefined}
                               drag={mine && en.ev!.ownerId === m.userId ? { label: en.ev!.title, onDrop: (to) => act.moveEvent(en.ev!.baseId, day, to) } : undefined}
                             >
-                            <button className={'m-item' + invClass(en.ev!, m.userId)} data-cat={en.ev!.category} data-base={en.ev!.baseId} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
+                            <button className={'m-item' + invClass(en.ev!, m.userId) + (dim(en.ev!) ? ' off-dim' : '')} data-cat={en.ev!.category} data-base={en.ev!.baseId} onClick={() => openModal({ type: 'detail', occ: en.ev! })}>
                               {isMultiDay(en.ev!)
                                 ? <span className="m-time allday-time">{t('종일')}</span>
                                 : <span className="m-time">{en.ev!.start}<small>{en.ev!.end}</small></span>}

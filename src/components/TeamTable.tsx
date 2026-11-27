@@ -10,6 +10,7 @@ import { Avatar, Icon } from './ui'
 import { inRowOf, inviteOf } from '../lib/attend'
 import { AbsencePill } from './AbsencePill'
 import { changedActive, confirmStatus, needsMyConfirm } from '../lib/confirm'
+import { dayOff, KIND_LABEL, leaveName, OFF_CATS, offHides, waitingOn } from '../lib/absence'
 
 const MAX_CHIPS = 5
 
@@ -37,7 +38,7 @@ function spansOf(events: EventItem[], days: string[]): { spans: Span[]; lanes: n
 }
 
 export function TeamTable() {
-  const { db, me, myMember, tableMembers, userOf, solo, online } = useStore()
+  const { db, me, myMember, tableMembers, userOf, solo, online, absences } = useStore()
   const { selected, openModal } = useUI()
   const days = weekDays(selected)
   const act = useEventActions()
@@ -116,6 +117,8 @@ export function TeamTable() {
     occurrencesOn(shared.filter((e) => inRowOf(e, userId)), day)
   // 칸 안에 넣을 일정 (여러 날 일정은 막대로 따로 그림)
   const dayEventsOf = (userId: string, day: string): Occurrence[] => eventsOf(userId, day).filter((o) => !isMultiDay(o))
+  // 휴가·반차·출장은 칸 맨 위 표시로 보여 주고, 그 일정 자체는 칸·막대에서 뺀다 (혼자 쓸 때는 그대로)
+  const isOff = (o: EventItem, rowUser: string) => !solo && o.ownerId === rowUser && OFF_CATS.includes(o.category)
 
   function onCell(m: Member, day: string) {
     if (m.userId === me?.id) openModal({ type: 'event', date: day })
@@ -150,7 +153,7 @@ export function TeamTable() {
           {tableMembers.map((m) => {
             const u = userOf(m.userId)
             const mine = m.userId === me?.id
-            const { spans, lanes } = spansOf(shared.filter((e) => e.ownerId === m.userId), days)
+            const { spans, lanes } = spansOf(shared.filter((e) => e.ownerId === m.userId && !isOff(e, m.userId)), days)
             return (
               <tr key={m.userId} className={mine && !solo ? 'mine' : ''} style={{ height: `${100 / tableMembers.length}%`, ['--lanes' as string]: lanes }}>
                 <th className="who" scope="row">
@@ -172,7 +175,9 @@ export function TeamTable() {
                   </button>
                 </th>
                 {days.map((d, di) => {
-                  const evs = dayEventsOf(m.userId, d)
+                  const evs = dayEventsOf(m.userId, d).filter((o) => !isOff(o, m.userId))
+                  const off = solo ? null : dayOff(shared, m.userId, d)
+                  const wait = solo ? [] : waitingOn(absences, m.userId, d)
                   const reqs = myPending.filter((r) => r.type === 'add' && r.leaderId === m.userId && (r.payload.endDate && r.payload.endDate > r.payload.date ? r.payload.date <= d && d <= r.payload.endDate : r.payload.date === d))
                   type Entry = { start: string; ev?: Occurrence; req?: ChangeRequest }
                   const entries: Entry[] = [
@@ -187,7 +192,8 @@ export function TeamTable() {
                       key={d}
                       {...dropProps(m, d)}
                       data-drop-label={mine && overDay === d ? t('{date}로 옮기기', { date: fmtHead(d) }) : undefined}
-                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (mine && overDay === d ? ' drop-on' : '')}
+                      className={'cell' + (clickable(m) ? ' clickable' : '') + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '') + (mine && overDay === d ? ' drop-on' : '')
+                        + (off?.leave ? ' off-leave' : off?.half ? ' off-' + off.side : '') + (off?.trip ? ' off-trip' : '')}
                       onClick={() => {
                         onCell(m, d)
                       }}
@@ -219,6 +225,18 @@ export function TeamTable() {
                         )
                       })}
                       <div className="cell-inner">
+                        {(off || wait.length > 0) && (
+                          <div className="off-tags">
+                            {off?.leave && <button className="off-tag leave" onClick={(ev) => { ev.stopPropagation(); openModal({ type: 'detail', occ: off.leave! }) }}>🌴 {leaveName(off.leave)}</button>}
+                            {off?.half && <button className="off-tag half" onClick={(ev) => { ev.stopPropagation(); openModal({ type: 'detail', occ: off.half! }) }}>{t(off.half.title)}</button>}
+                            {off?.trip && <button className="off-tag trip" onClick={(ev) => { ev.stopPropagation(); openModal({ type: 'detail', occ: off.trip! }) }}>✈︎ {t('출장')}{off.trip.place ? ` · ${off.trip.place}` : ''}</button>}
+                            {wait.map((a) => (
+                              <span key={a.id} className="off-tag wait" data-kind={a.kind === 'trip' ? 'trip' : a.kind === 'am' || a.kind === 'pm' ? 'half' : 'leave'} title={t('승인 대기 중')}>
+                                {a.kind === 'trip' ? t('출장') : t(KIND_LABEL[a.kind])} · {t('대기')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {shown.map((en) => {
                           if (en.req) {
                             const r = en.req
@@ -244,7 +262,7 @@ export function TeamTable() {
                             <button
                               key={o.id + o.date}
                               {...(o.ownerId === m.userId ? dragProps(o, d) : {})}
-                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '') + invClass(o, m.userId)}
+                              className={'chip' + (roomy ? ' roomy' : '') + (mk ? ' marked' : '') + (ci?.need ? ' need-confirm' : '') + invClass(o, m.userId) + (offHides(off, o) ? ' off-dim' : '')}
                               data-cat={o.category}
                               data-base={o.baseId}
                               data-date={d}
@@ -295,12 +313,19 @@ export function TeamTable() {
                 const o = eventsOf(m.userId, d).find((x) => isAbsence(x.category))
                 return o ? [{ m, o }] : []
               })
+              const waits = tableMembers.flatMap((m) => waitingOn(absences, m.userId, d).filter(() => !absent.some((x) => x.m.userId === m.userId)))
               return (
                 <td key={d} className={'cell absent' + (d === today ? ' today' : '') + (holidayName(d) ? ' holiday' : '')}>
                   <div className="cell-inner row">
-                    {absent.length === 0 && <span className="none">–</span>}
+                    {absent.length === 0 && waits.length === 0 && <span className="none">–</span>}
                     {absent.map(({ m, o }) => (
                       <AbsencePill key={m.userId} name={userOf(m.userId).name} o={o} />
+                    ))}
+                    {/* 승인 대기 중인 휴가·출장 (점선) */}
+                    {waits.map((a) => (
+                      <span key={a.id} className="pill abs-pill wait" data-cat={a.kind === 'trip' ? 'trip' : a.kind === 'am' || a.kind === 'pm' ? 'halfday' : 'leave'} title={t('승인 대기 중')}>
+                        {userOf(a.userId).name}<em>{a.kind === 'trip' ? t('출장') : t(KIND_LABEL[a.kind])} · {t('대기')}</em>
+                      </span>
                     ))}
                   </div>
                 </td>

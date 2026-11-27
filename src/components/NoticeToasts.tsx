@@ -8,6 +8,7 @@ import { Icon } from './ui'
 import { localize, t } from '../lib/i18n'
 import { confirmedBy } from '../lib/confirm'
 import { inviteOf } from '../lib/attend'
+import { canApprove } from '../lib/absence'
 
 const SHOW_MS = 5000
 // 확인 버튼이 있는 알림은 눌러야 하므로 더 오래 둔다 (안 눌러도 팀 표에 "확인 필요" 표시가 남는다)
@@ -15,17 +16,19 @@ const CONFIRM_MS = 30000
 
 interface Item {
   id: string
-  kind: 'notice' | 'mention' | 'remind' | 'confirm' | 'invite'
+  kind: 'notice' | 'mention' | 'remind' | 'confirm' | 'invite' | 'absence'
   /** 'confirm'·'invite' 가 가리키는 일정 */
   eventId?: string
+  /** 'absence': 승인할 휴가·출장 신청 */
+  absenceId?: string
   title: string
   text: string
   tag?: string
-  icon?: 'clock' | 'cal' | 'check' | 'assign'
+  icon?: 'clock' | 'cal' | 'check' | 'assign' | 'suitcase'
 }
 
 const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === 'join' ? '팀 참여 요청' : k === 'confirm' ? '팀장이 일정을 변경했어요'
-  : k === 'invite' ? '회의 초대' : k === 'decline' ? '회의 불참' : k === 'assign' ? '업무 배정' : k === 'done' ? '업무 완료' : '요청 결과')
+  : k === 'invite' ? '회의 초대' : k === 'decline' ? '회의 불참' : k === 'assign' ? '업무 배정' : k === 'done' ? '업무 완료' : k === 'absence' ? '휴가·출장' : '요청 결과')
 
 /**
  * 오른쪽 아래 알림 팝업 (5초).
@@ -35,7 +38,7 @@ const noticeTitle = (k: string) => t(k === 'request' ? '일정 요청' : k === '
  * 일반 대화는 팝업 없이 말풍선 숫자만 올라간다.
  */
 export function NoticeToasts() {
-  const { db, me, messages, userOf, confirmEvent, respondInvite } = useStore()
+  const { db, me, messages, userOf, confirmEvent, respondInvite, absences, decideAbsence } = useStore()
   const { chatOpen, setChatOpen, modal } = useUI()
   const [items, setItems] = useState<Item[]>([])
   // 입력·상세 창(<dialog>)이 열려 있으면 알림을 그 창 안에 그린다.
@@ -62,7 +65,7 @@ export function NoticeToasts() {
   const push = (fresh: Item[]) => {
     if (fresh.length === 0) return
     setItems((prev) => [...prev, ...fresh].slice(-3))
-    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), n.kind === 'confirm' || n.kind === 'invite' ? CONFIRM_MS : SHOW_MS))
+    fresh.forEach((n) => setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== n.id)), n.kind === 'confirm' || n.kind === 'invite' || n.kind === 'absence' ? CONFIRM_MS : SHOW_MS))
   }
 
   // 미리 알림 등 다른 곳에서 보낸 팝업
@@ -89,10 +92,13 @@ export function NoticeToasts() {
     push(fresh.map((n): Item => ({
       id: n.id,
       // 회의 초대(일정이 남아 있을 때)는 [불참]·[참석] 버튼이 있는 팝업
-      kind: n.kind === 'confirm' ? 'confirm' : n.kind === 'invite' && n.eventId ? 'invite' : 'notice',
-      title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId,
-      icon: n.kind === 'decline' ? 'cal' : n.kind === 'done' ? 'check' : n.kind === 'assign' ? 'assign' : undefined,
+      // 휴가·출장 신청(내가 승인할 수 있고 아직 대기 중)은 [반려]·[승인] 버튼이 있는 팝업
+      kind: n.kind === 'confirm' ? 'confirm' : n.kind === 'invite' && n.eventId ? 'invite'
+        : n.kind === 'absence' && absences.some((a) => a.id === n.absenceId && canApprove(db.members, me?.id, a)) ? 'absence' : 'notice',
+      title: noticeTitle(n.kind), text: localize(n.text), eventId: n.eventId, absenceId: n.absenceId,
+      icon: n.kind === 'decline' ? 'cal' : n.kind === 'done' ? 'check' : n.kind === 'assign' ? 'assign' : n.kind === 'absence' ? 'suitcase' : undefined,
     })))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db.notices, me?.id])
 
   useEffect(() => {
@@ -113,6 +119,7 @@ export function NoticeToasts() {
   useEffect(() => {
     setItems((prev) => {
       const next = prev.filter((x) => {
+        if (x.kind === 'absence') return absences.some((a) => a.id === x.absenceId && a.status === 'pending')
         if (x.kind === 'invite') {
           // 이미 답했거나 일정이 없어졌으면 닫는다
           const e = db.events.find((ev) => ev.id === x.eventId)
@@ -124,7 +131,7 @@ export function NoticeToasts() {
       })
       return next.length === prev.length ? prev : next
     })
-  }, [db.events, db.confirms, me?.id])
+  }, [db.events, db.confirms, absences, me?.id])
 
   // 대화창을 열면 호출 팝업은 바로 닫는다 (이미 대화창에서 보이므로)
   useEffect(() => {
@@ -146,6 +153,18 @@ export function NoticeToasts() {
             </span>
           </span>
         </div>
+      ) : n.kind === 'absence' ? (
+        <div key={n.id} className="ntoast confirm">
+          <span className="ntoast-ico"><Icon name="suitcase" size={18} /></span>
+          <span className="ntoast-body">
+            <strong>{n.title}</strong>
+            <span>{n.text}</span>
+            <span className="ntoast-actions">
+              <button className="ntoast-ok" onClick={() => { void decideAbsence(n.absenceId!, true); setItems((p) => p.filter((x) => x.id !== n.id)) }}>{t('승인')}</button>
+              <button className="ntoast-later no" onClick={() => { void decideAbsence(n.absenceId!, false); setItems((p) => p.filter((x) => x.id !== n.id)) }}>{t('반려')}</button>
+            </span>
+          </span>
+        </div>
       ) : n.kind === 'confirm' ? (
         <div key={n.id} className="ntoast confirm">
           <span className="ntoast-ico"><Icon name="cal" size={18} /></span>
@@ -161,13 +180,13 @@ export function NoticeToasts() {
       ) : (
         <button
           key={n.id}
-          className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' || n.icon === 'assign' ? ' info' : n.icon === 'check' ? ' ok' : '')}
+          className={'ntoast' + (n.kind !== 'notice' ? ' ' + n.kind : '') + (n.icon === 'cal' || n.icon === 'assign' || n.icon === 'suitcase' ? ' info' : n.icon === 'check' ? ' ok' : '')}
           onClick={() => {
             setItems((p) => p.filter((x) => x.id !== n.id))
             if (n.kind === 'mention') setChatOpen(true)
           }}
         >
-          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name={n.kind === 'remind' ? n.icon ?? 'clock' : n.icon === 'check' || n.icon === 'assign' ? n.icon : 'bell'} size={18} />}</span>
+          <span className="ntoast-ico">{n.kind === 'mention' ? <b>@</b> : <Icon name={n.kind === 'remind' ? n.icon ?? 'clock' : n.icon === 'check' || n.icon === 'assign' || n.icon === 'suitcase' ? n.icon : 'bell'} size={18} />}</span>
           <span className="ntoast-body">
             <strong>{n.title}</strong>
             <span>{n.text}</span>
