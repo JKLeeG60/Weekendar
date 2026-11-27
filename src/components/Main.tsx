@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore, initialDate } from '../lib/store'
 import { useUI } from '../lib/ui'
-import { addDays, parse, setWeekendShown } from '../lib/date'
+import { addDays, parse, setWeekendFoldAllowed, setWeekendShown } from '../lib/date'
 import { Header } from './Header'
 import { TeamTable } from './TeamTable'
 import { MonthView } from './People'
@@ -36,6 +36,7 @@ export function Main() {
   useAppBadge()
   // 토·일 표시 (팀 관리 설정). 아래 화면들이 그리기 전에 맞춰 둔다
   setWeekendShown(!!team?.showWeekend && !solo)
+  setWeekendFoldAllowed(!isMobile)
   useWeekendFold() // 토·일 접기가 바뀌면 머리글(주간 범위)까지 다시 그린다
   // 구글 캘린더 연결 화면에서 돌아왔으면 마무리 (토글을 켠 일정을 구글로 보냄)
   useEffect(() => {

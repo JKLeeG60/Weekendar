@@ -2286,7 +2286,7 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 [data-theme='dark'] .m-tab::before { background: rgba(120, 120, 128, 0.2); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.3); }
 
 /* 휴대폰 할 일 탭: 날짜 줄 + 이번 주 요일 줄 */
-.todo-datebar { padding: 0.1rem 0 0.4rem; }
+.todo-datebar { position: relative; padding: 0.1rem 0 0.4rem; }
 .todo-datebar .datenav { margin-bottom: 0.55rem; }
 .todo-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; padding: 0 0.85rem; }
 .tw-day { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.35rem 0 0.3rem; border-radius: 0.8rem; color: var(--muted); font: inherit; }
@@ -2334,8 +2334,6 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 .fold-dots { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-top: 0.8rem; }
 .fold-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .fold-dots em { font-style: normal; font-size: 0.65rem; font-weight: 700; color: var(--accent); line-height: 1; }
-.m-wk-fold { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 0.1rem; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 99px; padding: 0.35rem 0.5rem; }
-.m-wk-fold.mini { padding: 0.35rem; }
 
 /* 휴대폰 요일 줄 (할 일·내 일정): 줄 + 토·일 접기 칩 */
 .todo-week-row { display: flex; align-items: center; gap: 0.3rem; padding: 0 0.85rem 0.35rem; }

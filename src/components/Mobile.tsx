@@ -3,8 +3,7 @@ import { useStore } from '../lib/store'
 import { inRowOf, inviteOf } from '../lib/attend'
 import { useUI } from '../lib/ui'
 import { isMultiDay, occurrencesOn, spanLabel } from '../lib/events'
-import { addDays, dowLabel, holidayLabel, holidayName, isoWeek, mondayOf, parse, todayStr, setWeekendFolded, weekDays, weekendShown, weekendVisible, weekPill } from '../lib/date'
-import { useWeekendFold } from '../lib/weekendFold'
+import { addDays, dowLabel, holidayLabel, holidayName, isoWeek, mondayOf, parse, todayStr, weekDays, weekendVisible, weekPill } from '../lib/date'
 import { getLang, t } from '../lib/i18n'
 import { CATEGORY_LABEL, isAbsence, type ChangeRequest, type Member, type Occurrence } from '../lib/types'
 import { Header } from './Header'
@@ -114,7 +113,6 @@ export function MobileMain() {
 
 function MobileTeam() {
   const { db, me, myMember, tableMembers, userOf, solo, myTeams, online, absences } = useStore()
-  const fold = useWeekendFold()
   const { selected, setSelected, openModal } = useUI()
   const act = useEventActions()
   const days = weekDays(selected)
@@ -193,10 +191,6 @@ function MobileTeam() {
                 </button>
               ))}
             </div>
-            {/* 토·일 접기 (나만, 팀이 토·일을 표시할 때) */}
-            {weekendShown() && !solo && (fold
-              ? <button className="m-wk-fold" onClick={() => setWeekendFolded(false)} aria-label={t('토·일 펼치기')}>{t('토·일')}<Icon name="chevR" size={12} /></button>
-              : <button className="m-wk-fold mini" onClick={() => setWeekendFolded(true)} aria-label={t('토·일 접기')}><Icon name="chevL" size={12} /></button>)}
             <button className={'m-wk-arrow' + (dd.active && dd.over === 'next' ? ' dd-over' : '')} data-drop-day="next" onClick={() => setSelected(addDays(selected, 7))} aria-label={t('다음 주')}><Icon name="chevR" size={18} /></button>
           </div>
         )}

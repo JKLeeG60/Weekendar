@@ -243,7 +243,10 @@ export function setWeekendFolded(on: boolean) {
 }
 export const subscribeWeekendFold = (f: () => void) => { foldSubs.add(f); return () => { foldSubs.delete(f) } }
 /** 지금 화면에 토·일 칸이 보이는지 (팀 설정 켬 + 내가 안 접음) */
-export const weekendVisible = () => weekendOn && !foldOn
+// 휴대폰은 접기 기능이 없다 → 접어 둔 값이 있어도 무시
+let foldAllowed = true
+export const setWeekendFoldAllowed = (on: boolean) => { foldAllowed = on }
+export const weekendVisible = () => weekendOn && !(foldOn && foldAllowed)
 
 /** 팀 표에 표시할 날짜: 월~금 (토·일을 표시하고 접지 않았으면 월~일). 공휴일도 칸은 유지하고 화면에서 휴일로 표시 */
 export function weekDays(selected: string): string[] {
