@@ -35,32 +35,42 @@ export function mondayOf(s: string): string {
   return addDays(s, d === 0 ? -6 : 1 - d)
 }
 
+/** 한국어 날짜 표기 통일: "1. 1.(월)" — withYear 면 올해가 아닐 때만 "2027. 1. 1.(금)" */
+function koDate(s: string, withYear = false): string {
+  const d = parse(s)
+  const y = withYear && d.getFullYear() !== new Date().getFullYear() ? `${d.getFullYear()}. ` : ''
+  return `${y}${d.getMonth() + 1}. ${d.getDate()}.(${DOW[d.getDay()]})`
+}
+
+/** 알림 문장용 날짜 (언어와 상관없이 한국어 원문 "11. 28.(금)"; 영어는 화면에서 바꿔 보여 줌) */
+export const noticeDate = (s: string) => koDate(s)
+
 /** "10. 10.(월)" 형식 (영어: "Mon, Oct 10") */
 export function fmtHead(s: string): string {
   const d = parse(s)
   if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}`
-  return `${d.getMonth() + 1}. ${d.getDate()}.(${DOW[d.getDay()]})`
+  return koDate(s)
 }
 
-/** "2026년 11월 10일 (화)" (영어: "Tue, Nov 10, 2026") */
+/** "11. 10.(화)", 올해가 아니면 "2027. 1. 1.(금)" (영어: "Tue, Nov 10, 2026") */
 export function fmtLong(s: string): string {
   const d = parse(s)
   if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`
+  return koDate(s, true)
 }
 
-/** 날짜 알약: "2026. 11. 9." (영어: "Nov 9, 2026") */
+/** 날짜 칸: "11. 9.(월)", 올해가 아니면 연도 포함 (영어: "Nov 9, 2026") */
 export function fmtDate(s: string): string {
   const d = parse(s)
   if (en()) return `${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`
+  return koDate(s, true)
 }
 
-/** "11월 9일 (월)" (영어: "Mon, Nov 9") */
+/** "11. 9.(월)" (영어: "Mon, Nov 9") */
 export function fmtMonthDay(s: string): string {
   const d = parse(s)
   if (en()) return `${DOW_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}`
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`
+  return koDate(s)
 }
 
 /** 시각 "09:30" → "오전 9:30" (영어: "9:30 AM") */
@@ -94,7 +104,7 @@ export function weekRangeLabel(monday: string): string {
     if (a.getFullYear() !== b.getFullYear()) return `${MON_EN[a.getMonth()]} ${a.getDate()}, ${a.getFullYear()} – ${MON_EN[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`
     return `${MON_EN[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON_EN[b.getMonth()] + ' '}${b.getDate()}, ${a.getFullYear()}`
   }
-  return `${a.getFullYear()}년 ${a.getMonth() + 1}월 ${a.getDate()}일 – ${b.getMonth() + 1}월 ${b.getDate()}일`
+  return `${koDate(monday, true)} – ${koDate(addDays(monday, 4))}`
 }
 
 /**

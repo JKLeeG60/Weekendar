@@ -1,7 +1,7 @@
 // 회의 참석자 · 모두 비는 시간 계산 (체험 모드와 실서비스가 함께 씀)
 import type { AttendStatus, BusyEvent, DB, EventItem, Notice } from './types'
 import { isMultiDay, occurrencesOn } from './events'
-import { pad } from './date'
+import { noticeDate, pad } from './date'
 
 /** 이 사람 줄에 보이는 일정인가 (만든 사람, 또는 초대받은 사람 — 불참도 흐리게 보인다) */
 export const inRowOf = (e: EventItem, userId?: string | null) =>
@@ -47,7 +47,7 @@ export function freeRanges(blocks: [number, number][], dur: number, notBefore = 
 }
 
 // ───────── 체험 모드: 서버(migration_034)가 하는 알림을 흉내 낸다 ─────────
-const when = (e: Pick<EventItem, 'date' | 'start' | 'end'>) => `${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8, 10))} ${e.start}–${e.end}`
+const when = (e: Pick<EventItem, 'date' | 'start' | 'end'>) => `${noticeDate(e.date)} ${e.start}–${e.end}`
 const note = (userId: string, kind: Notice['kind'], text: string, eventId?: string): Notice =>
   ({ id: 'n_' + Math.random().toString(36).slice(2, 10), userId, kind, text, eventId, read: false, createdAt: Date.now() })
 

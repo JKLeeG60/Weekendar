@@ -107,7 +107,7 @@ function MobileTeam() {
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const label = getLang() === 'en'
     ? `${MON[a.getMonth()]} ${a.getDate()} – ${a.getMonth() === b.getMonth() ? '' : MON[b.getMonth()] + ' '}${b.getDate()}`
-    : `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? '' : b.getMonth() + 1 + '월 '}${b.getDate()}일`
+    : `${a.getMonth() + 1}. ${a.getDate()}.(월) – ${b.getMonth() + 1}. ${b.getDate()}.(금)`
 
   // 혼자 쓸 때는 내 일정을 모두 보여 준다
   // 회의에 초대됐거나 내가 만든 회의는 "나만 보기"여도 참석자 카드에 보인다

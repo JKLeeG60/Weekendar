@@ -343,7 +343,7 @@ export function MonthModal({ userId: firstUser, date: firstDate, embedded }: { u
   )
 }
 
-/** 달이 바뀌는 칸: "12월 1일" (영어: "Dec 1") */
+/** 달이 바뀌는 칸: "12. 1." (영어: "Dec 1") */
 function fmtShort(d: string) {
   return fmtMonthDay(d).replace(/\s*\(.*\)$/, '').replace(/^[A-Z][a-z]{2}, /, '')
 }

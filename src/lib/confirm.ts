@@ -1,5 +1,6 @@
 /** 팀장 일정 변경 확인(✅) 계산 도우미. 체험 모드·실서비스·화면이 같이 쓴다. */
 import type { DB, EventItem } from './types'
+import { noticeDate } from './date'
 
 /** 반복 일정은 변경 표시를 이 기간(일)만 보여준다 (날짜가 지나도 계속 돌아오기 때문) */
 const REPEAT_SHOW_DAYS = 14
@@ -33,7 +34,7 @@ export function needsMyConfirm(db: DB, e: EventItem, me: string | undefined, day
 }
 
 /* ───── 체험 모드: 서버(migration_023)가 하는 일을 똑같이 계산 ───── */
-const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`
+const md = noticeDate
 const when = (e: EventItem) =>
   e.endDate && e.endDate > e.date ? `${md(e.date)}~${md(e.endDate)}` : `${md(e.date)} ${e.start}–${e.end}`
 

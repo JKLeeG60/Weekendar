@@ -1,7 +1,7 @@
 // 회의 참석자 고르기 · 모두 비는 시간 찾기 (일정 추가 창 안에서 씀)
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
-import { t } from '../lib/i18n'
+import { getLang, t } from '../lib/i18n'
 import { addDays, dowLabel, fmtHead, holidayName, todayStr } from '../lib/date'
 import { busyOn, DAY_FROM, DAY_TO, fmtMin, freeRanges, LUNCH } from '../lib/attend'
 import type { BusyEvent } from '../lib/types'
@@ -62,7 +62,7 @@ export function AttendeeField({ value, onChange, onFind, label, note, locked }: 
 
 const H = 30 // 한 시간 칸 높이(px)
 const SPAN = 5 // 한 번에 보는 평일 수
-const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`
+const md = (d: string) => getLang() === 'en' ? `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` : `${Number(d.slice(5, 7))}. ${Number(d.slice(8, 10))}.`
 /** from 부터 평일(주말·공휴일 제외)만 n일 */
 function workdays(from: string, n: number): string[] {
   const out: string[] = []
@@ -142,7 +142,7 @@ export function FreeFinder({ who, dur, skipId, pick, onPick }: {
         <div className="ff-week">
           <span className="ff-dur">{dur % 60 ? t('{h}시간 {m}분', { h: Math.floor(dur / 60), m: dur % 60 }).replace(/^0시간 /, '') : t('{h}시간', { h: dur / 60 })}</span>
           <button type="button" className="icon-btn" disabled={page === 0} onClick={() => setPage((v) => Math.max(0, v - 1))} aria-label={t('이전 날짜')}><Icon name="chevL" size={16} /></button>
-          <b>{md(days[0])} ~ {md(days[days.length - 1])}</b>
+          <b>{fmtHead(days[0])} ~ {fmtHead(days[days.length - 1])}</b>
           <button type="button" className="icon-btn" onClick={() => setPage((v) => v + 1)} aria-label={t('다음 날짜')}><Icon name="chevR" size={16} /></button>
         </div>
       </div>

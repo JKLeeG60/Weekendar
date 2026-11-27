@@ -43,6 +43,8 @@ const L = (lang: Lang, ko: string, en: string) => (lang === 'en' ? en : ko)
 const VERB: Record<string, string> = { 추가: 'add', 수정: 'change', 삭제: 'delete' }
 function noticeText(text: string, lang: Lang): string {
   if (lang === 'ko') return text
+  // 알림 속 날짜 "11. 28.(금)" → "Fri 11/28"
+  text = text.replace(/(\d{1,2})\. (\d{1,2})\.\(([일월화수목금토])\)/g, (_, mo, d, w) => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']['일월화수목금토'.indexOf(w)]} ${mo}/${d}`)
   let m: RegExpMatchArray | null
   if ((m = text.match(/^(.+)님이 팀 참여를 요청했(?:어요|습니다)\.?$/))) return `${m[1]} asked to join the team.`
   if ((m = text.match(/^(.+)님이 일정 (추가|수정|삭제)을(?:\(를\))? 요청했(?:어요|습니다)\.?$/))) return `${m[1]} sent a request to ${VERB[m[2]]} an event.`
@@ -53,8 +55,8 @@ function noticeText(text: string, lang: Lang): string {
   if ((m = text.match(/^팀장이 일정 (추가|수정|삭제) 요청을 거절했습니다\. \(([\s\S]*?)\)(?: 사유: ([\s\S]*))?$/)))
     return `Your team lead declined your request to ${VERB[m[1]]} an event. (${m[2]})` + (m[3] ? ` Reason: ${m[3]}` : '')
   // 업무 배정·수정·취소·완료 (migration_035)
-  if ((m = text.match(/^(.+)님이 업무를 배정했어요: ([\s\S]+)$/))) return `${m[1]} assigned you a task: ${m[2].replace(/ \((\S+)( \S+)? 마감\)$/, ' (due $1$2)')}`
-  if ((m = text.match(/^(.+)님이 배정한 업무를 바꿨어요: ([\s\S]+)$/))) return `${m[1]} updated a task: ${m[2].replace(/ \((\S+)( \S+)? 마감\)$/, ' (due $1$2)')}`
+  if ((m = text.match(/^(.+)님이 업무를 배정했어요: ([\s\S]+)$/))) return `${m[1]} assigned you a task: ${m[2].replace(/ \(([^()]+?)( \d{1,2}:\d{2})? 마감\)$/, ' (due $1$2)')}`
+  if ((m = text.match(/^(.+)님이 배정한 업무를 바꿨어요: ([\s\S]+)$/))) return `${m[1]} updated a task: ${m[2].replace(/ \(([^()]+?)( \d{1,2}:\d{2})? 마감\)$/, ' (due $1$2)')}`
   if ((m = text.match(/^(.+)님이 배정한 업무를 취소했어요: ([\s\S]+)$/))) return `${m[1]} canceled a task: ${m[2]}`
   if ((m = text.match(/^(.+)님이 배정한 업무를 끝냈어요: ([\s\S]+)$/))) return `${m[1]} finished a task you assigned: ${m[2]}`
   // 회의 초대·시간 변경·취소·불참 (migration_034)

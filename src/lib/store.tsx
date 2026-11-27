@@ -27,7 +27,7 @@ import type {
   User,
 } from './types'
 import { MAX_TEAMS } from './types'
-import { addDays, isWeekend, mondayOf, toStr, todayStr } from './date'
+import { addDays, isWeekend, mondayOf, noticeDate, toStr, todayStr } from './date'
 import { t as tr } from './i18n'
 import { TERMS_VERSION } from './legal'
 import { changeOf } from './confirm'
@@ -910,7 +910,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const me = p.currentUserId!
           const name = p.users.find((u) => u.id === me)?.name ?? ''
           const who = userIds.filter((u) => u !== me && p.members.some((m) => m.userId === u && m.teamId === myMember?.teamId && m.role !== 'pending'))
-          const due = dueDate ? ` (${Number(dueDate.slice(5, 7))}/${Number(dueDate.slice(8, 10))}${dueTime ? ' ' + dueTime : ''} 마감)` : ''
+          const due = dueDate ? ` (${noticeDate(dueDate)}${dueTime ? ' ' + dueTime : ''} 마감)` : ''
           return {
             ...p,
             todos: [...p.todos, ...who.map((u): Todo => ({ id: uid(), ownerId: u, text: text.trim(), date: todayStr(), done: false, priority: false, assignedBy: me, dueDate, dueTime: dueTime || undefined, note: note?.trim() || undefined }))],
@@ -923,7 +923,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!x || x.assignedBy !== p.currentUserId) return p
         const y: Todo = { ...x, ...('text' in patch ? { text: patch.text! } : {}), ...('dueDate' in patch ? { dueDate: patch.dueDate || undefined } : {}), ...('dueTime' in patch ? { dueTime: patch.dueTime || undefined } : {}), ...('note' in patch ? { note: patch.note?.trim() || undefined } : {}) }
         const name = p.users.find((u) => u.id === x.assignedBy)?.name ?? ''
-        const due = y.dueDate ? ` (${Number(y.dueDate.slice(5, 7))}/${Number(y.dueDate.slice(8, 10))}${y.dueTime ? ' ' + y.dueTime : ''} 마감)` : ''
+        const due = y.dueDate ? ` (${noticeDate(y.dueDate)}${y.dueTime ? ' ' + y.dueTime : ''} 마감)` : ''
         return { ...p, todos: p.todos.map((t) => (t.id === id ? y : t)), notices: [demoNotice(x.ownerId, 'assign', `${name}님이 배정한 업무를 바꿨어요: ${y.text}${due}`), ...p.notices] }
       }),
       moveTodo: (id, date) => set((p) => ({ ...p, todos: p.todos.map((t) => (t.id === id || t.parentId === id ? { ...t, date } : t)) })),

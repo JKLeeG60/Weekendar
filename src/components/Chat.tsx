@@ -1313,7 +1313,7 @@ function InviteSheet({ locked, group, onClose, onDone }: { locked: string[]; gro
   )
 }
 
-/** 예약 시각 "오늘 오후 6:00" / "내일 오전 9:00" / "11월 30일 (월) 오전 9:00" */
+/** 예약 시각 "오늘 오후 6:00" / "내일 오전 9:00" / "11. 30.(월) 오전 9:00" */
 function fmtWhen(ms: number) {
   const d = new Date(ms)
   const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
