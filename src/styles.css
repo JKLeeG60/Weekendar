@@ -2214,3 +2214,73 @@ button.ccal-d.busy { animation: ccal-busy 0.8s ease infinite alternate; }
 /* ＋ 버튼에 마지막 줄이 가리지 않게 아래 여백 */
 .m-app .m-scroll { padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px)); }
 .m-app .panel-scroll, .m-app .memo-content { padding-bottom: 4.5rem; }
+
+/* ＋ 버튼: iOS 26 리퀴드 글래스 (탭바와 같은 반투명 유리) */
+.m-fab {
+  overflow: hidden; color: var(--accent);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(18px) saturate(2); -webkit-backdrop-filter: blur(18px) saturate(2);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.75),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.05);
+}
+/* 위쪽에 맺히는 빛 (볼록한 유리) */
+.m-fab::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 55%); }
+.m-fab svg { position: relative; stroke-width: 2.4; }
+.m-fab.open { color: var(--text); background: rgba(255, 255, 255, 0.62); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2), inset 0 0 0 0.5px rgba(255, 255, 255, 0.75), inset 0 1.5px 1px rgba(255, 255, 255, 0.95); }
+[data-theme='dark'] .m-fab {
+  color: #4aa3ff; background: rgba(60, 60, 67, 0.42);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+[data-theme='dark'] .m-fab::before { background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%); }
+[data-theme='dark'] .m-fab.open { color: #fff; background: rgba(60, 60, 67, 0.55); }
+/* 펼친 메뉴도 같은 유리 */
+.m-fab-menu { background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(24px) saturate(1.9); -webkit-backdrop-filter: blur(24px) saturate(1.9); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2), inset 0 0 0 0.5px rgba(255, 255, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.85); }
+[data-theme='dark'] .m-fab-menu { background: rgba(44, 44, 46, 0.66); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.m-fab-scrim { background: rgba(0, 0, 0, 0.12); }
+
+/* ＋ 버튼을 누르는 동안: 유리 방울이 커지며 가장자리에 무지개빛 (iOS 26 누름 효과 흉내) */
+.m-fab { transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, color 0.2s, box-shadow 0.2s, backdrop-filter 0.2s; }
+.m-fab::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  padding: 1.5px; /* 테두리 두께 */
+  /* 위·아래 가장자리에만 옅은 무지개빛, 옆은 흰 빛 */
+  background: conic-gradient(from 0deg, rgba(120, 200, 255, 0.55), rgba(255, 255, 255, 0.7) 18%, rgba(255, 255, 255, 0.7) 32%, rgba(255, 200, 120, 0.5) 42%, rgba(255, 130, 190, 0.5) 50%, rgba(170, 140, 255, 0.5) 58%, rgba(255, 255, 255, 0.7) 68%, rgba(255, 255, 255, 0.7) 82%, rgba(120, 220, 170, 0.5) 92%, rgba(120, 200, 255, 0.55));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  filter: blur(0.8px);
+}
+.m-fab:active, .m-fab.pressing {
+  transform: scale(1.2);
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(3px) saturate(2.2) brightness(1.08); -webkit-backdrop-filter: blur(3px) saturate(2.2) brightness(1.08);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18), inset 0 0 0 0.5px rgba(255, 255, 255, 0.9), inset 0 2px 2px rgba(255, 255, 255, 0.95), inset 0 -3px 8px rgba(255, 255, 255, 0.35);
+}
+.m-fab:active::after, .m-fab.pressing::after { opacity: 1; }
+[data-theme='dark'] .m-fab:active, [data-theme='dark'] .m-fab.pressing { background: rgba(120, 120, 128, 0.22); }
+
+/* 아래 탭바를 누르는 동안: 탭 위로 유리 방울이 부풀고 가장자리에 옅은 무지개빛 */
+.m-tab { position: relative; }
+.m-tab > * { position: relative; z-index: 1; }
+.m-tab::before, .m-tab::after {
+  content: ''; position: absolute; inset: -0.45rem -0.35rem; border-radius: 99px; pointer-events: none;
+  opacity: 0; transform: scale(0.8); transition: opacity 0.18s, transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.m-tab::before {
+  background: rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(2px) saturate(2.2) brightness(1.08); -webkit-backdrop-filter: blur(2px) saturate(2.2) brightness(1.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14), inset 0 0 0 0.5px rgba(255, 255, 255, 0.9), inset 0 2px 2px rgba(255, 255, 255, 0.9), inset 0 -3px 8px rgba(255, 255, 255, 0.35);
+}
+.m-tab::after {
+  padding: 1.5px;
+  background: conic-gradient(from 0deg, rgba(120, 200, 255, 0.55), rgba(255, 255, 255, 0.7) 18%, rgba(255, 255, 255, 0.7) 32%, rgba(255, 200, 120, 0.5) 42%, rgba(255, 130, 190, 0.5) 50%, rgba(170, 140, 255, 0.5) 58%, rgba(255, 255, 255, 0.7) 68%, rgba(255, 255, 255, 0.7) 82%, rgba(120, 220, 170, 0.5) 92%, rgba(120, 200, 255, 0.55));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  filter: blur(0.8px);
+}
+.m-tab.pressing::before, .m-tab.pressing::after { opacity: 1; transform: scale(1.08); }
+.m-tab.pressing .m-tab-ico { transform: scale(1.12); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.m-tab .m-tab-ico { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+[data-theme='dark'] .m-tab::before { background: rgba(120, 120, 128, 0.2); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.3); }

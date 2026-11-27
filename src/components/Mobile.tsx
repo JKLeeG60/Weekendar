@@ -28,6 +28,7 @@ const TAB_TITLE: Record<Exclude<Tab, 'team'>, string> = { me: '내 일정', todo
 
 export function MobileMain() {
   const [tab, setTab] = useState<Tab>('team')
+  const [pressTab, setPressTab] = useState<Tab | null>(null)
   const { toast, setChatOpen, chatOpen } = useUI()
   const { db, me, chatUnread: teamUnread, chatMentions, dmUnread, solo, refresh } = useStore()
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -85,7 +86,11 @@ export function MobileMain() {
           ['memo', '메모', 'note'],
           ['chat', '대화', 'chat'],
         ] as const).filter(([k]) => !(solo && k === 'chat')).map(([k, label, icon]) => (
-          <button key={k} className={'m-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)} aria-current={tab === k}>
+          <button
+            key={k} className={'m-tab' + (tab === k ? ' on' : '') + (pressTab === k ? ' pressing' : '')} onClick={() => setTab(k)} aria-current={tab === k}
+            // 누르는 동안 유리 방울 (아이폰은 :active 가 잘 안 먹어서 직접 표시)
+            onPointerDown={() => setPressTab(k)} onPointerUp={() => setPressTab(null)} onPointerCancel={() => setPressTab(null)} onPointerLeave={() => setPressTab(null)}
+          >
             <span className="m-tab-ico">
               <Icon name={icon} size={22} />
               {k === 'todo' && left > 0 && <b>{left}</b>}
@@ -449,6 +454,7 @@ function useGestures(ref: RefObject<HTMLDivElement | null>, o: { pull: boolean; 
 /** 오른쪽 아래 ＋ : 일정·할 일·메모·휴가 신청을 어느 탭에서나 바로 */
 function Fab({ goTab }: { goTab: (t: Tab) => void }) {
   const [open, setOpen] = useState(false)
+  const [pressing, setPressing] = useState(false)
   const { openModal, selected } = useUI()
   const { solo, myMember } = useStore()
   const focusSoon = (sel: string) => setTimeout(() => document.querySelector<HTMLElement>(sel)?.focus(), 250)
@@ -470,7 +476,12 @@ function Fab({ goTab }: { goTab: (t: Tab) => void }) {
           ))}
         </div>
       )}
-      <button className={'m-fab' + (open ? ' open' : '')} onClick={() => setOpen((v) => !v)} aria-label={open ? t('닫기') : t('추가')} aria-expanded={open}>
+      <button
+        className={'m-fab' + (open ? ' open' : '') + (pressing ? ' pressing' : '')}
+        // 아이폰은 :active 가 잘 안 먹어서 누르는 동안 직접 표시
+        onPointerDown={() => setPressing(true)} onPointerUp={() => setPressing(false)} onPointerCancel={() => setPressing(false)} onPointerLeave={() => setPressing(false)}
+        onClick={() => setOpen((v) => !v)} aria-label={open ? t('닫기') : t('추가')} aria-expanded={open}
+      >
         <Icon name="plus" size={26} />
       </button>
     </>
